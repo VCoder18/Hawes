@@ -1,0 +1,25 @@
+{
+  "name": "hawes",
+  "version": "1.0.0",
+  "description": "Hawes is a digital travel platform for exploring Algeria. Discover destinations, cultural sites, and events; book transport, stays, restaurants, and guides; join organized trips; and connect with fellow travelers—all in one social, convenient experience.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "concurrently \"npm run start:dev --prefix server\" \"npm run dev --prefix client\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VCoder18/Hawes.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/VCoder18/Hawes/issues"
+  },
+  "homepage": "https://github.com/VCoder18/Hawes#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
