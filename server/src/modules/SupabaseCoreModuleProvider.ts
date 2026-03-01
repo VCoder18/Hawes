@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { SupabaseClient, createClient } from '@supabase/supabase-js';
 
-import { NestSupabaseConfig } from '../models/NestSupabaseConfig';
+import { type NestSupabaseConfig } from '../models/NestSupabaseConfig';
 import { SupabaseCoreModuleInjectionSymbols } from '../models/SupabaseCoreModuleInjectionSymbols';
 
 const DEFAULT_CLIENT: string = 'default';
