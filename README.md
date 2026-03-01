@@ -150,6 +150,3 @@ Keeping commits clean ensures:
 - Clear project history
 - Professional development workflow
 
----
-
-If you want, I can also prepare a short **project README structure** (with tech stack, setup instructions, architecture overview) for Hawes.
