@@ -4,11 +4,12 @@ import { AppService } from './app.service';
 import { SupabaseModule } from './modules/SupabaseModule';
 import { ENV } from './constants';
 import { ConfigModule } from '@nestjs/config';
+import { TripModule } from './trip/trip.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-	    isGlobal: true
+      isGlobal: true,
     }),
     SupabaseModule.forRootAsync({
       imports: [],
@@ -18,12 +19,9 @@ import { ConfigModule } from '@nestjs/config';
         supabaseUrl: ENV.supabase.url,
       }),
     }),
+    TripModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {
-	constructor() {
-		console.log("hello world")
-	}
-}
+export class AppModule {}
