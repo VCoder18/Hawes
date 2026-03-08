@@ -21,5 +21,8 @@
   "homepage": "https://github.com/VCoder18/Hawes#readme",
   "devDependencies": {
     "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "react-router-dom": "^7.13.1"
   }
 }
