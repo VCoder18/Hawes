@@ -17,7 +17,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "gen": "echo \"TODO: Make sure to generate helper types to eliminate the use of the 'unknown' type\" && supabase gen types typescript --project-id \"bumvkgevxiirmjhqdbbb\" --schema public > src/database.types.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -47,6 +48,7 @@
     "prettier": "^3.4.2",
     "prisma": "^7.4.2",
     "source-map-support": "^0.5.21",
+    "supabase": "^2.78.1",
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.5",
     "ts-loader": "^9.5.2",
