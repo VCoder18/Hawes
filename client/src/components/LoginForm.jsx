@@ -8,12 +8,12 @@ import { Link } from 'react-router-dom';
 
 const LoginForm = () => {
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-gray-100 p-4 overflow-hidden">
+    <div className="h-screen w-screen flex items-center justify-center bg-slate-950 sm:bg-gray-100 sm:p-4 overflow-hidden">
       {/* Conteneur*/}
-      <div className="flex flex-col flex-row w-full max-w-4xl bg-white rounded-2xl overflow-hidden shadow-2xl">
+      <div className="flex flex-col flex-row w-full h-full sm:h-auto max-w-4xl bg-white md:rounded-2xl overflow-hidden shadow-2xl">
         
         {/*Form*/}
-        <div className="w-full md:w-1/2 bg-[#FEFCE8] p-8 md:p-12">
+        <div className="w-full md:w-1/2 bg-[#FEFCE8] p-8 md:p-12 flex flex-col justify-center">
          
           <div className="flex items-center gap-2 mb-8">
             <div className="w-6 h-6 bg-green-600 rounded-sm rotate-45 flex items-center justify-center shadow">
