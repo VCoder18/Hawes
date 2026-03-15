@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TripController } from './trip.controller';
 import { TripService } from './trip.service';
-import { SupabaseModule } from 'src/modules/SupabaseModule';
+import { SupabaseModule } from '../supabase/modules/SupabaseModule';
 
 @Module({
   imports: [SupabaseModule.injectClient()],
