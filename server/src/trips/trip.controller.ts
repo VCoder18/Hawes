@@ -7,7 +7,7 @@ import {
   Delete,
   Patch,
 } from '@nestjs/common';
-import { TripService, type TripDTO } from './trip.service';
+import { TripService, type Trip } from './trip.service';
 
 @Controller('trip')
 export class TripController {
@@ -24,12 +24,12 @@ export class TripController {
   }
 
   @Post()
-  addTrip(@Body() trip: TripDTO) {
+  addTrip(@Body() trip: Trip) {
     return this.service.addTrip(trip);
   }
 
   @Patch(':tripId')
-  editTrip(@Param('tripId') tripId: number, @Body() trip: TripDTO) {
+  editTrip(@Param('tripId') tripId: number, @Body() trip: Trip) {
     return this.service.updateTrip(tripId, trip);
   }
 

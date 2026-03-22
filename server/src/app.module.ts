@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { SupabaseModule } from './modules/SupabaseModule';
+import { SupabaseModule } from './supabase/modules/SupabaseModule';
 import { ENV } from './constants';
 import { ConfigModule } from '@nestjs/config';
-import { TripModule } from './trip/trip.module';
+import { TripModule } from './trips/trip.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { TripModule } from './trip/trip.module';
       }),
     }),
     TripModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
