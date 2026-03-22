@@ -7,7 +7,7 @@ import BrowseDestinations from "@/pages/BrowseDestinations";
 import CreateTrip from "@/pages/CreateTrip";
 import MainLayout from "@/layouts/MainLayout";
 import EditProfile from "@/pages/settings/EditProfile";
-import LoginForm from "@/pages/loginForm";
+import LoginForm from "@/pages/LoginForm";
 import SignupForm from "@/pages/SignupForm";
 
 // TODO:
