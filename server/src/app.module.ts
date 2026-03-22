@@ -5,6 +5,7 @@ import { SupabaseModule } from './supabase/modules/SupabaseModule';
 import { ENV } from './constants';
 import { ConfigModule } from '@nestjs/config';
 import { TripModule } from './trips/trip.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { TripModule } from './trips/trip.module';
       }),
     }),
     TripModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
