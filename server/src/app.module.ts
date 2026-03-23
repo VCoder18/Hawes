@@ -4,7 +4,7 @@ import { AppService } from './app.service';
 import { SupabaseModule } from './supabase/modules/SupabaseModule';
 import { ENV } from './constants';
 import { ConfigModule } from '@nestjs/config';
-import { TripModule } from './trips/trip.module';
+import { TripsModule } from './trips/trips.module';
 import { AuthModule } from './auth/auth.module';
 
 @Module({
@@ -16,11 +16,11 @@ import { AuthModule } from './auth/auth.module';
       imports: [],
       inject: [],
       useFactory: () => ({
-        supabaseKey: ENV.supabase.key,
+        supabaseKey: ENV.supabase.serviceKey,
         supabaseUrl: ENV.supabase.url,
       }),
     }),
-    TripModule,
+    TripsModule,
     AuthModule,
   ],
   controllers: [AppController],

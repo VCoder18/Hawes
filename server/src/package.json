@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "supabase": "^2.83.0",
+    "vite-tsconfig-paths": "^6.1.1"
+  }
+}
