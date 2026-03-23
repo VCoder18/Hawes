@@ -16,7 +16,7 @@ import { ENV } from 'src/constants';
 // while improving perforamnce as much as possible
 const PROJECT_JWKS = createRemoteJWKSet(
   new URL(
-    `https://${ENV.supabase.project_id}.supabase.co/auth/v1/.well-known/jwks.json`,
+    `https://${ENV.supabase.projectId}.supabase.co/auth/v1/.well-known/jwks.json`,
   ),
 );
 

@@ -47,7 +47,7 @@ export class TripCreateDTO implements Omit<
     new_trip.images = trip.images;
     new_trip.itinerary = trip.itinerary;
     new_trip.max_participants = trip.max_participants;
-    new_trip.meeting_points = trip.meeting_points;
+    new_trip.meeting_points = trip.meeting_points as Geography[];
     new_trip.min_participants = trip.min_participants;
     new_trip.price = trip.price;
     new_trip.start_date = trip.start_date;
