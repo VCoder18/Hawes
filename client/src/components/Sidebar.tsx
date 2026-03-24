@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import svgPaths from "../imports/svg_paths";
 
 interface SidebarProps {
@@ -61,34 +62,34 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
 
           {/* Navigation Links */}
           <nav className="flex flex-col p-4 space-y-2">
-            <a
-              href="#"
-              className="px-4 py-3 text-[#334155] font-medium hover:bg-[#00b70d] rounded-lg transition-colors"
+            <Link
+              to="/register"
+              className="px-4 py-3 text-[#334155] font-medium hover:bg-[#00b70d] rounded-lg transition-colors block"
               onClick={() => setSidebarOpen(false)}
             >
               Explore
-            </a>
-            <a
-              href="#"
-              className="px-4 py-3 text-[#334155] font-medium hover:bg-bg-[#ff5900] rounded-lg transition-colors"
+            </Link>
+            <Link
+              to="/create-trip"
+              className="px-4 py-3 text-[#334155] font-medium hover:bg-bg-[#ff5900] rounded-lg transition-colors block"
               onClick={() => setSidebarOpen(false)}
             >
               Trips
-            </a>
-            <a
-              href="#"
-              className="px-4 py-3 text-[#334155] font-medium hover:bg-bg-[#ff5900] rounded-lg transition-colors"
+            </Link>
+            <Link
+              to="/browse"
+              className="px-4 py-3 text-[#334155] font-medium hover:bg-bg-[#ff5900] rounded-lg transition-colors block"
               onClick={() => setSidebarOpen(false)}
             >
               Destinations
-            </a>
-            <a
-              href="#"
-              className="px-4 py-3 text-[#334155] font-medium hover:bg-bg-[#ff5900] rounded-lg transition-colors"
+            </Link>
+            <Link
+              to="/login"
+              className="px-4 py-3 text-[#334155] font-medium hover:bg-bg-[#ff5900] rounded-lg transition-colors block"
               onClick={() => setSidebarOpen(false)}
             >
               Community
-            </a>
+            </Link>
           </nav>
         </div>
       </div>

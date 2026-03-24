@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useParams } from "react-router";
 import { profilePosts } from "@/imports/constants";
 import { ProfileCard } from "@/components/Profile/ProfileCard";
 import { ProfileTabs } from "@/components/Profile/ProfileTabs";
@@ -8,6 +9,7 @@ import { FollowersCard } from "@/components/Profile/FollowersCard";
 import { RecommendedCard } from "@/components/Profile/RecommendedCard";
 
 export default function ProfilePage() {
+  const { username } = useParams<{ username?: string }>();
   const [showAllPosts, setShowAllPosts] = useState(false);
 
   // On mobile, show only 4 posts initially, otherwise show all
@@ -16,7 +18,7 @@ export default function ProfilePage() {
   return (
     <>
       {/* Profile Card */}
-      <ProfileCard />
+      <ProfileCard viewingUsername={username} />
 
       {/* Tabs */}
       <ProfileTabs />
