@@ -7,6 +7,7 @@ import {
   Patch,
   UseGuards,
   Body,
+  Query,
 } from '@nestjs/common';
 import { TripsService } from './trips.service';
 import {
@@ -17,6 +18,7 @@ import {
 import { TripCreateDTO } from './dto/create.dto';
 import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { TripUpdateDTO } from './dto/update.dto';
+import { QueryDto } from 'src/common/dto/query.dto';
 
 @Controller('trips')
 @UseGuards(AuthGuard)
@@ -25,8 +27,8 @@ export class TripsController {
 
   @Get()
   @Public()
-  getTrips() {
-    return this.service.getTrips();
+  getTrips(@Query() query: QueryDto) {
+    return this.service.getTrips(query);
   }
 
   @Public()

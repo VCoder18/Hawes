@@ -13,7 +13,7 @@ import { Type } from 'class-transformer';
 import { Database } from 'src/database.types';
 import {
   Geography,
-  TripDifficutly,
+  TripDifficulty,
   TripStatus,
 } from '../entities/trips.entity';
 
@@ -35,8 +35,8 @@ export class TripUpdateDTO implements TripUpdateShape {
   description?: string | null;
 
   @IsOptional()
-  @IsEnum(TripDifficutly)
-  difficulty?: TripDifficutly;
+  @IsEnum(TripDifficulty)
+  difficulty?: TripDifficulty;
 
   @IsOptional()
   @IsDateString()
