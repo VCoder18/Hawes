@@ -50,6 +50,7 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const token = this.extractTokenFromHeader(request);
     if (!token) {
+      console.error('Missing JWT');
       throw new UnauthorizedException();
     }
 
