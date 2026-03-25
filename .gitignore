@@ -52,3 +52,8 @@ tmp/
 # package-lock.json
 # yarn.lock
 # pnpm-lock.yaml
+
+# =====================
+# MY STUFF
+# =====================
+queries/
