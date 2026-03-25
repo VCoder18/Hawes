@@ -6,6 +6,7 @@ import { ENV } from './constants';
 import { ConfigModule } from '@nestjs/config';
 import { TripsModule } from './trips/trips.module';
 import { AuthModule } from './auth/auth.module';
+import { DestinationsModule } from './destinations/destinations.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { AuthModule } from './auth/auth.module';
       }),
     }),
     TripsModule,
+    DestinationsModule,
     AuthModule,
   ],
   controllers: [AppController],
