@@ -24,7 +24,7 @@ export class TripsService {
     const { data, error } = await this.supabaseClient.from('trips').select('*');
     if (error || !data) {
       throw new InternalServerErrorException(
-        "Couldn't fetch trips at the instant",
+        "Can't fetch trips at the instant",
       );
     }
     return data;
