@@ -1,6 +1,9 @@
-import { SupabaseClient } from '@supabase/supabase-js';
+import { Session, SupabaseClient } from '@supabase/supabase-js';
 
-export async function createTestUser(supabase: SupabaseClient, email: string) {
+export async function createTestUser(
+  supabase: SupabaseClient,
+  email: string,
+): Promise<Session> {
   const {
     data: { session },
     error,
@@ -10,8 +13,7 @@ export async function createTestUser(supabase: SupabaseClient, email: string) {
   });
   if (error || !session)
     throw new Error(`Failed to create test user: ${error?.message}`);
-  supabase.auth.signOut();
-  return { jwt: session.access_token, userId: session.user.id };
+  return session;
 }
 
 export async function deleteTestUser(
