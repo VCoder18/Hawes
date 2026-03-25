@@ -14,56 +14,92 @@ export type Database = {
   }
   public: {
     Tables: {
-      profiles: {
+      destinations: {
         Row: {
-          created_at: string
+          best_periods: string[] | null
+          category: Database["public"]["Enums"]["destination_category"] | null
+          city: string | null
+          created_at: string | null
+          description: string | null
           id: string
-          user_id: string
+          images: string[] | null
+          location: unknown
+          name: string
+          region: string | null
+          trip_ids: string[] | null
+          updated_at: string | null
         }
         Insert: {
-          created_at?: string
+          best_periods?: string[] | null
+          category?: Database["public"]["Enums"]["destination_category"] | null
+          city?: string | null
+          created_at?: string | null
+          description?: string | null
           id?: string
-          user_id: string
+          images?: string[] | null
+          location?: unknown
+          name: string
+          region?: string | null
+          trip_ids?: string[] | null
+          updated_at?: string | null
         }
         Update: {
-          created_at?: string
+          best_periods?: string[] | null
+          category?: Database["public"]["Enums"]["destination_category"] | null
+          city?: string | null
+          created_at?: string | null
+          description?: string | null
           id?: string
-          user_id?: string
+          images?: string[] | null
+          location?: unknown
+          name?: string
+          region?: string | null
+          trip_ids?: string[] | null
+          updated_at?: string | null
         }
         Relationships: []
       }
-      profiles_trips: {
+      profiles: {
         Row: {
-          created_at: string
-          profile_id: string
-          trip_id: number
+          avatar_url: string | null
+          bio: string | null
+          confirmed: boolean | null
+          created_at: string | null
+          display_name: string
+          id: string
+          location: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
+          social_links: string[] | null
+          updated_at: string | null
+          username: string
         }
         Insert: {
-          created_at?: string
-          profile_id: string
-          trip_id: number
+          avatar_url?: string | null
+          bio?: string | null
+          confirmed?: boolean | null
+          created_at?: string | null
+          display_name: string
+          id: string
+          location?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+          social_links?: string[] | null
+          updated_at?: string | null
+          username: string
         }
         Update: {
-          created_at?: string
-          profile_id?: string
-          trip_id?: number
+          avatar_url?: string | null
+          bio?: string | null
+          confirmed?: boolean | null
+          created_at?: string | null
+          display_name?: string
+          id?: string
+          location?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+          social_links?: string[] | null
+          updated_at?: string | null
+          username?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_trips_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "profiles_trips_trip_id_fkey"
-            columns: ["trip_id"]
-            isOneToOne: false
-            referencedRelation: "trips"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       spatial_ref_sys: {
         Row: {
@@ -89,40 +125,152 @@ export type Database = {
         }
         Relationships: []
       }
-      trips: {
+      trip_participants: {
         Row: {
-          author: string
-          content: string | null
-          created_at: string
-          from: unknown
-          id: number
-          title: string
-          to: unknown
+          id: string
+          joined_at: string | null
+          trip_id: string | null
+          user_id: string | null
         }
         Insert: {
-          author: string
-          content?: string | null
-          created_at?: string
-          from: unknown
-          id?: number
-          title: string
-          to: unknown
+          id?: string
+          joined_at?: string | null
+          trip_id?: string | null
+          user_id?: string | null
         }
         Update: {
-          author?: string
-          content?: string | null
-          created_at?: string
-          from?: unknown
-          id?: number
-          title?: string
-          to?: unknown
+          id?: string
+          joined_at?: string | null
+          trip_id?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "trips_author_fkey"
-            columns: ["author"]
+            foreignKeyName: "trip_participants_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trip_participants_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trips: {
+        Row: {
+          activities: string[] | null
+          created_at: string | null
+          description: string | null
+          difficulty: Database["public"]["Enums"]["trip_difficulty"]
+          end_date: string
+          id: string
+          images: string[]
+          itinerary: string | null
+          max_participants: number | null
+          meeting_points: unknown[]
+          min_participants: number | null
+          organizer: string
+          price: number | null
+          start_date: string
+          status: Database["public"]["Enums"]["trip_status"]
+          title: string
+          updated_at: string | null
+          what_to_bring: string | null
+        }
+        Insert: {
+          activities?: string[] | null
+          created_at?: string | null
+          description?: string | null
+          difficulty: Database["public"]["Enums"]["trip_difficulty"]
+          end_date: string
+          id?: string
+          images: string[]
+          itinerary?: string | null
+          max_participants?: number | null
+          meeting_points: unknown[]
+          min_participants?: number | null
+          organizer: string
+          price?: number | null
+          start_date: string
+          status?: Database["public"]["Enums"]["trip_status"]
+          title: string
+          updated_at?: string | null
+          what_to_bring?: string | null
+        }
+        Update: {
+          activities?: string[] | null
+          created_at?: string | null
+          description?: string | null
+          difficulty?: Database["public"]["Enums"]["trip_difficulty"]
+          end_date?: string
+          id?: string
+          images?: string[]
+          itinerary?: string | null
+          max_participants?: number | null
+          meeting_points?: unknown[]
+          min_participants?: number | null
+          organizer?: string
+          price?: number | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["trip_status"]
+          title?: string
+          updated_at?: string | null
+          what_to_bring?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trips_organizer_fkey"
+            columns: ["organizer"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trips_organizer_id_fkey"
+            columns: ["organizer"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trips_destinations: {
+        Row: {
+          created_at: string
+          destination: string
+          id: number
+          trip: string
+        }
+        Insert: {
+          created_at?: string
+          destination: string
+          id?: number
+          trip: string
+        }
+        Update: {
+          created_at?: string
+          destination?: string
+          id?: number
+          trip?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trips_destinations_destination_fkey"
+            columns: ["destination"]
+            isOneToOne: false
+            referencedRelation: "destinations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trips_destinations_trip_fkey"
+            columns: ["trip"]
+            isOneToOne: false
+            referencedRelation: "trips"
             referencedColumns: ["id"]
           },
         ]
@@ -1067,7 +1215,16 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      destination_category:
+        | "beach"
+        | "mountain"
+        | "desert"
+        | "forest"
+        | "historic"
+        | "city"
+      trip_difficulty: "easy" | "moderate" | "challenging" | "difficult"
+      trip_status: "draft" | "published" | "completed" | "cancelled"
+      user_role: "traveler" | "organization" | "agency" | "services"
     }
     CompositeTypes: {
       geometry_dump: {
@@ -1202,6 +1359,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      destination_category: [
+        "beach",
+        "mountain",
+        "desert",
+        "forest",
+        "historic",
+        "city",
+      ],
+      trip_difficulty: ["easy", "moderate", "challenging", "difficult"],
+      trip_status: ["draft", "published", "completed", "cancelled"],
+      user_role: ["traveler", "organization", "agency", "services"],
+    },
   },
 } as const
