@@ -4,65 +4,185 @@ import A from "@/assets/images/apple.png";
 import G from "@/assets/images/google.png";
 import image from "@/assets/images/form_image.jpg";
 import logo from "@/assets/images/logo.png";
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Star } from 'lucide-react';
+import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const SignupForm = () => {
+  const navigate = useNavigate();
+  const { signUp, signInWithGoogle, isLoading, error } = useAuth();
+  const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLocalError(null);
+
+    if (password !== confirmPassword) {
+      setLocalError('Passwords do not match');
+      return;
+    }
+
+    if (password.length < 6) {
+      setLocalError('Password must be at least 6 characters');
+      return;
+    }
+
+    if (!fullName.trim()) {
+      setLocalError('Full name is required');
+      return;
+    }
+
+    if (!username.trim()) {
+      setLocalError('Username is required');
+      return;
+    }
+
+    try {
+      await signUp(email, password, fullName, username);
+      navigate('/profile');
+    } catch (err: any) {
+      setLocalError(err.message || 'Failed to create account');
+    }
+  };
+
+  const handleGoogleSignup = async () => {
+    setLocalError(null);
+    try {
+      await signInWithGoogle();
+    } catch (err: any) {
+      setLocalError(err.message || 'Failed to sign up with Google');
+    }
+  };
   return (
-    <div className="w-full sm:h-auto max-w-4xl sm:rounded-2xl overflow-hidden shadow-2xl flex flex-row bg-white overflow-hidden">
+    <div className="w-full h-screen max-w-4xl sm:rounded-2xl overflow-hidden shadow-2xl flex flex-row bg-white">
         
-        <div className="w-full md:w-1/2 bg-[#ffffe8]-subtle p-8 md:p-10 flex flex-col justify-center overflow-y-auto">
+        <div className="w-full md:w-1/2 bg-[#ffffe8]-subtle p-6 md:p-8 flex flex-col justify-center overflow-y-auto h-full">
           <Link to="/">
             <img 
               src={logo} 
               alt="Hawes Logo" 
-              className="w-40 mb-8 hover:opacity-80 transition-opacity cursor-pointer" 
+              className="w-40 mb-6 hover:opacity-80 transition-opacity cursor-pointer" 
             />
           </Link>
 
-          <h2 className="text-3xl font-serif font-bold text-gray-900 mb-2">Create your account</h2>
-          <p className="text-gray-600 text-sm mb-8">Join over 10,000 teams building the future today.</p>
+          <h2 className="text-3xl font-serif font-bold text-gray-900 mb-1">Create your account</h2>
+          <p className="text-gray-600 text-sm mb-6">Join over 10,000 teams building the future today.</p>
 
-          <form className="space-y-4">
+          <form className="space-y-3" onSubmit={handleSubmit}>
+            {(error || localError) && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+                {localError || error?.message}
+              </div>
+            )}
+            
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1">Full Name</label>
-              <input type="text" placeholder="John Doe" className="w-full px-4 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition" required />
+              <input 
+                type="text" 
+                placeholder="John Doe" 
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full px-4 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition" 
+                required 
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Username</label>
+              <input 
+                type="text" 
+                placeholder="john_doe" 
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-4 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition" 
+                required 
+              />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1">Email Address</label>
-              <input type="email" placeholder="name@company.com" className="w-full px-4 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition" required />
+              <input 
+                type="email" 
+                placeholder="name@company.com" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition" 
+                required 
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">Password</label>
-                <input type="password" placeholder="********" className="w-full px-4 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition" required />
+                <input 
+                  type="password" 
+                  placeholder="********" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition" 
+                  required 
+                />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">Confirm Password</label>
-                <input type="password" placeholder="********" className="w-full px-4 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition" required />
+                <input 
+                  type="password" 
+                  placeholder="********" 
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition" 
+                  required 
+                />
               </div>
             </div>
 
-            <button className="w-full bg-black hover:!bg-[#E64A19] text-white font-bold py-3 rounded-md shadow-lg transition active:scale-95 mt-2 focus:!outline-none ">
-              Create Account
+            <button 
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-black hover:!bg-[#E64A19] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-md shadow-lg transition active:scale-95 mt-2 focus:!outline-none "
+            >
+              {isLoading ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
 
-          <div className="relative my-8">
+          <div className="relative my-4">
             <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-gray-200"></span></div>
             <div className="relative flex justify-center text-xs uppercase"><span className="bg-[#ffffe8]-subtle px-2 text-gray-500 font-semibold">Or sign up with</span></div>
           </div>
 
           {/* Boutons Reseaux Sociaux check later */}
-          <div className="grid grid-cols-3 gap-3">
-            <button className="flex justify-center py-2 px-4  bg-white  rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition shadow-sm"><img src={G} alt="google"className='h-[25px] w-[25px]' /></button>
-            <button className="flex justify-center py-2 px-4  bg-white  rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition shadow-sm flex justify-center items-center"><img src={fb} alt="facebook"className='h-[25px] w-[25px]' /></button>
-            <button className="flex justify-center py-2 px-4  bg-white  rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition shadow-sm"><img src={A} alt="apple"className='h-[25px] w-[25px]' /></button>
+          <div className="grid grid-cols-3 gap-2">
+            <button 
+              type="button"
+              onClick={handleGoogleSignup}
+              disabled={isLoading}
+              className="flex justify-center py-2 px-3 bg-white rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <img src={G} alt="google"className='h-[25px] w-[25px]' />
+            </button>
+            <button 
+              type="button"
+              disabled={isLoading}
+              className="flex justify-center py-2 px-3 bg-white rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <img src={fb} alt="facebook"className='h-[25px] w-[25px]' />
+            </button>
+            <button 
+              type="button"
+              disabled={isLoading}
+              className="flex justify-center py-2 px-3 bg-white rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <img src={A} alt="apple"className='h-[25px] w-[25px]' />
+            </button>
           </div>
 
-          <p className="text-center text-xs text-gray-600 mt-8">
+          <p className="text-center text-xs text-gray-600 mt-4">
             Already have an account? <Link to="/login" className="text-green-600 font-bold hover:underline">Log in</Link>
           </p>
         </div>

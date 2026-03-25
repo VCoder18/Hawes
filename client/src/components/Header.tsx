@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { Menu, Search, Bell, MessageSquare, Settings, LogOut, User } from "lucide-react";
 import Avatar from "../assets/images/pfp.svg";
 import logo from "../assets/images/logo.png";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface HeaderProps {
   sidebarOpen: boolean;
@@ -13,12 +14,23 @@ export default function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const navigate = useNavigate();
+  const { signOut } = useAuth();
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchValue.trim()) {
       navigate(`/browse?search=${encodeURIComponent(searchValue)}`);
       setSearchValue("");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      setDropdownOpen(false);
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
     }
   };
 
@@ -118,11 +130,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
                       Settings
                     </button>
                     <button
-                      onClick={() => {
-                        setDropdownOpen(false);
-                        // Handle logout
-                        console.log("Logout clicked");
-                      }}
+                      onClick={handleLogout}
                       className="w-full px-4 py-2 text-left text-sm text-[#334155] hover:bg-bg-[#ff5900] transition-colors flex items-center gap-2"
                     >
                       <LogOut className="size-4" strokeWidth={2} />
