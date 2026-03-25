@@ -49,6 +49,7 @@ export class TripsService {
       .from('trips')
       .insert({
         ...trip,
+        images: [], // TODO: file uploads
         organizer: userId,
       })
       .select()

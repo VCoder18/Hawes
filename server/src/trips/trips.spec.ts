@@ -10,6 +10,7 @@ import { createTestUser, deleteTestUser } from 'test/helpers/auth';
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { TripCreateDTO } from './dto/create.dto';
 import { getSupabaseClientId } from 'src/supabase/utils/getSupabaseClientId';
+import { TripDifficutly, TripStatus } from './entities/trips.entity';
 
 describe('TripsService', () => {
   let service: TripsService;
@@ -22,15 +23,14 @@ describe('TripsService', () => {
 
   let createdTripId: string;
 
-  const testTrips = [
+  const testTrips: TripCreateDTO[] = [
     {
       title: 'Hiking in Djurdjura',
       description: 'A scenic hike through the Djurdjura National Park.',
-      difficulty: 'easy' as const,
-      status: 'published' as const,
+      difficulty: TripDifficutly.Easy,
+      status: TripStatus.Draft,
       start_date: '2026-04-01',
       end_date: '2026-04-03',
-      images: [],
       meeting_points: [],
       price: 5000,
       min_participants: 2,
@@ -42,11 +42,10 @@ describe('TripsService', () => {
     {
       title: 'Sahara Desert Camp',
       description: 'Two nights camping under the stars in Tamanrasset.',
-      difficulty: 'moderate' as const,
-      status: 'published' as const,
+      difficulty: TripDifficutly.Easy,
+      status: TripStatus.Draft,
       start_date: '2026-05-10',
       end_date: '2026-05-12',
-      images: [],
       meeting_points: [],
       price: 15000,
       min_participants: 4,
@@ -59,11 +58,10 @@ describe('TripsService', () => {
     {
       title: 'Kabylie Cultural Tour',
       description: 'Explore the villages and culture of Greater Kabylie.',
-      difficulty: 'easy' as const,
-      status: 'draft' as const,
+      difficulty: TripDifficutly.Easy,
+      status: TripStatus.Draft,
       start_date: '2026-06-15',
       end_date: '2026-06-17',
-      images: [],
       meeting_points: [],
       price: 3000,
       min_participants: 2,
@@ -111,7 +109,7 @@ describe('TripsService', () => {
 
     const { error, data } = await supabase
       .from('trips')
-      .insert(testTrips.map((t) => ({ ...t, organizer: userId })))
+      .insert(testTrips.map((t) => ({ ...t, organizer: userId, images: [] })))
       .select();
     if (error || !data || data.length != testTrips.length)
       throw new Error('failed to insert test trips');
@@ -153,11 +151,10 @@ describe('TripsService', () => {
     it('should create a trip', async () => {
       const newTrip: TripCreateDTO = {
         title: 'New Test Trip',
-        difficulty: 'easy' as const,
-        status: 'draft' as const,
+        difficulty: TripDifficutly.Easy,
+        status: TripStatus.Draft,
         start_date: '2026-07-01',
         end_date: '2026-07-03',
-        images: [],
         meeting_points: [],
       };
 

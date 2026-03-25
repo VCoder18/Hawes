@@ -8,8 +8,19 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 
-import { jwtVerify, createRemoteJWKSet } from 'jose';
+import { jwtVerify, createRemoteJWKSet, JWTPayload } from 'jose';
 import { ENV } from 'src/constants';
+
+export interface SupabaseJWTPayload extends JWTPayload {
+  sub: string;
+  email?: string;
+  role?: string;
+  is_anonymous: boolean;
+  user_metadata?: {
+    email_verified?: boolean;
+    phone_verified?: boolean;
+  };
+}
 
 // reference: https://supabase.com/docs/guides/auth/jwts#verifying-a-jwt-from-supabase
 // TODO: understnad the reason for using JWKS and supabase caching layer to not get hacked
@@ -43,7 +54,7 @@ export class AuthGuard implements CanActivate {
     }
 
     try {
-      const payload = await this.verifyProjectJWT(token);
+      const { payload } = await this.verifyProjectJWT(token);
       request['user'] = payload;
     } catch {
       throw new UnauthorizedException();
@@ -54,11 +65,10 @@ export class AuthGuard implements CanActivate {
 
   private extractTokenFromHeader(request: Request): string | undefined {
     const [type, token] = request.headers.authorization?.split(' ') ?? [];
-    console.log(request.headers);
     return type === 'Bearer' ? token : undefined;
   }
 
   private async verifyProjectJWT(jwt: string) {
-    return jwtVerify(jwt, PROJECT_JWKS);
+    return jwtVerify<SupabaseJWTPayload>(jwt, PROJECT_JWKS);
   }
 }

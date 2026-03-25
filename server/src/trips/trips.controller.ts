@@ -5,11 +5,18 @@ import {
   Param,
   Delete,
   Patch,
-  Req,
   UseGuards,
+  Body,
 } from '@nestjs/common';
 import { TripsService } from './trips.service';
-import { AuthGuard, Public } from 'src/auth/auth.guard';
+import {
+  AuthGuard,
+  Public,
+  type SupabaseJWTPayload,
+} from 'src/auth/auth.guard';
+import { TripCreateDTO } from './dto/create.dto';
+import { CurrentUser } from 'src/auth/decorators/user.decorator';
+import { TripUpdateDTO } from './dto/update.dto';
 
 @Controller('trips')
 @UseGuards(AuthGuard)
@@ -29,17 +36,27 @@ export class TripsController {
   }
 
   @Post()
-  addTrip(@Req() req) {
-    return this.service.addTrip(req.user.id, req.body);
+  addTrip(
+    @Body() body: TripCreateDTO,
+    @CurrentUser() user: SupabaseJWTPayload,
+  ) {
+    return this.service.addTrip(user.sub, body);
   }
 
   @Patch(':tripId')
-  editTrip(@Req() req, @Param('tripId') tripId: string) {
-    return this.service.updateTrip(req.user.id, tripId, req.body);
+  editTrip(
+    @Body() body: TripUpdateDTO,
+    @CurrentUser() user: SupabaseJWTPayload,
+    @Param('tripId') tripId: string,
+  ) {
+    return this.service.updateTrip(user.sub, tripId, body);
   }
 
   @Delete(':tripId')
-  deleteTrip(@Req() req, @Param('tripId') tripId: string) {
-    return this.service.deleteTrip(req.user.id, tripId);
+  deleteTrip(
+    @CurrentUser() user: SupabaseJWTPayload,
+    @Param('tripId') tripId: string,
+  ) {
+    return this.service.deleteTrip(user.sub, tripId);
   }
 }

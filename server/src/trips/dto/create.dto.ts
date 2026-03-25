@@ -1,3 +1,16 @@
+import {
+  IsArray,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 import { Database } from 'src/database.types';
 import {
   Geography,
@@ -13,47 +26,95 @@ type TripInsert = Omit<
   meeting_points: Geography[];
 };
 
-export class TripCreateDTO implements Omit<
+type TripCreateShape = Omit<
   TripInsert,
-  'id' | 'created_at' | 'updated_at' | 'organizer'
-> {
-  public activities?: string[] | null;
-  public description?: string | null;
-  public difficulty: TripDifficutly;
-  public end_date: string;
-  public images: string[];
-  public itinerary?: string | null;
-  public max_participants?: number | null;
-  public meeting_points: Geography[];
-  public min_participants?: number | null;
-  public price?: number | null;
-  public start_date: string;
-  public status?: TripStatus;
-  public title: string;
-  public what_to_bring?: string | null;
+  'id' | 'created_at' | 'updated_at' | 'organizer' | 'images'
+>;
+
+export class TripCreateDTO implements TripCreateShape {
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  activities?: string[] | null;
+
+  @IsOptional()
+  @IsString()
+  description?: string | null;
+
+  @IsEnum(TripDifficutly)
+  difficulty: TripDifficutly;
+
+  @IsDateString()
+  end_date: string;
+
+  @IsOptional()
+  @IsString()
+  itinerary?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  max_participants?: number | null;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => Geography)
+  meeting_points: Geography[];
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  min_participants?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  price?: number | null;
+
+  @IsDateString()
+  start_date: string;
+
+  @IsEnum(TripStatus)
+  status?: TripStatus;
+
+  @IsString()
+  title: string;
+
+  @IsOptional()
+  @IsString()
+  what_to_bring?: string | null;
 
   constructor() {
-    this.difficulty = 'easy';
-    this.end_date = this.start_date = this.title = '';
-    this.images = this.meeting_points = [];
+    this.difficulty = TripDifficutly.Easy;
+    this.start_date = '';
+    this.end_date = '';
+    this.title = '';
+    this.meeting_points = [];
   }
 
   static fromTrip(trip: Trip): TripCreateDTO {
-    const new_trip = new TripCreateDTO();
-    new_trip.activities = trip.activities;
-    new_trip.description = trip.description;
-    new_trip.difficulty = trip.difficulty;
-    new_trip.end_date = trip.end_date;
-    new_trip.images = trip.images;
-    new_trip.itinerary = trip.itinerary;
-    new_trip.max_participants = trip.max_participants;
-    new_trip.meeting_points = trip.meeting_points as Geography[];
-    new_trip.min_participants = trip.min_participants;
-    new_trip.price = trip.price;
-    new_trip.start_date = trip.start_date;
-    new_trip.status = trip.status;
-    new_trip.title = trip.title;
-    new_trip.what_to_bring = trip.what_to_bring;
-    return new_trip;
+    const dto = new TripCreateDTO();
+    const keys: (keyof TripCreateShape)[] = [
+      'activities',
+      'description',
+      'difficulty',
+      'end_date',
+      'itinerary',
+      'max_participants',
+      'min_participants',
+      'price',
+      'start_date',
+      'status',
+      'title',
+      'what_to_bring',
+      'meeting_points',
+    ];
+    for (const key of keys) {
+      (dto as any)[key] = trip[key];
+    }
+    return dto;
   }
 }
