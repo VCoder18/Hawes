@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 const SignupForm = () => {
   const navigate = useNavigate();
   const { signUp, signInWithGoogle, isLoading, error } = useAuth();
-  const [fullName, setFullName] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,8 +33,8 @@ const SignupForm = () => {
       return;
     }
 
-    if (!fullName.trim()) {
-      setLocalError('Full name is required');
+    if (!displayName.trim()) {
+      setLocalError('Display name is required');
       return;
     }
 
@@ -44,7 +44,7 @@ const SignupForm = () => {
     }
 
     try {
-      await signUp(email, password, fullName, username);
+      await signUp(email, password, displayName, username);
       navigate('/profile');
     } catch (err: any) {
       setLocalError(err.message || 'Failed to create account');
@@ -82,12 +82,12 @@ const SignupForm = () => {
             )}
             
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Full Name</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Display Name</label>
               <input 
                 type="text" 
                 placeholder="John Doe" 
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
                 className="w-full px-4 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 transition" 
                 required 
               />

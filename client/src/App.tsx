@@ -48,6 +48,4 @@ function App() {
   );
 }
 
-// ctfd_0ffa130568d34b69d9461fd67e422ef6f8e790fefb42dacabacb7266c4a21f72
-
 export default App;
