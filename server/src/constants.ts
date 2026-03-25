@@ -7,11 +7,14 @@ function getEnv(key: string): string {
 }
 
 export const ENV = {
-  frontend_origin: getEnv('FRONTEND_ORIGIN'),
+  frontendOrigin: getEnv('FRONTEND_ORIGIN'),
   port: getEnv('PORT'),
   supabase: {
-    key: getEnv('SUPABASE_KEY'),
+    serviceKey: getEnv('SUPABASE_SERVICE_KEY'),
+    anonKey: getEnv('SUPABASE_ANON_KEY'),
+    privateKey: getEnv('SUPABASE_PRIVATE_KEY'),
+    publicKey: getEnv('SUPABASE_PUBLIC_KEY'),
     url: getEnv('SUPABASE_URL'),
-    project_id: getEnv('SUPABASE_PROJECT_ID'),
+    projectId: getEnv('SUPABASE_PROJECT_ID'),
   },
 };
