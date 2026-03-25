@@ -11,7 +11,7 @@ export type Trip = Database['public']['Tables']['trips']['Row'];
 export type DestinationCategory =
   Database['public']['Enums']['destination_category'];
 
-export enum TripDifficutly {
+export enum TripDifficulty {
   Easy = 'easy',
   Moderate = 'moderate',
   Challenging = 'challenging',

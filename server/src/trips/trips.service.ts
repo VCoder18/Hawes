@@ -11,6 +11,12 @@ import { Database } from 'src/database.types';
 import { TripCreateDTO } from './dto/create.dto';
 import { TripUpdateDTO } from './dto/update.dto';
 import { Trip } from './entities/trips.entity';
+import {
+  paginatedResponse,
+  PaginatedResponseDto,
+} from 'src/common/dto/paginated-response.dto';
+import { applySupabaseQuery } from 'src/common/utils/query-builder';
+import { QueryDto } from 'src/common/dto/query.dto';
 
 @Injectable()
 export class TripsService {
@@ -20,14 +26,32 @@ export class TripsService {
   ) {}
 
   /// @Return: all trips
-  async getTrips(): Promise<Array<Trip>> {
-    const { data, error } = await this.supabaseClient.from('trips').select('*');
-    if (error || !data) {
+  async getTrips(query: QueryDto): Promise<PaginatedResponseDto<Trip>> {
+    let qb = applySupabaseQuery(this.supabaseClient, 'trips', query, {
+      searchFields: ['title', 'description'],
+      allowedFilters: ['organizer'],
+      allowedSortFields: [
+        'title',
+        'created_at',
+        'start_date',
+        'end_date',
+        'price',
+        'difficulty',
+        'status',
+        'start_date',
+      ],
+      defaultSort: 'start_date',
+    });
+
+    const { data, error, count } = await qb;
+
+    if (error || !data || count === null) {
       throw new InternalServerErrorException(
         "Can't fetch trips at the instant",
       );
     }
-    return data;
+
+    return paginatedResponse(data as Trip[], count, query);
   }
 
   /// @Return: the trip with the given id

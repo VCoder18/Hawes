@@ -15,7 +15,7 @@ import { Database } from 'src/database.types';
 import {
   Geography,
   Trip,
-  TripDifficutly,
+  TripDifficulty,
   TripStatus,
 } from '../entities/trips.entity';
 
@@ -41,8 +41,8 @@ export class TripCreateDTO implements TripCreateShape {
   @IsString()
   description?: string | null;
 
-  @IsEnum(TripDifficutly)
-  difficulty: TripDifficutly;
+  @IsEnum(TripDifficulty)
+  difficulty: TripDifficulty;
 
   @IsDateString()
   end_date: string;
@@ -88,7 +88,7 @@ export class TripCreateDTO implements TripCreateShape {
   what_to_bring?: string | null;
 
   constructor() {
-    this.difficulty = TripDifficutly.Easy;
+    this.difficulty = TripDifficulty.Easy;
     this.start_date = '';
     this.end_date = '';
     this.title = '';
