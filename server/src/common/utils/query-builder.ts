@@ -1,3 +1,5 @@
+// TODO: PROBABLY UNSAFE
+
 import { SupabaseClient } from '@supabase/supabase-js';
 import { QueryDto, QuerySortOrder } from '../dto/query.dto';
 import { Database } from 'src/database.types';
@@ -61,6 +63,7 @@ export function applySupabaseQuery(
     ascending: query.sortOrder === QuerySortOrder.Ascending,
   });
 
+  if (query.limit > 20) query.limit = 20;
   qb = qb.range(query.offset, query.offset + query.limit - 1);
 
   return qb;
