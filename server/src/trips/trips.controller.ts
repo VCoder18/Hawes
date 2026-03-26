@@ -61,4 +61,20 @@ export class TripsController {
   ) {
     return this.service.deleteTrip(user.sub, tripId);
   }
+
+  @Get('/join/:tripId')
+  joinTrip(
+    @CurrentUser() user: SupabaseJWTPayload,
+    @Param('tripId') tripId: string,
+  ) {
+    return this.service.joinTrip(user.sub, tripId);
+  }
+
+  @Get('/leave/:affiliationId')
+  leaveTrip(
+    @CurrentUser() user: SupabaseJWTPayload,
+    @Param('affiliationId') affiliationId: string,
+  ) {
+    return this.service.leaveTrip(user.sub, affiliationId);
+  }
 }
