@@ -10,6 +10,7 @@ import EditProfile from "@/pages/settings/EditProfile";
 import LoginForm from "@/pages/LoginForm";
 import SignupForm from "@/pages/SignupForm";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { TripProvider } from "@/contexts/TripContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthCallback } from "@/pages/AuthCallback";
 
@@ -27,6 +28,7 @@ function App() {
 
   return (
     <AuthProvider>
+      <TripProvider>
       <Routes>
       <Route element={<MainLayout displayNavbar={true} displayFooter={true} />}>
         <Route path="/" element={<Profile />} />
@@ -44,6 +46,7 @@ function App() {
         <Route path="/auth/callback" element={<AuthCallback />} />
       </Route>
     </Routes>
+    </TripProvider>
     </AuthProvider>
   );
 }

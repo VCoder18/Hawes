@@ -9,6 +9,8 @@ import {
   Search, Plus, X, Upload, SlidersHorizontal, Calendar,
   Hotel, Car, Utensils, Users, Backpack, Check, DollarSign, Save, FileText,
 } from "lucide-react";
+import publ from "@/assets/images/society.png";
+import priv from "@/assets/images/insurance.png";
 
 // Import sub-components
 import { StepHeader } from "@/components/CreateTrip/StepHeader";
@@ -51,6 +53,7 @@ export default function CreateTrip() {
     destinations: [],
     title: "",
     description: "",
+    scope: "public",
     category: "",
     difficulty: "",
     startDate: "",
@@ -449,7 +452,7 @@ export default function CreateTrip() {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-2">
+                    <label className="block font-semibold text-[#00b70d] mb-2">
                       Description <span className="text-red-500">*</span>
                     </label>
                     <textarea
@@ -462,7 +465,7 @@ export default function CreateTrip() {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-2">
+                    <label className="block font-semibold text-[#00b70d] mb-2">
                       Category <span className="text-red-500">*</span>
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -473,7 +476,7 @@ export default function CreateTrip() {
                           className={`px-4 py-3 rounded-xl font-medium transition-all ${
                             tripData.category === cat
                               ? "bg-[#00b70d] text-white"
-                              : "bg-bg-[#ff5900] text-text-[#00b70d] hover:bg-[#e2e8f0]"
+                              : "bg-bg-[#ff5900] text-black hover:bg-[#e2e8f0]"
                           }`}
                         >
                           {cat}
@@ -483,7 +486,7 @@ export default function CreateTrip() {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-2">
+                    <label className="block font-semibold text-[#00b70d] mb-2">
                       Difficulty Level <span className="text-red-500">*</span>
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -494,7 +497,7 @@ export default function CreateTrip() {
                           className={`px-4 py-3 rounded-xl font-medium transition-all ${
                             tripData.difficulty === diff
                               ? "bg-[#00b70d] text-white"
-                              : "bg-bg-[#ff5900] text-text-[#00b70d] hover:bg-[#e2e8f0]"
+                              : "bg-bg-[#ff5900] text-black hover:bg-[#e2e8f0]"
                           }`}
                         >
                           {diff}
@@ -502,6 +505,46 @@ export default function CreateTrip() {
                       ))}
                     </div>
                   </div>
+                  <div className="mt-8">
+                   <label className="block font-semibold text-[#00b70d] mb-3">
+                   Trip Privacy <span className="text-red-500">*</span>
+                   </label>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <button
+                       type="button"
+                       onClick={() => updateTripData("scope", "public")}
+                       className={`px-4 py-4 rounded-xl font-medium transition-all text-left border-2 flex flex-col gap-1 ${
+                       tripData.scope === "public"
+                       ? "border-[#00b70d] bg-[#00b70d]/5 text-[#00b70d]"
+                       : "border-[#e2e8f0] text-gray-500 hover:border-[#00b70d]/30"
+                       }
+                       `}
+                       >
+                       <div className="flex items-center gap-2">
+                         <span className="text-xl"><img src={publ} alt="public"className='h-[20px] w-[20px]' /></span>
+                         <span className="font-bold">Public</span>
+                        </div>
+                       <p className="text-xs font-normal opacity-70">Visible to everyone in the community.</p>
+                      </button>
+
+                      <button
+                       type="button"
+                       onClick={() => updateTripData("scope", "private")}
+                        className={`px-4 py-4 rounded-xl font-medium transition-all text-left border-2 flex flex-col gap-1 ${
+                       tripData.scope === "private"
+                       ? "border-[#00b70d] bg-[#00b70d]/5 text-[#00b70d]"
+                       : "border-[#e2e8f0] text-gray-500 hover:border-[#00b70d]/30"
+                       }
+                       `}
+                        >
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl"><img src={priv} alt="private"className='h-[20px] w-[20px]' /></span>
+                          <span className="font-bold">Private</span>
+                        </div>
+                        <p className="text-xs font-normal opacity-70">Only visible to you and people you invite.</p>
+                      </button>
+                   </div>
+                 </div>
                 </div>
               )}
 
