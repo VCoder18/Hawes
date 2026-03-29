@@ -14,7 +14,8 @@ export const ENV = {
     anonKey: getEnv('SUPABASE_ANON_KEY'),
     privateKey: getEnv('SUPABASE_PRIVATE_KEY'),
     publicKey: getEnv('SUPABASE_PUBLIC_KEY'),
-    url: getEnv('SUPABASE_URL'),
+    url: getEnv('SUPABASE_PROJECT_URL'),
     projectId: getEnv('SUPABASE_PROJECT_ID'),
+    projectUrl: getEnv('SUPABASE_PROJECT_URL'),
   },
 };

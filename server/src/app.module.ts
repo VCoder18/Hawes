@@ -3,16 +3,13 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SupabaseModule } from './supabase/modules/SupabaseModule';
 import { ENV } from './constants';
-import { ConfigModule } from '@nestjs/config';
 import { TripsModule } from './trips/trips.module';
 import { AuthModule } from './auth/auth.module';
 import { DestinationsModule } from './destinations/destinations.module';
+import { ProfilesModule } from './profiles/profiles.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
     SupabaseModule.forRootAsync({
       imports: [],
       inject: [],
@@ -23,6 +20,7 @@ import { DestinationsModule } from './destinations/destinations.module';
     }),
     TripsModule,
     DestinationsModule,
+    ProfilesModule,
     AuthModule,
   ],
   controllers: [AppController],
