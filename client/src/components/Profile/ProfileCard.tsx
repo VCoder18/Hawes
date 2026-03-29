@@ -16,7 +16,6 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
   const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [shareMessage, setShareMessage] = useState('');
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -45,8 +44,7 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
   const handleShare = () => {
     const profileUrl = `${window.location.origin}/profile/${profile?.username}`;
     navigator.clipboard.writeText(profileUrl);
-    setShareMessage('Copied to clipboard!');
-    setTimeout(() => setShareMessage(''), 3000);
+    alert('Copied to clipboard!');
   };
 
   const isOwnProfile = profile && user && profile.id === user.id;
@@ -208,9 +206,6 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
               </button>
             )}
           </div>
-          {shareMessage && (
-            <p className="text-sm text-green-600 mt-2">{shareMessage}</p>
-          )}
         </div>
       </div>
 

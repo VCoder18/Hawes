@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { type User, AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { getAuthRedirectUrl } from '../lib/getAuthRedirect';
 
 export interface AuthContextType {
   user: User | null;
@@ -92,10 +93,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     setError(null);
     try {
+      const redirectUrl = getAuthRedirectUrl();
       const { error: googleError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: redirectUrl,
         },
       });
       if (googleError) throw googleError;
