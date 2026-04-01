@@ -142,6 +142,35 @@ export function TripPreviewPanel({ tripData, duration, allActivities }: TripPrev
               </div>
             </div>
           )}
+
+          {/* --- Share Invite Section --- */}
+         <div className="mt-4 pt-4 border-t border-dashed border-[#e2e8f0]">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-text-[#ff5900] block">Invite Friends</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${tripData.scope === 'private' ? 'bg-orange-100 text-orange-600' : 'bg-[#00b70d]/10 text-[#00b70d]'}`}>
+              {tripData.scope}
+            </span>
+          </div>
+          
+          <div className="flex gap-2 p-1.5 bg-gray-50 rounded-lg border border-gray-100 items-center">
+            <input 
+              readOnly 
+              value={`${window.location.origin}/join/${tripData.title ? tripData.title.toLowerCase().replace(/\s+/g, '-') : 'new-adventure'}`} 
+              className="flex-1 px-2 py-1 bg-transparent text-[10px] text-gray-500 outline-none truncate"
+            />
+            <button 
+              type="button"
+              onClick={() => {
+                const link = `${window.location.origin}/join/${tripData.title ? tripData.title.toLowerCase().replace(/\s+/g, '-') : 'new-adventure'}`;
+                navigator.clipboard.writeText(link);
+                alert("Link copied!");
+              }}
+              className="px-3 py-1.5 bg-[#00b70d] text-white rounded-md text-[10px] font-bold hover:bg-[#009a0b] transition-all"
+            >
+              Copy
+            </button>
+          </div>
+         </div>
         </div>
       </div>
     </div>

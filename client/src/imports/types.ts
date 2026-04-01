@@ -21,6 +21,7 @@ export interface TripData {
   pricePerPerson: number;
   coverImage: string;
   additionalImages: Array<{ data: string; name: string; type: string }>;
+  scope: "public" | "private";
 }
 
 export interface Filters {
@@ -115,10 +116,21 @@ export interface EditProfileFormData {
   email: string;
   location: string;
   website: string;
+  role: UserRole;
   socialLinks: Record<string, string>;
   privacySettings: {
     profileVisibility: boolean;
     showActivityStatus: boolean;
     showTripHistory: boolean;
   };
+}
+
+// Roles Definitions
+export type UserRole = 'traveler' | 'organization' | 'agency' | 'services';
+
+export interface UserVerificationRequest {
+  professionalEmail: string;
+  phoneNumber: string;
+  requestedRole: UserRole;
+  status: 'pending' | 'approved' | 'rejected';
 }
