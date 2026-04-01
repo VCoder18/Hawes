@@ -16,8 +16,11 @@ export class SupabaseModule {
     };
   }
 
-  public static forRootAsync(nestSupabaseConfigAsync: NestSupabaseConfigAsync): DynamicModule {
+  public static forRootAsync(
+    nestSupabaseConfigAsync: NestSupabaseConfigAsync,
+  ): DynamicModule {
     return {
+      global: true,
       imports: [SupabaseCoreModule.forRootAsync(nestSupabaseConfigAsync)],
       module: SupabaseModule,
     };
@@ -36,22 +39,28 @@ export class SupabaseModule {
       resolvedClientNames.push(undefined);
     }
 
-    const supabaseModule: DynamicModule = resolvedClientNames.reduce<DynamicModule>(
-      (dynamicModule: DynamicModule, clientName: string | undefined): DynamicModule => {
-        const supabaseClientId: string | typeof SupabaseClient = getSupabaseClientId(clientName);
+    const supabaseModule: DynamicModule =
+      resolvedClientNames.reduce<DynamicModule>(
+        (
+          dynamicModule: DynamicModule,
+          clientName: string | undefined,
+        ): DynamicModule => {
+          const supabaseClientId: string | typeof SupabaseClient =
+            getSupabaseClientId(clientName);
 
-        dynamicModule.exports?.push(supabaseClientId);
-        dynamicModule.providers?.push({
-          inject: [SupabaseCoreModuleProvider],
-          provide: supabaseClientId,
-          useFactory: (supabaseCoreModuleProvider: SupabaseCoreModuleProvider) =>
-            supabaseCoreModuleProvider.getClient(clientName),
-        });
+          dynamicModule.exports?.push(supabaseClientId);
+          dynamicModule.providers?.push({
+            inject: [SupabaseCoreModuleProvider],
+            provide: supabaseClientId,
+            useFactory: (
+              supabaseCoreModuleProvider: SupabaseCoreModuleProvider,
+            ) => supabaseCoreModuleProvider.getClient(clientName),
+          });
 
-        return dynamicModule;
-      },
-      initialDynamicModule,
-    );
+          return dynamicModule;
+        },
+        initialDynamicModule,
+      );
 
     return supabaseModule;
   }

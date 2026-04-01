@@ -10,7 +10,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from 'src/database.types';
 import { TripCreateDTO } from './dto/create.dto';
 import { TripUpdateDTO } from './dto/update.dto';
-import { Trip } from './entities/trips.entity';
+import { Trip, TripAffiliation } from './entities/trips.entity';
 import {
   paginatedResponse,
   PaginatedResponseDto,
@@ -55,11 +55,11 @@ export class TripsService {
   }
 
   /// @Return: the trip with the given id
-  async getTripById(id: string): Promise<Trip> {
+  async getTripById(tripId: string): Promise<Trip> {
     const { data: trip, error } = await this.supabaseClient
       .from('trips')
       .select('*')
-      .eq('id', id)
+      .eq('id', tripId)
       .single();
     if (error || !trip) {
       throw new NotFoundException('Trip not found');
@@ -120,19 +120,102 @@ export class TripsService {
       .select('id, organizer')
       .eq('id', id)
       .single();
+
     if (fetchError || !existing) {
       throw new NotFoundException('Trip not found');
     }
+
     if (existing.organizer !== userId) {
       throw new UnauthorizedException();
     }
+
     const { error } = await this.supabaseClient
       .from('trips')
       .delete()
       .eq('id', id);
+
     if (error) {
       throw new BadRequestException('Failed to delete trip');
     }
+
     return id;
+  }
+
+  /// @Return: a trip affiliation record
+  async joinTrip(userId: string, tripId: string): Promise<TripAffiliation> {
+    const { data: affiliations } = await this.supabaseClient
+      .from('trip_participants')
+      .select('*')
+      .eq('trip_id', tripId);
+
+    if (affiliations) {
+      if (affiliations.some((p) => p.user_id === userId)) {
+        throw new BadRequestException(
+          'You are already participating in the trip',
+        );
+      }
+
+      const { error, data: trip } = await this.supabaseClient
+        .from('trips')
+        .select('id, max_participants')
+        .eq('id', tripId)
+        .single();
+
+      if (error || !trip) {
+        throw new BadRequestException('Trip not found');
+      }
+
+      if (
+        trip.max_participants &&
+        trip.max_participants <= affiliations.length
+      ) {
+        throw new BadRequestException('Trip is full');
+      }
+    }
+
+    const { error, data } = await this.supabaseClient
+      .from('trip_participants')
+      .insert({
+        user_id: userId,
+        trip_id: tripId,
+      })
+      .select('*')
+      .single();
+
+    if (error || !data) {
+      console.error(error);
+      throw new BadRequestException('Failed to join trip');
+    }
+
+    return data;
+  }
+
+  /// @Return: affiliation record id
+  async leaveTrip(userId: string, affiliationId: string): Promise<string> {
+    const { error: fetchError, data: affiliation } = await this.supabaseClient
+      .from('trip_participants')
+      .select('*')
+      .eq('id', affiliationId)
+      .single();
+
+    if (fetchError || !affiliation) {
+      throw new BadRequestException('Affiliation to the trip not found');
+    }
+
+    if (affiliation.user_id !== userId) {
+      throw new UnauthorizedException('You are not affiliated to this trip');
+    }
+
+    const { error } = await this.supabaseClient
+      .from('trip_participants')
+      .delete()
+      .eq('id', affiliationId);
+
+    if (error) {
+      console.error(error);
+      throw new BadRequestException('Failed to leave the trip.');
+    }
+
+    return affiliationId;
   }
 }

@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  Inject,
   Injectable,
   SetMetadata,
   UnauthorizedException,
@@ -26,9 +27,7 @@ export interface SupabaseJWTPayload extends JWTPayload {
 // TODO: understnad the reason for using JWKS and supabase caching layer to not get hacked
 // while improving perforamnce as much as possible
 const PROJECT_JWKS = createRemoteJWKSet(
-  new URL(
-    `https://${ENV.supabase.projectId}.supabase.co/auth/v1/.well-known/jwks.json`,
-  ),
+  new URL(`${ENV.supabase.projectUrl}/auth/v1/.well-known/jwks.json`),
 );
 
 // TODO: add other roles
@@ -36,7 +35,7 @@ export const Public = () => SetMetadata('isPublic', true);
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(@Inject(Reflector) private reflector: Reflector) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [

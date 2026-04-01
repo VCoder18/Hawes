@@ -8,6 +8,7 @@ import {
 import { Database } from 'src/database.types';
 
 export type Trip = Database['public']['Tables']['trips']['Row'];
+
 export type DestinationCategory =
   Database['public']['Enums']['destination_category'];
 
@@ -28,6 +29,9 @@ export enum TripStatus {
 export enum GeographyType {
   Point = 'Point',
 }
+
+export type TripAffiliation =
+  Database['public']['Tables']['trip_participants']['Row'];
 
 type GeographyBase = {
   type: GeographyType;
