@@ -13,6 +13,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { TripProvider } from "@/contexts/TripContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthCallback } from "@/pages/AuthCallback";
+import JoinTrip from "@/pages/JoinTrip";
 
 // TODO:
 // - add Images
@@ -36,6 +37,7 @@ function App() {
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/profile/:username" element={<Profile />} />
         <Route path="/settings/profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
+        <Route path="/join-trip" element={<JoinTrip />} />
       </Route>
       <Route element={<MainLayout displayNavbar={true} displayFooter={false} />}>
         <Route path="/create-trip" element={<ProtectedRoute><CreateTrip /></ProtectedRoute>} />
