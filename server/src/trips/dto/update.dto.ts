@@ -25,6 +25,10 @@ type TripUpdateShape = Omit<
 };
 
 export class TripUpdateDTO implements TripUpdateShape {
+  @IsArray()
+  @IsString({ each: true })
+  existingImages: string[] = [];
+
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
