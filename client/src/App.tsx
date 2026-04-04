@@ -15,6 +15,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthCallback } from "@/pages/AuthCallback";
 import Dashbord from "./components/Dashbord";
 import Errorpage from "./components/Errorpage";
+import JoinTrip from "@/pages/JoinTrip";
 
 // TODO:
 // - add Images
@@ -38,6 +39,7 @@ function App() {
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/profile/:username" element={<Profile />} />
         <Route path="/settings/profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
+        <Route path="/join-trip" element={<JoinTrip />} />
       </Route>
       <Route element={<MainLayout displayNavbar={true} displayFooter={false} />}>
         <Route path="/create-trip" element={<ProtectedRoute><CreateTrip /></ProtectedRoute>} />

@@ -25,6 +25,33 @@ export class TripsService {
     private readonly supabaseClient: SupabaseClient<Database>,
   ) {}
 
+  async uploadImages(
+    images: Express.Multer.File[],
+    userId: string,
+  ): Promise<string[]> {
+    const urls: string[] = [];
+
+    await Promise.all(
+      images.map(async (file) => {
+        const path = `trips/${userId}/${Date.now()}-${file.originalname}`;
+
+        const { error } = await this.supabaseClient.storage
+          .from('trip-images')
+          .upload(path, file.buffer, { contentType: file.mimetype });
+
+        // TODO: delete already uploaded files if any upload fails
+        if (error) throw new InternalServerErrorException(error.message);
+
+        const { data } = this.supabaseClient.storage
+          .from('trip-images')
+          .getPublicUrl(path);
+        urls.push(data.publicUrl);
+      }),
+    );
+
+    return urls;
+  }
+
   /// @Return: all trips
   async getTrips(query: QueryDto): Promise<PaginatedResponseDto<Trip>> {
     let qb = applySupabaseQuery(this.supabaseClient, 'trips', query, {
@@ -68,19 +95,31 @@ export class TripsService {
   }
 
   /// @Return: the added trip
-  async addTrip(userId: string, trip: TripCreateDTO): Promise<Trip> {
+  async addTrip(
+    userId: string,
+    trip: TripCreateDTO,
+    files?: Express.Multer.File[],
+  ): Promise<Trip> {
+    let images: string[] = [];
+
+    if (files) {
+      images = await this.uploadImages(files, userId);
+    }
+
     const { error, data } = await this.supabaseClient
       .from('trips')
       .insert({
         ...trip,
-        images: [], // TODO: file uploads
+        images,
         organizer: userId,
       })
       .select()
       .single();
+
     if (error || !data) {
       throw new BadRequestException('Failed to create trip');
     }
+
     return data;
   }
 
@@ -89,27 +128,61 @@ export class TripsService {
     userId: string,
     id: string,
     trip: TripUpdateDTO,
+    files?: Express.Multer.File[],
   ): Promise<Trip> {
     const { data: existing, error: fetchError } = await this.supabaseClient
       .from('trips')
-      .select('id, organizer')
+      .select('id, organizer, images, status')
       .eq('id', id)
       .single();
+
     if (fetchError || !existing) {
       throw new NotFoundException('Trip not found');
     }
+
     if (existing.organizer !== userId) {
       throw new UnauthorizedException();
     }
+
+    if (existing.status !== 'draft') {
+      throw new BadRequestException('Only trips in draft status can be edited');
+    }
+
+    const removed = existing.images.filter(
+      (url) => !trip.existingImages.includes(url),
+    );
+
+    try {
+      await Promise.all(
+        removed.map((url) => {
+          const path = url.split('/trip-images/')[1];
+          return this.supabaseClient.storage.from('trip-images').remove([path]);
+        }),
+      );
+    } catch (error) {
+      // TODO: handle partial failures (some images deleted, some failed)
+      throw new InternalServerErrorException('Failed to remove old images');
+    }
+
+    let images: string[] = existing.images.filter((url) =>
+      trip.existingImages.includes(url),
+    );
+
+    if (files) {
+      images = [...images, ...(await this.uploadImages(files, userId))];
+    }
+
     const { data, error } = await this.supabaseClient
       .from('trips')
-      .update(trip)
+      .update({ ...trip, images })
       .eq('id', id)
       .select()
       .single();
+
     if (error || !data) {
       throw new BadRequestException('Failed to update trip');
     }
+
     return data;
   }
 
