@@ -9,6 +9,13 @@ export interface SupabaseQueryConfig {
   allowedFilters?: string[];
   allowedSortFields?: string[];
   defaultSort?: string;
+  // Custom filter handlers for complex operations (arrays, dates, etc.)
+  customFilters?: {
+    [filterName: string]: (
+      queryBuilder: any,
+      value: string | number | boolean,
+    ) => any;
+  };
 }
 
 export function applySupabaseQuery(
@@ -22,6 +29,7 @@ export function applySupabaseQuery(
     allowedFilters = [],
     allowedSortFields = [],
     defaultSort = 'created_at',
+    customFilters = {},
   } = config;
 
   let qb = client.from(table).select('*', { count: 'exact' });
@@ -36,21 +44,39 @@ export function applySupabaseQuery(
   if (query.filters) {
     for (const [key, { operator, value }] of Object.entries(query.filters)) {
       if (allowedFilters.includes(key)) {
-        switch (operator) {
-          case 'eq':
-            qb.eq(key, value);
-          case 'gt':
-            qb.gt(key, value);
-          case 'gte':
-            qb.gte(key, value);
-          case 'lt':
-            qb.lt(key, value);
-          case 'lte':
-            qb.lte(key, value);
-          case 'neq':
-            qb.neq(key, value);
-          case 'like':
-            qb.like(key, value);
+        // Check if there's a custom filter handler for this field
+        if (customFilters[key]) {
+          qb = customFilters[key](qb, value);
+        } else {
+          // Fall back to standard operators
+          switch (operator) {
+            case 'eq':
+              qb = qb.eq(key, value);
+              break;
+            case 'gt':
+              qb = qb.gt(key, value);
+              break;
+            case 'gte':
+              qb = qb.gte(key, value);
+              break;
+            case 'lt':
+              qb = qb.lt(key, value);
+              break;
+            case 'lte':
+              qb = qb.lte(key, value);
+              break;
+            case 'neq':
+              qb = qb.neq(key, value);
+              break;
+            case 'like':
+              qb = qb.like(key, String(value));
+              break;
+            case 'range':
+              // Handle range filter: "min:max"
+              const [min, max] = String(value).split(':').map(Number);
+              qb = qb.gte(key, min).lte(key, max);
+              break;
+          }
         }
       }
     }

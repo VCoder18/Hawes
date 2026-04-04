@@ -19,6 +19,15 @@ export enum TripDifficulty {
   Difficult = 'difficult',
 }
 
+export enum TripCategory {
+  Adventure = 'adventure',
+  Cultural = 'cultural',
+  Nature = 'nature',
+  Historical = 'historical',
+  Relaxation = 'relaxation',
+  Photography = 'photography',
+}
+
 export enum TripStatus {
   Draft = 'draft',
   Published = 'published',

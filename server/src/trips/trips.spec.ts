@@ -29,7 +29,7 @@ describe('TripsService', () => {
       status: TripStatus.Draft,
       start_date: '2026-04-01',
       end_date: '2026-04-03',
-      meeting_points: [],
+      stops: [],
       price: 5000,
       min_participants: 2,
       max_participants: 10,
@@ -44,7 +44,7 @@ describe('TripsService', () => {
       status: TripStatus.Draft,
       start_date: '2026-05-10',
       end_date: '2026-05-12',
-      meeting_points: [],
+      stops: [],
       price: 15000,
       min_participants: 4,
       max_participants: 15,
@@ -60,7 +60,7 @@ describe('TripsService', () => {
       status: TripStatus.Draft,
       start_date: '2026-06-15',
       end_date: '2026-06-17',
-      meeting_points: [],
+      stops: [],
       price: 3000,
       min_participants: 2,
       max_participants: 8,
@@ -109,7 +109,7 @@ describe('TripsService', () => {
 
     const { error, data } = await supabase
       .from('trips')
-      .insert(testTrips.map((t) => ({ ...t, organizer: userId, images: [] })))
+      .insert(testTrips.map(({ stops, ...t }) => ({ ...t, organizer: userId, images: [] })))
       .select();
     if (error || !data || data.length != testTrips.length)
       throw new Error('failed to insert test trips');
@@ -155,7 +155,7 @@ describe('TripsService', () => {
         status: TripStatus.Draft,
         start_date: '2026-07-01',
         end_date: '2026-07-03',
-        meeting_points: [],
+        stops: [],
       };
 
       const result = await service.addTrip(userId, newTrip);

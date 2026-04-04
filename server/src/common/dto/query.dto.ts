@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 export enum QuerySortOrder {
@@ -20,11 +21,12 @@ export type QueryFilterOperator =
   | 'gte'
   | 'lt'
   | 'lte'
-  | 'like';
+  | 'like'
+  | 'range';
 
 export interface QueryFilter {
   operator: QueryFilterOperator;
-  value: string;
+  value: string | number | boolean;
 }
 
 export class QueryDto {
@@ -39,5 +41,8 @@ export class QueryDto {
 
   @IsOptional() @IsString() search?: string;
 
-  @IsOptional() @IsObject() filters?: Record<string, QueryFilter>;
+  @IsOptional() 
+  @ValidateIf((o) => o.filters && typeof o.filters === 'object')
+  @IsObject() 
+  filters?: Record<string, QueryFilter>;
 }
