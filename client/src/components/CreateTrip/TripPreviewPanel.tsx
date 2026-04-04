@@ -70,7 +70,7 @@ export function TripPreviewPanel({ tripData, duration, allActivities }: TripPrev
           {tripData.meetingLocations.length > 0 && (
             <div className="border-t border-[#e2e8f0] pt-4">
               <span className="text-xs text-text-[#ff5900] block mb-2">
-                Meeting Locations
+                Stops
               </span>
               <div className="space-y-1">
                 {tripData.meetingLocations.map((meeting, idx) => (

@@ -1,51 +1,121 @@
-import { useState, useRef } from "react";
-import Header from "@/components/Header";
-import Sidebar from "@/components/Sidebar";
-import { CalendarPicker } from "@/components/CreateTrip/CalendarPicker";
-import { ReviewSection } from "@/components/ReviewSection";
-import FiltersModal from "@/components/FiltersModal";
+import { useState, useEffect, useMemo } from "react";
 import { DestinationModal } from "@/components/DestinationModal";
-import { 
-  Search, Plus, X, Upload, SlidersHorizontal, Calendar,
-  Hotel, Car, Utensils, Users, Backpack, Check, DollarSign, Save, FileText,
-} from "lucide-react";
+import { Compass } from "lucide-react";
+import { useFavorites } from "@/hooks/useFavorites";
+import { supabase } from "@/lib/supabase";
 
-// Import sub-components
-import { StepHeader } from "@/components/CreateTrip/StepHeader";
+// Import step components
+import { Step1SelectDestinations } from "@/components/CreateTrip/steps/Step1SelectDestinations";
+import { Step2TripBasics } from "@/components/CreateTrip/steps/Step2TripBasics";
+import { Step3ScheduleMapLibreAlt } from "@/components/CreateTrip/steps/Step3ScheduleMapLibreAlt";
+import { Step4Activities } from "@/components/CreateTrip/steps/Step4Activities";
+import { Step5Logistics } from "@/components/CreateTrip/steps/Step5Logistics";
+import { Step6ParticipantsAndPricing } from "@/components/CreateTrip/steps/Step6ParticipantsAndPricing";
+import { Step7Media } from "@/components/CreateTrip/steps/Step7Media";
+import { Step8ReviewAndPublish } from "@/components/CreateTrip/steps/Step8ReviewAndPublish";
+
+// Import layout and utility components
 import { ProgressIndicator } from "@/components/CreateTrip/ProgressIndicator";
-import { DestinationCard } from "@/components/CreateTrip/DestinationCard";
-import { SelectedTag } from "@/components/CreateTrip/SelectedTag";
-import { PaginationControls } from "@/components/CreateTrip/PaginationControls";
-import { ParticipantControl } from "@/components/CreateTrip/ParticipantControl";
-import { MeetingLocationItem } from "@/components/CreateTrip/MeetingLocationItem";
-import { PricingSummary } from "@/components/CreateTrip/PricingSummary";
 import { FormNavigation } from "@/components/CreateTrip/FormNavigation";
 import { TripPreviewPanel } from "@/components/CreateTrip/TripPreviewPanel";
 
 // Import constants and types
 import {
-  STEPS,
-  tripCategories,
-  difficulties,
-  activityOptions,
-  includedOptions,
-  ITEMS_PER_PAGE,
-  destinationCategories,
+  steps,
+  itemsPerPage,
   destinationsList,
+  categoryIconMap,
+  browseDestinationCategories,
+  includedOptions,
 } from "@/imports/constants";
-import type { TripData, Filters, Destination } from "@/imports/types";
+import type { TripData, Destination, MeetingLocation } from "@/imports/types";
+
+const parseDestinationCoordinates = (destination: any): { lat: number; lng: number } | null => {
+  if (Number.isFinite(destination?.lat) && Number.isFinite(destination?.lng)) {
+    return { lat: Number(destination.lat), lng: Number(destination.lng) };
+  }
+
+  const coordinates = destination?.location?.coordinates;
+  if (Array.isArray(coordinates) && coordinates.length >= 2) {
+    const lng = Number(coordinates[0]);
+    const lat = Number(coordinates[1]);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng };
+    }
+  }
+
+  if (typeof destination?.location === "string") {
+    const hex = destination.location.trim();
+    if (/^[0-9a-fA-F]+$/.test(hex) && hex.length >= 42 && hex.length % 2 === 0) {
+      try {
+        const bytes = new Uint8Array(hex.match(/.{1,2}/g)!.map((byte: string) => parseInt(byte, 16)));
+        const view = new DataView(bytes.buffer);
+        const littleEndian = view.getUint8(0) === 1;
+        const typeWithFlags = view.getUint32(1, littleEndian);
+        const geometryType = typeWithFlags & 0xff;
+        const hasSrid = (typeWithFlags & 0x20000000) !== 0;
+        if (geometryType === 1) {
+          let offset = 5 + (hasSrid ? 4 : 0);
+          if (bytes.byteLength >= offset + 16) {
+            const lng = view.getFloat64(offset, littleEndian);
+            const lat = view.getFloat64(offset + 8, littleEndian);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+              return { lat, lng };
+            }
+          }
+        }
+      } catch {
+        // Keep fallback parsing resilient for mixed PostGIS output formats.
+      }
+    }
+
+    const match = destination.location.match(
+      /POINT\s*\(\s*([+-]?[0-9]*\.?[0-9]+)\s+([+-]?[0-9]*\.?[0-9]+)\s*\)/i
+    );
+    if (match) {
+      const lng = Number(match[1]);
+      const lat = Number(match[2]);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        return { lat, lng };
+      }
+    }
+  }
+
+  return null;
+};
 
 export default function CreateTrip() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const MAX_MEETING_POINTS = 20;
   const [currentStep, setCurrentStep] = useState(1);
+  const [maxStepReached, setMaxStepReached] = useState(1);
+  const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
+
+  // Step 1: Destination filters
   const [searchQuery, setSearchQuery] = useState("");
-  const [customActivity, setCustomActivity] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [minRating, setMinRating] = useState(0);
+  const [selectedPopularity, setSelectedPopularity] = useState<string | null>(null);
+  const [hasTripsOnly, setHasTripsOnly] = useState(false);
+  const [maxDistance, setMaxDistance] = useState(100);
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [destinations, setDestinations] = useState<Destination[]>(destinationsList);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Step 3: Schedule
   const [newMeetingLocation, setNewMeetingLocation] = useState("");
   const [newMeetingTime, setNewMeetingTime] = useState("");
-  const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [newItinerarySummary, setNewItinerarySummary] = useState("");
+  const [newItineraryDetails, setNewItineraryDetails] = useState("");
+  const [expandedItinerary, setExpandedItinerary] = useState<Set<number>>(new Set());
+
+  // Step 4: Activities
+  const [customActivity, setCustomActivity] = useState("");
+
+  const { favorites, isInitialized } = useFavorites();
 
   const [tripData, setTripData] = useState<TripData>({
     destinations: [],
@@ -56,11 +126,12 @@ export default function CreateTrip() {
     startDate: "",
     endDate: "",
     meetingLocations: [],
-    itinerary: "",
+    itinerary: [],
     activities: [],
     customActivities: [],
     included: [],
-    whatToBring: "",
+    excluded: [],
+    whatToBring: [],
     maxParticipants: 10,
     minParticipants: 4,
     pricePerPerson: 0,
@@ -68,29 +139,217 @@ export default function CreateTrip() {
     additionalImages: [],
   });
 
-  const [filters, setFilters] = useState<Filters>({
-    type: [],
-    services: [],
-    events: "all",
-    distance: "all",
-    rating: 0,
-  });
+  // Document upload state (not stored in database)
+  const [uploadedDocument, setUploadedDocument] = useState<{ data: string; name: string; type: string } | null>(null);
 
-  // File input refs
-  const coverImageInputRef = useRef<HTMLInputElement>(null);
-  const additionalImagesInputRef = useRef<HTMLInputElement>(null);
+  // Fetch destinations from API with filters
+  useEffect(() => {
+    if (currentStep > maxStepReached) {
+      setMaxStepReached(currentStep);
+    }
+  }, [currentStep, maxStepReached]);
 
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+
+    const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+    // Build filters using query builder format
+    const apiFilters: Record<string, any> = {};
+
+    if (selectedCategory !== "all") {
+      apiFilters.category = { operator: "eq", value: selectedCategory };
+    }
+
+    if (hasTripsOnly) {
+      apiFilters.trip_ids = { operator: "eq", value: "has_trips" };
+    }
+
+    if (selectedMonth && selectedMonth !== "next-30") {
+      const monthNum = selectedMonth.padStart(2, "0");
+      const startDay = "01";
+      const endDay =
+        monthNum === "02" ? "28" : ["04", "06", "09", "11"].includes(monthNum) ? "30" : "31";
+      apiFilters.best_periods = { operator: "eq", value: `${monthNum}-${startDay}:${monthNum}-${endDay}` };
+    } else if (selectedMonth === "next-30") {
+      apiFilters.best_periods = { operator: "eq", value: "03-01:04-30" };
+    }
+
+    // Build query params
+    const params = new URLSearchParams();
+    if (searchQuery) {
+      params.append("search", searchQuery);
+    }
+    if (Object.keys(apiFilters).length > 0) {
+      params.append("filters", JSON.stringify(apiFilters));
+    }
+
+    const endpoint = `${API_BASE_URL}/destinations${params.toString() ? "?" + params.toString() : ""}`;
+
+    fetch(endpoint)
+      .then((res) => {
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        return res.json();
+      })
+      .then((response) => {
+        const fetchedDestinations = response.data || response || [];
+
+        // Transform database destinations to UI format
+        const transformed = fetchedDestinations.map((dbDest: any) => {
+          const point = parseDestinationCoordinates(dbDest);
+
+          if (!point) {
+            console.warn("Destination is missing valid coordinates:", dbDest?.id, dbDest?.location);
+          }
+
+          return {
+            id: dbDest.id,
+            name: dbDest.name,
+            type: dbDest.category,
+            region: dbDest.region,
+            image:
+              dbDest.images?.[0] ||
+              "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop",
+            rating: 4.5,
+            reviews: Math.floor(Math.random() * 200) + 10,
+            peopleVisiting: Math.floor(Math.random() * 1000) + 50,
+            tripsAvailable: dbDest.trip_ids?.length || 0,
+            category: dbDest.category,
+            description: dbDest.description || "",
+            isFavorite: false,
+            lat: point?.lat ?? Number.NaN,
+            lng: point?.lng ?? Number.NaN,
+            best_periods: dbDest.best_periods || [],
+          };
+        });
+
+        setDestinations(transformed);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch destinations from API:", err);
+        setError("Using local data");
+        setDestinations(destinationsList);
+        setLoading(false);
+      });
+  }, [searchQuery, selectedCategory, selectedMonth, hasTripsOnly]);
+
+  // Utility functions
   const updateTripData = (field: string, value: any) => {
-    setTripData(prev => ({ ...prev, [field]: value }));
+    setTripData((prev) => ({ ...prev, [field]: value }));
   };
 
   const toggleArrayItem = (field: keyof TripData, item: string) => {
     const currentArray = tripData[field] as string[];
     if (currentArray.includes(item)) {
-      updateTripData(field, currentArray.filter(i => i !== item));
+      updateTripData(field, currentArray.filter((i) => i !== item));
     } else {
       updateTripData(field, [...currentArray, item]);
     }
+  };
+
+  const addMeetingLocationEntry = (entry: MeetingLocation) => {
+    const location = entry.location.trim();
+    const time = entry.time.trim();
+    const isFirstMeetingPoint = tripData.meetingLocations.length === 0;
+
+    if (!location || (isFirstMeetingPoint && !time)) return false;
+
+    if (tripData.meetingLocations.length >= MAX_MEETING_POINTS) {
+      alert(`You can only add up to ${MAX_MEETING_POINTS} meeting points.`);
+      return false;
+    }
+
+    const isDuplicate = tripData.meetingLocations.some((existing) => {
+      if (entry.placeId && existing.placeId && entry.placeId === existing.placeId) {
+        return true;
+      }
+
+      if (
+        typeof entry.lat === "number" &&
+        typeof entry.lng === "number" &&
+        typeof existing.lat === "number" &&
+        typeof existing.lng === "number"
+      ) {
+        const latDiff = Math.abs(existing.lat - entry.lat);
+        const lngDiff = Math.abs(existing.lng - entry.lng);
+        return latDiff < 0.0001 && lngDiff < 0.0001;
+      }
+
+      return existing.location.toLowerCase() === location.toLowerCase() && existing.time === time;
+    });
+
+    if (isDuplicate) {
+      alert("This meeting point is already in the list.");
+      return false;
+    }
+
+    updateTripData("meetingLocations", [
+      ...tripData.meetingLocations,
+      {
+        location,
+        time,
+        lat: entry.lat,
+        lng: entry.lng,
+        address: entry.address,
+        placeId: entry.placeId,
+      },
+    ]);
+    return true;
+  };
+
+  const addMeetingLocation = () => {
+    const added = addMeetingLocationEntry({ location: newMeetingLocation, time: newMeetingTime });
+    if (added) {
+      setNewMeetingLocation("");
+      setNewMeetingTime("");
+    }
+  };
+
+  const removeMeetingLocation = (index: number) => {
+    updateTripData(
+      "meetingLocations",
+      tripData.meetingLocations.filter((_, i) => i !== index)
+    );
+  };
+
+  const reorderMeetingLocations = (reorderedLocations: MeetingLocation[]) => {
+    updateTripData("meetingLocations", reorderedLocations);
+  };
+
+  const addItinerary = () => {
+    if (newItinerarySummary.trim()) {
+      updateTripData("itinerary", [
+        ...tripData.itinerary,
+        { summary: newItinerarySummary.trim(), details: newItineraryDetails.trim() },
+      ]);
+      setNewItinerarySummary("");
+      setNewItineraryDetails("");
+    }
+  };
+
+  const removeItinerary = (index: number) => {
+    updateTripData(
+      "itinerary",
+      tripData.itinerary.filter((_, i) => i !== index)
+    );
+  };
+
+  const updateItinerary = (index: number, newSummary: string, newDetails: string) => {
+    const updated = [...tripData.itinerary];
+    updated[index] = { summary: newSummary.trim(), details: newDetails.trim() };
+    updateTripData("itinerary", updated);
+  };
+
+  const toggleItineraryExpanded = (index: number) => {
+    const newExpanded = new Set(expandedItinerary);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedItinerary(newExpanded);
   };
 
   const addCustomActivity = () => {
@@ -101,37 +360,22 @@ export default function CreateTrip() {
   };
 
   const removeCustomActivity = (activity: string) => {
-    updateTripData("customActivities", tripData.customActivities.filter(a => a !== activity));
-  };
-
-  const addMeetingLocation = () => {
-    if (newMeetingLocation.trim() && newMeetingTime.trim()) {
-      updateTripData("meetingLocations", [
-        ...tripData.meetingLocations,
-        { location: newMeetingLocation.trim(), time: newMeetingTime.trim() }
-      ]);
-      setNewMeetingLocation("");
-      setNewMeetingTime("");
-    }
-  };
-
-  const removeMeetingLocation = (index: number) => {
-    updateTripData("meetingLocations", tripData.meetingLocations.filter((_, i) => i !== index));
+    updateTripData(
+      "customActivities",
+      tripData.customActivities.filter((a) => a !== activity)
+    );
   };
 
   const handleDateSelect = (date: string, isStart: boolean) => {
     if (isStart) {
       updateTripData("startDate", date);
-      // Clear end date if starting a new selection or if it's before the new start date
       if (tripData.endDate && tripData.endDate < date) {
         updateTripData("endDate", "");
       }
     } else {
-      // If date is empty, clear the end date
       if (date === "") {
         updateTripData("endDate", "");
       } else if (tripData.startDate && date >= tripData.startDate) {
-        // Only set end date if it's after start date
         updateTripData("endDate", date);
       }
     }
@@ -139,20 +383,20 @@ export default function CreateTrip() {
 
   const calculateDuration = () => {
     if (!tripData.startDate || !tripData.endDate) return null;
-    
+
     const start = new Date(tripData.startDate);
     const end = new Date(tripData.endDate);
     const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end days
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     const nights = diffDays - 1;
-    
+
     return { days: diffDays, nights };
   };
 
   const duration = calculateDuration();
 
   const nextStep = () => {
-    if (currentStep < STEPS.length) {
+    if (currentStep < steps.length) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -163,942 +407,590 @@ export default function CreateTrip() {
     }
   };
 
-  // Filter destinations
-  let filteredDestinations = destinationsList.filter(dest => {
-    // Search filter
-    const matchesSearch = dest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      dest.region.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // Category filter
-    let matchesCategory = false;
-    if (selectedCategory === "all") {
-      matchesCategory = true;
-    } else if (selectedCategory === "favorites") {
-      matchesCategory = dest.isFavorite;
-    } else {
-      matchesCategory = dest.category === selectedCategory;
-    }
-    
-    return matchesSearch && matchesCategory;
-  });
-
-  // Pagination
-  const totalPages = Math.ceil(filteredDestinations.length / ITEMS_PER_PAGE);
-  const paginatedDestinations = filteredDestinations.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
-  // Get all selected activities
-  const allActivities = [...tripData.activities, ...tripData.customActivities];
-
-  // Handle cover image upload
-  const handleCoverImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type (images only)
-    const allowedTypes = ['image/png', 'image/jpeg'];
+  const handleCoverImageChange = (file: File) => {
+    const allowedTypes = ["image/png", "image/jpeg"];
     if (!allowedTypes.includes(file.type)) {
-      alert('Cover image must be PNG or JPG');
+      alert("Cover image must be PNG or JPG");
       return;
     }
 
-    // Validate file size (10MB)
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert('Cover image must be less than 10MB');
+      alert("Cover image must be less than 10MB");
       return;
     }
 
-    // Convert to base64
     const reader = new FileReader();
     reader.onload = (event) => {
       const result = event.target?.result as string;
-      updateTripData('coverImage', result);
+      updateTripData("coverImage", result);
     };
     reader.readAsDataURL(file);
   };
 
-  // Handle additional media upload
-  const handleAdditionalImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    const allowedTypes = ['image/png', 'image/jpeg', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+  const handleAdditionalImagesChange = (files: File[]) => {
+    const allowedTypes = [
+      "image/png",
+      "image/jpeg",
+    ];
     const maxSize = 10 * 1024 * 1024;
-    const maxFiles = 6;
+    const maxFiles = 5;
 
-    // Check total file count
     if (tripData.additionalImages.length + files.length > maxFiles) {
-      alert(`Maximum ${maxFiles} files allowed. You already have ${tripData.additionalImages.length} files.`);
+      alert(
+        `Maximum ${maxFiles} images allowed. You already have ${tripData.additionalImages.length} images.`
+      );
       return;
     }
 
     files.forEach((file) => {
-      // Validate file type
       if (!allowedTypes.includes(file.type)) {
-        alert(`File ${file.name} must be PNG, JPG, PDF, or DOCX`);
+        alert(`File ${file.name} must be PNG or JPG`);
         return;
       }
 
-      // Validate file size
       if (file.size > maxSize) {
         alert(`File ${file.name} exceeds 10MB limit`);
         return;
       }
 
-      // Convert to base64
       const reader = new FileReader();
       reader.onload = (event) => {
         const result = event.target?.result as string;
-        setTripData(prev => ({
+        setTripData((prev) => ({
           ...prev,
-          additionalImages: [...prev.additionalImages, { data: result, name: file.name, type: file.type }]
+          additionalImages: [
+            ...prev.additionalImages,
+            { data: result, name: file.name, type: file.type },
+          ],
         }));
       };
       reader.readAsDataURL(file);
     });
   };
 
-  // Validation function
+  const handleDocumentChange = (files: File[]) => {
+    const allowedTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+    const maxSize = 10 * 1024 * 1024;
+
+    if (files.length === 0) return;
+
+    const file = files[0];
+
+    if (!allowedTypes.includes(file.type)) {
+      alert(`File must be PDF or DOCX`);
+      return;
+    }
+
+    if (file.size > maxSize) {
+      alert(`File exceeds 10MB limit`);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      setUploadedDocument({ data: result, name: file.name, type: file.type });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveDocument = () => {
+    setUploadedDocument(null);
+  };
+
+  const buildStopsPayload = () => {
+    console.log("buildStopsPayload called");
+    console.log("tripData.meetingLocations:", tripData.meetingLocations);
+    console.log("selectedDestinationPoints:", selectedDestinationPoints);
+    
+    const meetingStops = tripData.meetingLocations.map((meeting, index) => {
+      console.log(`Processing meeting ${index}:`, {
+        location: meeting.location,
+        lat: meeting.lat,
+        lng: meeting.lng,
+        isFiniteLat: Number.isFinite(meeting.lat),
+        isFiniteLng: Number.isFinite(meeting.lng),
+      });
+
+      if (!Number.isFinite(meeting.lat) || !Number.isFinite(meeting.lng)) {
+        throw new Error(`Meeting stop ${index + 1} is missing map coordinates.`);
+      }
+
+      const stop = {
+        stop_order: index,
+        stop_type: "meeting" as const,
+        destination_id: null,
+        location: {
+          type: "Point" as const,
+          coordinates: [meeting.lng as number, meeting.lat as number],
+        },
+        label: meeting.location,
+      };
+      
+      console.log(`Built meeting stop ${index}:`, stop);
+      return stop;
+    });
+
+    const destinationStops = selectedDestinationPoints
+      .filter((destination) => {
+        const hasCoords = Number.isFinite(destination.lat) && Number.isFinite(destination.lng);
+        if (!hasCoords) {
+          console.warn(`Destination ${destination.name} missing valid coordinates:`, {
+            id: destination.id,
+            name: destination.name,
+            lat: destination.lat,
+            lng: destination.lng,
+            isFiniteLat: Number.isFinite(destination.lat),
+            isFiniteLng: Number.isFinite(destination.lng),
+          });
+        }
+        return hasCoords;
+      })
+      .map((destination, index) => {
+        const stop = {
+          stop_order: meetingStops.length + index,
+          stop_type: "destination" as const,
+          destination_id: destination.id,
+          location: {
+            type: "Point" as const,
+            coordinates: [destination.lng, destination.lat],
+          },
+          label: destination.name,
+        };
+        console.log(`Built destination stop ${index}:`, stop);
+        return stop;
+      });
+
+    console.log("Meeting stops:", meetingStops);
+    console.log("Destination stops:", destinationStops);
+    const all = [...meetingStops, ...destinationStops];
+    console.log("All stops combined:", all);
+    return all;
+  };
+
+  const submitTrip = async (status: "draft" | "published") => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+
+      if (!accessToken) {
+        alert("You need to be logged in to create a trip.");
+        return;
+      }
+
+      let stops;
+      try {
+        stops = buildStopsPayload();
+      } catch (error) {
+        console.error("ERROR building stops payload:", error);
+        throw error;
+      }
+      const allActivities = [...tripData.activities, ...tripData.customActivities];
+      
+      // Validate stops before sending
+      console.log("Raw stops array:", stops);
+      console.log("Stops array length:", stops.length);
+      stops.forEach((stop, idx) => {
+        console.log(`Stop [${idx}]:`, {
+          stop_order: stop.stop_order,
+          stop_type: stop.stop_type,
+          destination_id: stop.destination_id,
+          location_type: stop.location?.type,
+          location_coords: stop.location?.coordinates,
+          label: stop.label,
+          keys: Object.keys(stop),
+        });
+      });
+      
+      // Parse itinerary: separate summary from description using first newline
+      const itinerary = tripData.itinerary.map((item) => {
+        const cleanedSummary = item.summary.trim().replace(/\\/g, "\\\\"); // Escape backslashes
+        const cleanedDetails = item.details?.trim() || "";
+        return cleanedDetails ? `${cleanedSummary}\n${cleanedDetails}` : cleanedSummary;
+      });
+
+      // Calculate not_included: preselected items NOT in included + custom excluded items
+      const premadeNotIncluded = includedOptions.filter((item) => !tripData.included.includes(item));
+      const allNotIncluded = [...premadeNotIncluded, ...tripData.excluded];
+
+      const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+      const payload = {
+        title: tripData.title.trim().replace(/\\/g, "\\\\"),
+        description: tripData.description.trim() ? tripData.description.trim().replace(/\\/g, "\\\\") : null,
+        category: tripData.category.toLowerCase(),
+        difficulty: tripData.difficulty.toLowerCase(),
+        start_date: tripData.startDate,
+        end_date: tripData.endDate,
+        itinerary,
+        what_to_bring: tripData.whatToBring,
+        min_participants: tripData.minParticipants,
+        max_participants: tripData.maxParticipants,
+        price: tripData.pricePerPerson,
+        status,
+        activities: allActivities,
+        included: tripData.included,
+        not_included: allNotIncluded,
+        returns_to_start: false,
+        stops,
+      };
+
+      console.log("Trip payload:", payload);
+      console.log("Payload stops specifically:", payload.stops);
+      console.log("JSON stringified payload:", JSON.stringify(payload, null, 2));
+
+      const response = await fetch(`${API_BASE_URL}/trips`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
+        console.error("Backend error:", errorData);
+        throw new Error(JSON.stringify(errorData));
+      }
+
+      const createdTrip = await response.json();
+      console.log("Trip saved:", createdTrip);
+      alert(status === "published" ? "Trip published successfully!" : "Trip saved as draft successfully!");
+    } catch (error) {
+      console.error("Failed to submit trip:", error);
+      alert(error instanceof Error ? error.message : "Failed to submit trip");
+    }
+  };
+
   const validateAndPublish = () => {
-    // Step 1: Destinations
     if (tripData.destinations.length === 0) {
       alert("Please select at least one destination");
       setCurrentStep(1);
       return;
     }
 
-    // Step 2: Trip Basics
     if (!tripData.title || !tripData.description || !tripData.category || !tripData.difficulty) {
       alert("Please fill in all required fields: Title, Description, Category, and Difficulty");
       setCurrentStep(2);
       return;
     }
 
-    // Step 3: Schedule
     if (!tripData.startDate || !tripData.endDate) {
       alert("Please select both start and end dates");
       setCurrentStep(3);
       return;
     }
 
-    // Step 4: Activities
+    const allActivities = [...tripData.activities, ...tripData.customActivities];
     if (allActivities.length === 0) {
       alert("Please select at least one activity");
       setCurrentStep(4);
       return;
     }
 
-    // Step 6: Participants & Pricing
     if (tripData.pricePerPerson <= 0) {
       alert("Please set a price per person");
       setCurrentStep(6);
       return;
     }
 
-    // Step 7: Media
     if (!tripData.coverImage) {
       alert("Please upload a cover image");
       setCurrentStep(7);
       return;
     }
 
-    // All validations passed
-    alert("Trip published successfully!");
-    console.log("Publishing trip:", tripData);
+    void submitTrip("published");
   };
 
+  const saveDraft = () => {
+    if (!tripData.title || !tripData.category || !tripData.difficulty || !tripData.startDate || !tripData.endDate) {
+      alert("Draft needs: title, category, difficulty, start date and end date.");
+      return;
+    }
+
+    void submitTrip("draft");
+  };
+
+  // Helper functions
+  const matchesPopularityLevel = (level: string | null, peopleVisiting: number): boolean => {
+    if (!level) return true;
+
+    switch (level) {
+      case "quiet":
+        return peopleVisiting < 50;
+      case "moderate":
+        return peopleVisiting >= 50 && peopleVisiting < 200;
+      case "popular":
+        return peopleVisiting >= 200 && peopleVisiting < 500;
+      case "very-popular":
+        return peopleVisiting >= 500;
+      default:
+        return true;
+    }
+  };
+
+  const getCategoryIcon = (category: string) => {
+    return categoryIconMap[category.toLowerCase()] || Compass;
+  };
+
+  const centerLat = 36.7538;
+  const centerLng = 3.0588;
+
+  const calculateDistance = (lat: number, lng: number) => {
+    const R = 6371;
+    const dLat = ((lat - centerLat) * Math.PI) / 180;
+    const dLng = ((lng - centerLng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((centerLat * Math.PI) / 180) *
+        Math.cos((lat * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // Filter destinations based on all filters
+  let filteredDestinations = destinations.filter((dest) => {
+    const matchesRating = dest.rating >= minRating;
+    const matchesPopularity = matchesPopularityLevel(selectedPopularity, dest.peopleVisiting);
+
+    let matchesDistance = true;
+    if (dest.lat !== 0 && dest.lng !== 0) {
+      const distance = calculateDistance(dest.lat, dest.lng);
+      matchesDistance = distance <= maxDistance;
+    }
+
+    const matchesFavorites = !showFavoritesOnly || favorites[dest.id.toString()];
+    const matchesCategory = selectedCategory === "all" || dest.category === selectedCategory;
+    const matchesTrips = !hasTripsOnly || dest.tripsAvailable > 0;
+    const matchesSearch =
+      !searchQuery ||
+      dest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      dest.region.toLowerCase().includes(searchQuery.toLowerCase());
+
+    return (
+      matchesRating &&
+      matchesPopularity &&
+      matchesDistance &&
+      matchesFavorites &&
+      matchesCategory &&
+      matchesTrips &&
+      matchesSearch
+    );
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredDestinations.length / itemsPerPage);
+  const paginatedDestinations = filteredDestinations.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Get all selected activities
+  const allActivities = [...tripData.activities, ...tripData.customActivities];
+  const selectedDestinationPoints = useMemo(
+    () => {
+      const byName = new globalThis.Map<string, Destination>();
+      [...destinationsList, ...destinations].forEach((destination) => {
+        byName.set(destination.name, destination);
+      });
+      return tripData.destinations
+        .map((name) => byName.get(name))
+        .filter((destination): destination is Destination => Boolean(destination));
+    },
+    [destinations, tripData.destinations]
+  );
+
   return (
-      <>
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="font-['Merriweather'] font-bold text-3xl md:text-4xl lg:text-5xl text-[#0d2805] mb-2">
-            Create New Trip
-          </h1>
-          <p className="text-lg text-[#757575]">
-            Follow the steps below to create an amazing trip experience
-          </p>
+    <>
+      {/* Page Header */}
+      <div className="mb-8">
+        <h1 className="font-['Merriweather'] font-bold text-3xl md:text-4xl lg:text-5xl text-[#0d2805] mb-2">
+          Create New Trip
+        </h1>
+        <p className="text-lg text-[#757575]">
+          Follow the steps below to create an amazing trip experience
+        </p>
+      </div>
+
+      {/* Progress Indicator */}
+      <ProgressIndicator currentStep={currentStep} maxStepReached={maxStepReached} onStepClick={setCurrentStep} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Form Area */}
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 min-h-[600px]">
+            {/* Step 1: Select Destinations */}
+            {currentStep === 1 && (
+              <Step1SelectDestinations
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                currentPage={currentPage}
+                setCurrentPage={setCurrentPage}
+                selectedCategory={selectedCategory}
+                setSelectedCategory={setSelectedCategory}
+                minRating={minRating}
+                setMinRating={setMinRating}
+                selectedPopularity={selectedPopularity}
+                setSelectedPopularity={setSelectedPopularity}
+                hasTripsOnly={hasTripsOnly}
+                setHasTripsOnly={setHasTripsOnly}
+                maxDistance={maxDistance}
+                setMaxDistance={setMaxDistance}
+                selectedMonth={selectedMonth}
+                setSelectedMonth={setSelectedMonth}
+                showFavoritesOnly={showFavoritesOnly}
+                setShowFavoritesOnly={setShowFavoritesOnly}
+                loading={loading}
+                error={error}
+                showFilters={showFilters}
+                setShowFilters={setShowFilters}
+                tripData={tripData}
+                toggleArrayItem={toggleArrayItem as (field: string, item: string) => void}
+                setSelectedDestination={setSelectedDestination}
+                paginatedDestinations={paginatedDestinations}
+                totalPages={totalPages}
+                isInitialized={isInitialized}
+                browseDestinationCategories={browseDestinationCategories}
+                getCategoryIcon={getCategoryIcon}
+              />
+            )}
+
+            {/* Step 2: Trip Basics */}
+            {currentStep === 2 && (
+              <Step2TripBasics
+                tripData={tripData}
+                updateTripData={updateTripData}
+              />
+            )}
+
+            {/* Step 3: Schedule */}
+            {currentStep === 3 && (
+              <Step3ScheduleMapLibreAlt
+                tripData={tripData}
+                selectedDestinations={selectedDestinationPoints}
+                newMeetingLocation={newMeetingLocation}
+                onMeetingLocationChange={setNewMeetingLocation}
+                newMeetingTime={newMeetingTime}
+                onMeetingTimeChange={setNewMeetingTime}
+                newItinerarySummary={newItinerarySummary}
+                onItinerarySummaryChange={setNewItinerarySummary}
+                newItineraryDetails={newItineraryDetails}
+                onItineraryDetailsChange={setNewItineraryDetails}
+                expandedItinerary={expandedItinerary}
+                onToggleItineraryExpanded={toggleItineraryExpanded}
+                onDateSelect={handleDateSelect}
+                duration={duration}
+                onAddMeetingLocation={addMeetingLocation}
+                onAddMeetingLocationEntry={addMeetingLocationEntry}
+                onRemoveMeetingLocation={removeMeetingLocation}
+                onReorderMeetingLocations={reorderMeetingLocations}
+                onAddItinerary={addItinerary}
+                onRemoveItinerary={removeItinerary}
+                onUpdateItinerary={updateItinerary}
+                maxMeetingPoints={MAX_MEETING_POINTS}
+              />
+            )}
+
+            {/* Step 4: Activities */}
+            {currentStep === 4 && (
+              <Step4Activities
+                tripData={tripData}
+                onToggleActivity={(activity) => toggleArrayItem("activities", activity)}
+                customActivity={customActivity}
+                onCustomActivityChange={setCustomActivity}
+                onAddCustomActivity={addCustomActivity}
+                onRemoveCustomActivity={removeCustomActivity}
+              />
+            )}
+
+            {/* Step 5: Logistics */}
+            {currentStep === 5 && (
+              <Step5Logistics
+                tripData={tripData}
+                onToggleIncluded={(item) => toggleArrayItem("included", item)}
+                onAddWhatToBring={(item) => updateTripData("whatToBring", [...tripData.whatToBring, item])}
+                onRemoveWhatToBring={(item) => updateTripData("whatToBring", tripData.whatToBring.filter((i) => i !== item))}
+                onAddCustomIncluded={(item) => updateTripData("included", [...tripData.included, item])}
+                onRemoveCustomIncluded={(item) => updateTripData("included", tripData.included.filter((i) => i !== item))}
+                onAddExcluded={(item) => updateTripData("excluded", [...tripData.excluded, item])}
+                onRemoveExcluded={(item) => updateTripData("excluded", tripData.excluded.filter((i) => i !== item))}
+              />
+            )}
+
+            {/* Step 6: Participants and Pricing */}
+            {currentStep === 6 && (
+              <Step6ParticipantsAndPricing
+                tripData={tripData}
+                onMinParticipantsChange={(val) => updateTripData("minParticipants", val)}
+                onMaxParticipantsChange={(val) => updateTripData("maxParticipants", val)}
+                onPriceChange={(val) => updateTripData("pricePerPerson", val)}
+              />
+            )}
+
+            {/* Step 7: Media */}
+            {currentStep === 7 && (
+              <Step7Media
+                tripData={tripData}
+                onCoverImageChange={handleCoverImageChange}
+                onRemoveCoverImage={() => updateTripData("coverImage", "")}
+                onAdditionalImagesChange={handleAdditionalImagesChange}
+                onRemoveAdditionalImage={(index) => {
+                  const updated = tripData.additionalImages.filter((_, i) => i !== index);
+                  updateTripData("additionalImages", updated);
+                }}
+                uploadedDocument={uploadedDocument}
+                onDocumentChange={handleDocumentChange}
+                onRemoveDocument={handleRemoveDocument}
+              />
+            )}
+
+            {/* Step 8: Review and Publish */}
+            {currentStep === 8 && (
+              <Step8ReviewAndPublish
+                tripData={tripData}
+                duration={duration}
+                allActivities={allActivities}
+                onPublish={validateAndPublish}
+                onSaveDraft={saveDraft}
+                onEditStep={setCurrentStep}
+              />
+            )}
+
+            {/* Navigation Buttons */}
+            <FormNavigation
+              currentStep={currentStep}
+              totalSteps={steps.length}
+              onPrevious={prevStep}
+              onNext={nextStep}
+            />
+          </div>
         </div>
 
-        {/* Progress Indicator */}
-        <ProgressIndicator currentStep={currentStep} />
+        {/* Preview Panel */}
+        <TripPreviewPanel
+          tripData={tripData}
+          duration={duration}
+          allActivities={allActivities}
+        />
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Form Area */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 min-h-[600px]">
-              {/* Step 1: Destination */}
-              {currentStep === 1 && (
-                <div className="space-y-6">
-                  <StepHeader
-                    title="Select Destinations"
-                    description="Choose one or more destinations for your trip"
-                  />
-
-                  {/* Search and Filters */}
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-text-[#ff5900]" />
-                      <input
-                        type="text"
-                        placeholder="Search destinations..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 border border-[#e2e8f0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00b70d]"
-                      />
-                    </div>
-                    <button
-                      onClick={() => setShowFilters(!showFilters)}
-                      className={`px-4 py-3 rounded-xl border-2 transition-all flex items-center gap-2 ${
-                        showFilters
-                          ? "border-[#00b70d] bg-[#00b70d]/10 text-[#00b70d]"
-                          : "border-[#e2e8f0] text-text-[#ff5900] hover:border-[#00b70d]/50"
-                      }`}
-                    >
-                      <SlidersHorizontal className="size-5" />
-                      <span className="hidden sm:inline">Filters</span>
-                    </button>
-                  </div>
-
-                  {/* Filters */}
-                  {showFilters && (
-        <FiltersModal
-          filters={filters}
-          setFilters={setFilters}
-          onClose={() => setShowFilters(false)}
+      {/* Destination Modal */}
+      {selectedDestination && (
+        <DestinationModal
+          destination={selectedDestination}
+          isSaved={tripData.destinations.includes(selectedDestination.name)}
+          onToggleSave={() => toggleArrayItem("destinations", selectedDestination.name)}
+          onClose={() => setSelectedDestination(null)}
         />
       )}
-
-                  {/* Category Filters */}
-                  <div className="flex flex-wrap gap-2">
-                    {destinationCategories.map((category) => (
-                      <button
-                        key={category.id}
-                        onClick={() => setSelectedCategory(category.id)}
-                        className={`px-4 py-2 rounded-full font-medium transition-all flex items-center gap-1 ${
-                          selectedCategory === category.id
-                            ? "bg-[#00b70d] text-white"
-                            : "bg-bg-[#ff5900] text-text-[#00b70d] hover:bg-[#e2e8f0]"
-                        }`}
-                      >
-                        <category.icon className="size-4" />
-                        {category.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Selected Destinations */}
-                  {tripData.destinations.length > 0 && (
-                    <div className="space-y-2">
-                      <h3 className="font-semibold text-text-[#00b70d]">Selected Destinations</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {tripData.destinations.map((dest) => (
-                          <SelectedTag
-                            key={dest}
-                            label={dest}
-                            onRemove={() => toggleArrayItem("destinations", dest)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Destination List */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {paginatedDestinations.map((dest) => (
-                      <DestinationCard
-                        key={dest.id}
-                        destination={dest}
-                        isSelected={tripData.destinations.includes(dest.name)}
-                        onSelect={() => toggleArrayItem("destinations", dest.name)}
-                        onDetails={() => setSelectedDestination(dest)}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Pagination */}
-                  <PaginationControls
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={setCurrentPage}
-                  />
-                </div>
-              )}
-
-              {/* Step 2: Trip Basics */}
-              {currentStep === 2 && (
-                <div className="space-y-6">
-                  <StepHeader
-                    title="Trip Basics"
-                    description="Provide essential information about your trip"
-                  />
-
-                  <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-2">
-                      Trip Title <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g., Sahara Desert Adventure"
-                      value={tripData.title}
-                      onChange={(e) => updateTripData("title", e.target.value)}
-                      className="w-full px-4 py-3 border border-[#e2e8f0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00b70d]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-2">
-                      Description <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      placeholder="Describe your trip experience..."
-                      value={tripData.description}
-                      onChange={(e) => updateTripData("description", e.target.value)}
-                      rows={5}
-                      className="w-full px-4 py-3 border border-[#e2e8f0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00b70d] resize-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-2">
-                      Category <span className="text-red-500">*</span>
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {tripCategories.map((cat) => (
-                        <button
-                          key={cat}
-                          onClick={() => updateTripData("category", cat)}
-                          className={`px-4 py-3 rounded-xl font-medium transition-all ${
-                            tripData.category === cat
-                              ? "bg-[#00b70d] text-white"
-                              : "bg-bg-[#ff5900] text-text-[#00b70d] hover:bg-[#e2e8f0]"
-                          }`}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-2">
-                      Difficulty Level <span className="text-red-500">*</span>
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {difficulties.map((diff) => (
-                        <button
-                          key={diff}
-                          onClick={() => updateTripData("difficulty", diff)}
-                          className={`px-4 py-3 rounded-xl font-medium transition-all ${
-                            tripData.difficulty === diff
-                              ? "bg-[#00b70d] text-white"
-                              : "bg-bg-[#ff5900] text-text-[#00b70d] hover:bg-[#e2e8f0]"
-                          }`}
-                        >
-                          {diff}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 3: Schedule */}
-              {currentStep === 3 && (
-                <div className="space-y-6">
-                  <StepHeader
-                    title="Schedule"
-                    description="Set the dates and meeting details for your trip"
-                  />
-
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Calendar */}
-                    <div className="lg:col-span-2">
-                      <CalendarPicker
-                        startDate={tripData.startDate}
-                        endDate={tripData.endDate}
-                        onDateSelect={handleDateSelect}
-                      />
-                    </div>
-
-                    {/* Date Summary Cards */}
-                    <div className="space-y-4">
-                      {/* Check-in Date */}
-                      <div className="bg-white border border-[#e2e8f0] rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="size-2 rounded-full bg-[#00b70d]" />
-                          <span className="text-xs font-semibold text-text-[#ff5900] uppercase">Check-in Date</span>
-                        </div>
-                        <p className="font-bold text-lg text-text-[#00b70d]">
-                          {tripData.startDate 
-                            ? new Date(tripData.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                            : "Not set"}
-                        </p>
-                      </div>
-
-                      {/* Duration */}
-                      {duration && (
-                        <div className="bg-white border border-[#e2e8f0] rounded-xl p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="size-2 rounded-full bg-[#ff5900]" />
-                            <span className="text-xs font-semibold text-text-[#ff5900] uppercase">Duration</span>
-                          </div>
-                          <p className="font-bold text-lg text-text-[#00b70d]">
-                            {duration.days} Days, {duration.nights} Nights
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Dates Range */}
-                      {tripData.startDate && tripData.endDate && (
-                        <div className="bg-white border border-[#e2e8f0] rounded-xl p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Calendar className="size-4 text-text-[#ff5900]" />
-                            <span className="text-xs font-semibold text-text-[#ff5900] uppercase">Dates</span>
-                          </div>
-                          <p className="text-sm text-text-[#00b70d]">
-                            {new Date(tripData.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(tripData.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-2">
-                      Meeting Locations <span className="text-red-500">*</span>
-                    </label>
-                    
-                    {/* Meeting Location List */}
-                    {tripData.meetingLocations.length > 0 && (
-                      <div className="mb-3 space-y-2">
-                        {tripData.meetingLocations.map((meeting, index) => (
-                          <MeetingLocationItem
-                            key={index}
-                            location={meeting.location}
-                            time={meeting.time}
-                            onRemove={() => removeMeetingLocation(index)}
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Add Meeting Location */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        placeholder="e.g., Central Station, Algiers"
-                        value={newMeetingLocation}
-                        onChange={(e) => setNewMeetingLocation(e.target.value)}
-                        className="sm:col-span-2 px-4 py-3 border border-[#e2e8f0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00b70d]"
-                      />
-                      <input
-                        type="text"
-                        placeholder="e.g., 1:00 PM"
-                        value={newMeetingTime}
-                        onChange={(e) => setNewMeetingTime(e.target.value)}
-                        className="px-4 py-3 border border-[#e2e8f0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00b70d]"
-                      />
-                    </div>
-                    <button
-                      onClick={addMeetingLocation}
-                      className="mt-2 px-4 py-2 bg-[#00b70d] text-white rounded-lg font-medium hover:bg-[#00b70d]-hover transition-colors flex items-center gap-2"
-                    >
-                      <Plus className="size-4" />
-                      Add Meeting Location
-                    </button>
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-2">
-                      Itinerary (Optional)
-                    </label>
-                    <textarea
-                      placeholder="Day 1: Arrival and orientation&#10;Day 2: Desert exploration&#10;Day 3: Return journey"
-                      value={tripData.itinerary}
-                      onChange={(e) => updateTripData("itinerary", e.target.value)}
-                      rows={8}
-                      className="w-full px-4 py-3 border border-[#e2e8f0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00b70d] resize-none font-mono text-sm"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Step 4: Activities */}
-              {currentStep === 4 && (
-                <div className="space-y-6">
-                  <StepHeader
-                    title="Activities"
-                    description="Select activities that will be available during the trip"
-                  />
-
-                  <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-3">
-                      Available Activities
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {activityOptions.map((activity) => (
-                        <button
-                          key={activity}
-                          onClick={() => toggleArrayItem("activities", activity)}
-                          className={`px-4 py-3 rounded-xl font-medium transition-all text-left ${
-                            tripData.activities.includes(activity)
-                              ? "bg-[#00b70d] text-white"
-                              : "bg-bg-[#ff5900] text-text-[#00b70d] hover:bg-[#e2e8f0]"
-                          }`}
-                        >
-                          {activity}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-2">
-                      Custom Activities
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Add a custom activity..."
-                        value={customActivity}
-                        onChange={(e) => setCustomActivity(e.target.value)}
-                        onKeyPress={(e) => e.key === "Enter" && addCustomActivity()}
-                        className="flex-1 px-4 py-3 border border-[#e2e8f0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00b70d]"
-                      />
-                      <button
-                        onClick={addCustomActivity}
-                        className="px-6 py-3 bg-[#00b70d] text-white rounded-xl font-medium hover:bg-[#00b70d]-hover transition-colors"
-                      >
-                        <Plus className="size-5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {tripData.customActivities.length > 0 && (
-                    <div className="space-y-2">
-                      <h3 className="font-semibold text-text-[#00b70d]">Your Custom Activities</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {tripData.customActivities.map((activity, index) => (
-                          <div
-                            key={index}
-                            className="flex items-center gap-2 bg-[#ff5900]/10 text-[#ff5900] px-3 py-1.5 rounded-full"
-                          >
-                            <span className="text-sm font-medium">{activity}</span>
-                            <button
-                              onClick={() => removeCustomActivity(activity)}
-                              className="hover:bg-[#ff5900]/20 rounded-full p-0.5"
-                            >
-                              <X className="size-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Step 5: Logistics */}
-              {currentStep === 5 && (
-                <div className="space-y-6">
-                  <StepHeader
-                    title="Logistics"
-                    description="Specify what's included and what participants should bring"
-                  />
-
-                  <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-3">
-                      What's Included
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {includedOptions.map((item) => {
-                        const icons: Record<string, any> = {
-                          Accommodation: Hotel,
-                          Transport: Car,
-                          Meals: Utensils,
-                          Guide: Users,
-                          Equipment: Backpack,
-                          Insurance: Check,
-                        };
-                        const Icon = icons[item];
-                        return (
-                          <button
-                            key={item}
-                            onClick={() => toggleArrayItem("included", item)}
-                            className={`px-4 py-3 rounded-xl font-medium transition-all flex items-center gap-2 ${
-                              tripData.included.includes(item)
-                                ? "bg-[#00b70d] text-white"
-                                : "bg-bg-[#ff5900] text-text-[#00b70d] hover:bg-[#e2e8f0]"
-                            }`}
-                          >
-                            <Icon className="size-5" />
-                            {item}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-2">
-                      What Participants Should Bring
-                    </label>
-                    <textarea
-                      placeholder="List items participants should bring:&#10;- Comfortable hiking shoes&#10;- Sunscreen and hat&#10;- Personal medication&#10;- Reusable water bottle"
-                      value={tripData.whatToBring}
-                      onChange={(e) => updateTripData("whatToBring", e.target.value)}
-                      rows={8}
-                      className="w-full px-4 py-3 border border-[#e2e8f0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00b70d] resize-none"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Step 6: Participants and Pricing */}
-              {currentStep === 6 && (
-                <div className="space-y-6">
-                  <StepHeader
-                    title="Participants & Pricing"
-                    description="Set participant limits and pricing for your trip"
-                  />
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <ParticipantControl
-                      label="Minimum Participants"
-                      value={tripData.minParticipants}
-                      onIncrement={() =>
-                        updateTripData("minParticipants", tripData.minParticipants + 1)
-                      }
-                      onDecrement={() =>
-                        updateTripData("minParticipants", Math.max(1, tripData.minParticipants - 1))
-                      }
-                      onChange={(value) =>
-                        updateTripData("minParticipants", Math.max(1, value))
-                      }
-                    />
-
-                    <ParticipantControl
-                      label="Maximum Participants"
-                      value={tripData.maxParticipants}
-                      onIncrement={() =>
-                        updateTripData("maxParticipants", tripData.maxParticipants + 1)
-                      }
-                      onDecrement={() =>
-                        updateTripData(
-                          "maxParticipants",
-                          Math.max(tripData.minParticipants, tripData.maxParticipants - 1)
-                        )
-                      }
-                      onChange={(value) =>
-                        updateTripData(
-                          "maxParticipants",
-                          Math.max(tripData.minParticipants, value)
-                        )
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-2">
-                      Price Per Person (DZD) <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-text-[#ff5900]" />
-                      <input
-                        type="number"
-                        placeholder="0"
-                        value={tripData.pricePerPerson || ""}
-                        onChange={(e) => updateTripData("pricePerPerson", parseInt(e.target.value) || 0)}
-                        className="w-full pl-12 pr-4 py-3 border border-[#e2e8f0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00b70d] text-lg font-bold"
-                      />
-                    </div>
-                  </div>
-
-                  <PricingSummary
-                    minParticipants={tripData.minParticipants}
-                    maxParticipants={tripData.maxParticipants}
-                    pricePerPerson={tripData.pricePerPerson}
-                  />
-                </div>
-              )}
-
-              {/* Step 7: Media */}
-              {currentStep === 7 && (
-                <div className="space-y-6">
-                  <StepHeader
-                    title="Media"
-                    description="Upload images to showcase your trip"
-                  />
-
-                  <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-2">
-                      Cover Image <span className="text-red-500">*</span>
-                    </label>
-                    <div className="border-2 border-dashed border-[#e2e8f0] rounded-xl p-8 text-center hover:border-[#00b70d] transition-colors cursor-pointer" onClick={() => coverImageInputRef.current?.click()}>
-                      {tripData.coverImage ? (
-                        <div className="relative">
-                          <img
-                            src={tripData.coverImage}
-                            alt="Cover"
-                            className="w-full h-64 object-cover rounded-lg"
-                          />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateTripData("coverImage", "");
-                            }}
-                            className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                          >
-                            <X className="size-5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div>
-                          <Upload className="size-12 text-text-[#ff5900] mx-auto mb-3" />
-                          <p className="font-medium text-text-[#00b70d] mb-1">Click to upload cover image</p>
-                          <p className="text-sm text-text-[#ff5900]">PNG, JPG up to 10MB</p>
-                        </div>
-                      )}
-                    </div>
-                    <input
-                      ref={coverImageInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg"
-                      onChange={handleCoverImageChange}
-                      className="hidden"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-text-[#00b70d] mb-2">
-                      Additional Images (Optional)
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      {tripData.additionalImages.map((fileItem, index) => (
-                        <div key={index} className="relative">
-                          {fileItem.type.startsWith('image/') ? (
-                            <img
-                              src={fileItem.data}
-                              alt={`Additional ${index + 1}`}
-                              className="w-full h-32 object-cover rounded-lg"
-                            />
-                          ) : (
-                            <div className="w-full h-32 bg-bg-[#ff5900] rounded-lg flex flex-col items-center justify-center">
-                              <FileText className="size-8 text-[#00b70d] mb-2" />
-                              <p className="text-xs text-text-[#00b70d] font-medium text-center px-2 line-clamp-2">{fileItem.name}</p>
-                            </div>
-                          )}
-                          <button
-                            onClick={() =>
-                              updateTripData(
-                                "additionalImages",
-                                tripData.additionalImages.filter((_, i) => i !== index)
-                              )
-                            }
-                            className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                          >
-                            <X className="size-4" />
-                          </button>
-                        </div>
-                      ))}
-                      {tripData.additionalImages.length < 6 && (
-                        <div 
-                          className="border-2 border-dashed border-[#e2e8f0] rounded-lg h-32 flex items-center justify-center hover:border-[#00b70d] transition-colors cursor-pointer"
-                          onClick={() => additionalImagesInputRef.current?.click()}
-                        >
-                          <Plus className="size-8 text-text-[#ff5900]" />
-                        </div>
-                      )}
-                    </div>
-                    <input
-                      ref={additionalImagesInputRef}
-                      type="file"
-                      multiple
-                      accept="image/png,image/jpeg,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                      onChange={handleAdditionalImagesChange}
-                      className="hidden"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Step 8: Review and Publish */}
-              {currentStep === 8 && (
-                <div className="space-y-6">
-                  <StepHeader
-                    title="Review & Publish"
-                    description="Review your trip details before publishing"
-                  />
-
-                  {/* Review Sections */}
-                  <div className="space-y-4">
-                    <ReviewSection
-                      title="Destinations"
-                      onEdit={() => setCurrentStep(1)}
-                      content={
-                        <div className="flex flex-wrap gap-2">
-                          {tripData.destinations.map((dest) => (
-                            <span
-                              key={dest}
-                              className="bg-[#00b70d]/10 text-[#00b70d] px-3 py-1 rounded-full text-sm font-medium"
-                            >
-                              {dest}
-                            </span>
-                          ))}
-                        </div>
-                      }
-                    />
-
-                    <ReviewSection
-                      title="Trip Basics"
-                      onEdit={() => setCurrentStep(2)}
-                      content={
-                        <div className="space-y-2 text-sm">
-                          <p><span className="font-semibold">Title:</span> {tripData.title || "Not set"}</p>
-                          <p><span className="font-semibold">Category:</span> {tripData.category || "Not set"}</p>
-                          <p><span className="font-semibold">Difficulty:</span> {tripData.difficulty || "Not set"}</p>
-                          <p><span className="font-semibold">Description:</span> {tripData.description || "Not set"}</p>
-                        </div>
-                      }
-                    />
-
-                    <ReviewSection
-                      title="Schedule"
-                      onEdit={() => setCurrentStep(3)}
-                      content={
-                        <div className="space-y-2 text-sm">
-                          <p><span className="font-semibold">Dates:</span> {tripData.startDate || "Not set"} to {tripData.endDate || "Not set"}</p>
-                          {duration && (
-                            <p><span className="font-semibold">Duration:</span> {duration.days} Days, {duration.nights} Nights</p>
-                          )}
-                          <div>
-                            <span className="font-semibold">Meeting Locations:</span>
-                            {tripData.meetingLocations.length > 0 ? (
-                              <ul className="ml-4 mt-1 space-y-1">
-                                {tripData.meetingLocations.map((meeting, idx) => (
-                                  <li key={idx}>• {meeting.location} - {meeting.time}</li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <span> Not set</span>
-                            )}
-                          </div>
-                          {tripData.itinerary && (
-                            <div>
-                              <p><span className="font-semibold">Itinerary:</span></p>
-                              <p className="ml-4 whitespace-pre-wrap">{tripData.itinerary}</p>
-                            </div>
-                          )}
-                        </div>
-                      }
-                    />
-
-                    <ReviewSection
-                      title="Activities"
-                      onEdit={() => setCurrentStep(4)}
-                      content={
-                        <div className="flex flex-wrap gap-2">
-                          {[...tripData.activities, ...tripData.customActivities].map((activity) => (
-                            <span
-                              key={activity}
-                              className="bg-bg-[#ff5900] text-text-[#00b70d] px-3 py-1 rounded-full text-sm"
-                            >
-                              {activity}
-                            </span>
-                          ))}
-                        </div>
-                      }
-                    />
-
-                    <ReviewSection
-                      title="Logistics"
-                      onEdit={() => setCurrentStep(5)}
-                      content={
-                        <div className="space-y-2">
-                          {tripData.included.length > 0 && (
-                            <div>
-                              <p className="font-semibold text-sm mb-2">What's Included:</p>
-                              <div className="flex flex-wrap gap-2">
-                                {tripData.included.map((item) => (
-                                  <span
-                                    key={item}
-                                    className="bg-[#00b70d]/10 text-[#00b70d] px-3 py-1 rounded-full text-sm font-medium"
-                                  >
-                                    {item}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {tripData.whatToBring && (
-                            <div>
-                              <p className="font-semibold text-sm">What to Bring:</p>
-                              <p className="text-sm ml-4 whitespace-pre-wrap">{tripData.whatToBring}</p>
-                            </div>
-                          )}
-                        </div>
-                      }
-                    />
-
-                    <ReviewSection
-                      title="Participants & Pricing"
-                      onEdit={() => setCurrentStep(6)}
-                      content={
-                        <div className="space-y-2 text-sm">
-                          <p><span className="font-semibold">Capacity:</span> {tripData.minParticipants} - {tripData.maxParticipants} participants</p>
-                          <p><span className="font-semibold">Price:</span> {tripData.pricePerPerson.toLocaleString()} DZD per person</p>
-                        </div>
-                      }
-                    />
-                  </div>
-
-                  {/* Publish Actions */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6 border-t border-[#e2e8f0]">
-                    <button className="flex items-center justify-center gap-2 px-6 py-4 border-2 border-[#e2e8f0] rounded-xl font-medium text-text-[#00b70d] hover:bg-bg-[#ff5900] transition-colors">
-                      <Save className="size-5" />
-                      Save as Draft
-                    </button>
-                    <button 
-                      onClick={validateAndPublish}
-                      className="flex items-center justify-center gap-2 px-6 py-4 bg-[#00b70d] text-white rounded-xl font-medium hover:bg-[#00b70d]-hover transition-colors">
-                      <Check className="size-5" />
-                      Publish Trip
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Navigation Buttons */}
-              <FormNavigation
-                currentStep={currentStep}
-                totalSteps={STEPS.length}
-                onPrevious={prevStep}
-                onNext={nextStep}
-              />
-            </div>
-          </div>
-
-          {/* Preview Panel */}
-          <TripPreviewPanel
-            tripData={tripData}
-            duration={duration}
-            allActivities={allActivities}
-          />
-        </div>
-
-        {/* Destination Modal */}
-        {selectedDestination && (
-          <DestinationModal
-            destination={selectedDestination}
-            isSaved={tripData.destinations.includes(selectedDestination.name)}
-            onToggleSave={() => toggleArrayItem("destinations", selectedDestination.name)}
-            onClose={() => setSelectedDestination(null)}
-          />
-        )}
-      </>
+    </>
   );
 }
 

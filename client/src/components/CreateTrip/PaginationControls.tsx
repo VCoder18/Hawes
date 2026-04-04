@@ -9,6 +9,21 @@ interface PaginationControlsProps {
 export function PaginationControls({ currentPage, totalPages, onPageChange }: PaginationControlsProps) {
   if (totalPages <= 1) return null;
 
+  // Calculate page range to show (max 5 pages)
+  const maxPagesToShow = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+  let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+  
+  // Adjust startPage if endPage is at the limit
+  if (endPage - startPage + 1 < maxPagesToShow) {
+    startPage = Math.max(1, endPage - maxPagesToShow + 1);
+  }
+
+  const pages = Array.from(
+    { length: endPage - startPage + 1 },
+    (_, i) => startPage + i
+  );
+
   return (
     <div className="flex items-center justify-center gap-2">
       <button
@@ -18,7 +33,7 @@ export function PaginationControls({ currentPage, totalPages, onPageChange }: Pa
       >
         <ChevronLeft className="size-5" />
       </button>
-      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+      {pages.map((page) => (
         <button
           key={page}
           onClick={() => onPageChange(page)}

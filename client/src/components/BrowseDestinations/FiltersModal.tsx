@@ -1,31 +1,59 @@
 import { useState } from "react";
-import { X, Star } from "lucide-react";
-import type { Filters } from "@/imports/types";
+import { X } from "lucide-react";
 
 interface FiltersModalProps {
-  filters: Filters;
-  setFilters: (filters: Filters) => void;
   onClose: () => void;
+  onApply: (filters: any) => void;
+  initialFilters?: {
+    rating?: number;
+    popularity?: string | null;
+    maxDistance?: number;
+    month?: string | null;
+  };
 }
 
-export function FiltersModal({ filters, setFilters, onClose }: FiltersModalProps) {
-  const [localFilters, setLocalFilters] = useState(filters);
+const RATINGS = [0, 3, 3.5, 4, 4.5];
+const POPULARITY_LEVELS = [
+  { value: "quiet", label: "Quiet" },
+  { value: "moderate", label: "Moderate" },
+  { value: "popular", label: "Popular" },
+  { value: "very-popular", label: "Very Popular" },
+];
+const MONTHS = [
+  { value: "01", label: "January" },
+  { value: "02", label: "February" },
+  { value: "03", label: "March" },
+  { value: "04", label: "April" },
+  { value: "05", label: "May" },
+  { value: "06", label: "June" },
+  { value: "07", label: "July" },
+  { value: "08", label: "August" },
+  { value: "09", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
+];
+
+export function FiltersModal({ onClose, onApply, initialFilters }: FiltersModalProps) {
+  const [minRating, setMinRating] = useState(initialFilters?.rating ?? 0);
+  const [selectedPopularity, setSelectedPopularity] = useState(initialFilters?.popularity ?? null);
+  const [maxDistance, setMaxDistance] = useState(initialFilters?.maxDistance ?? 100);
+  const [selectedMonth, setSelectedMonth] = useState(initialFilters?.month ?? null);
 
   const handleApply = () => {
-    setFilters(localFilters);
-    onClose();
+    onApply({
+      rating: minRating,
+      popularity: selectedPopularity,
+      maxDistance,
+      month: selectedMonth,
+    });
   };
 
   const handleReset = () => {
-    const resetFilters: Filters = {
-      type: [],
-      services: [],
-      events: "all",
-      distance: "all",
-      rating: 0,
-    };
-    setLocalFilters(resetFilters);
-    setFilters(resetFilters);
+    setMinRating(0);
+    setSelectedPopularity(null);
+    setMaxDistance(100);
+    setSelectedMonth(null);
   };
 
   return (
@@ -41,10 +69,10 @@ export function FiltersModal({ filters, setFilters, onClose }: FiltersModalProps
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
-            <h2 className="font-['Lato'] font-bold text-2xl text-text-[#00b70d]">Filters</h2>
+            <h2 className="font-bold text-2xl text-gray-900">Filters</h2>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-bg-[#ff5900] rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <X className="size-5" />
             </button>
@@ -52,133 +80,105 @@ export function FiltersModal({ filters, setFilters, onClose }: FiltersModalProps
 
           {/* Filter Sections */}
           <div className="space-y-6">
-            {/* Type Filter */}
-            <div>
-              <h3 className="font-semibold text-text-[#00b70d] mb-3">Destination Type</h3>
-              <div className="space-y-2">
-                {["Desert", "Beach", "Mountain", "Historic", "Cultural", "Nature"].map((type) => (
-                  <label key={type} className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={localFilters.type.includes(type)}
-                      onChange={(e) => {
-                        setLocalFilters({
-                          ...localFilters,
-                          type: e.target.checked
-                            ? [...localFilters.type, type]
-                            : localFilters.type.filter((t: string) => t !== type)
-                        });
-                      }}
-                      className="size-4 rounded border-[#e2e8f0] text-[#00b70d] focus:ring-[#00b70d]"
-                    />
-                    <span className="text-text-[#00b70d]">{type}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Services Available */}
-            <div>
-              <h3 className="font-semibold text-text-[#00b70d] mb-3">Services Available</h3>
-              <div className="space-y-2">
-                {["Restaurant", "Hotel", "Transport", "Guide", "Camping"].map((service) => (
-                  <label key={service} className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={localFilters.services.includes(service)}
-                      onChange={(e) => {
-                        setLocalFilters({
-                          ...localFilters,
-                          services: e.target.checked
-                            ? [...localFilters.services, service]
-                            : localFilters.services.filter((s: string) => s !== service)
-                        });
-                      }}
-                      className="size-4 rounded border-[#e2e8f0] text-[#00b70d] focus:ring-[#00b70d]"
-                    />
-                    <span className="text-text-[#00b70d]">{service}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Events Filter */}
-            <div>
-              <h3 className="font-semibold text-text-[#00b70d] mb-3">Events</h3>
-              <div className="space-y-2">
-                {[
-                  { value: "all", label: "All" },
-                  { value: "none", label: "None" },
-                  { value: "cultural", label: "Cultural" },
-                  { value: "historic", label: "Historic" },
-                  { value: "adventure", label: "Adventure" },
-                ].map((event) => (
-                  <label key={event.value} className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="events"
-                      checked={localFilters.events === event.value}
-                      onChange={() => setLocalFilters({ ...localFilters, events: event.value })}
-                      className="size-4 border-[#e2e8f0] text-[#00b70d] focus:ring-[#00b70d]"
-                    />
-                    <span className="text-text-[#00b70d]">{event.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
             {/* Rating Filter */}
             <div>
-              <h3 className="font-semibold text-text-[#00b70d] mb-3">Minimum Rating</h3>
+              <h3 className="font-semibold text-gray-900 mb-3">Min Rating</h3>
               <div className="space-y-2">
-                {[4.5, 4.0, 3.5, 3.0].map((rating) => (
+                {RATINGS.map((rating) => (
                   <label key={rating} className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="radio"
                       name="rating"
-                      checked={localFilters.rating === rating}
-                      onChange={() => setLocalFilters({ ...localFilters, rating })}
-                      className="size-4 border-[#e2e8f0] text-[#00b70d] focus:ring-[#00b70d]"
+                      checked={minRating === rating}
+                      onChange={() => setMinRating(rating)}
+                      className="size-4 border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <div className="flex items-center gap-1">
-                      <Star className="size-4 fill-[#ff5900] text-[#ff5900]" />
-                      <span className="text-text-[#00b70d]">{rating}+</span>
-                    </div>
+                    <span className="text-gray-700">{rating === 0 ? 'Any' : `${rating}+`}</span>
                   </label>
                 ))}
               </div>
             </div>
 
+            {/* Popularity Filter */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-3">Popularity</h3>
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="popularity"
+                    checked={selectedPopularity === null}
+                    onChange={() => setSelectedPopularity(null)}
+                    className="size-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">Any</span>
+                </label>
+                {POPULARITY_LEVELS.map((level) => (
+                  <label key={level.value} className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="popularity"
+                      checked={selectedPopularity === level.value}
+                      onChange={() => setSelectedPopularity(level.value)}
+                      className="size-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-gray-700">{level.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Best Time to Visit Filter */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-3">Best Time to Visit</h3>
+              <select
+                value={selectedMonth || ""}
+                onChange={(e) => setSelectedMonth(e.target.value || null)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              >
+                <option value="">Any Month</option>
+                <option value="next-30">🔥 Next 30 days (Mar 29 - Apr 28)</option>
+                <optgroup label="Months">
+                  {MONTHS.map((month) => (
+                    <option key={month.value} value={month.value}>
+                      {month.label}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+
             {/* Distance Filter */}
             <div>
-              <h3 className="font-semibold text-text-[#00b70d] mb-3">Distance</h3>
-              <select
-                value={localFilters.distance}
-                onChange={(e) => setLocalFilters({ ...localFilters, distance: e.target.value })}
-                className="w-full px-4 py-2 border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00b70d]"
-              >
-                <option value="all">All Distances</option>
-                <option value="50">Within 50 km</option>
-                <option value="100">Within 100 km</option>
-                <option value="200">Within 200 km</option>
-                <option value="500">Within 500 km</option>
-              </select>
+              <h3 className="font-semibold text-gray-900 mb-3">Max Distance from City</h3>
+              <div className="space-y-3">
+                <input
+                  type="range"
+                  min="10"
+                  max="500"
+                  step="10"
+                  value={maxDistance}
+                  onChange={(e) => setMaxDistance(parseInt(e.target.value))}
+                  className="w-full"
+                />
+                <p className="text-sm text-gray-600">{maxDistance} km</p>
+              </div>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 mt-8 pt-6 border-t border-[#e2e8f0]">
+          <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200">
             <button
               onClick={handleReset}
-              className="flex-1 px-6 py-3 border border-[#e2e8f0] rounded-xl font-medium text-text-[#00b70d] hover:bg-bg-[#ff5900] transition-colors"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               Reset
             </button>
             <button
               onClick={handleApply}
-              className="flex-1 px-6 py-3 bg-[#00b70d] text-white rounded-xl font-medium hover:bg-[#00b70d]-hover transition-colors"
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
             >
-              Apply Filters
+              Apply
             </button>
           </div>
         </div>
