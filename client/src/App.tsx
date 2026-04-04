@@ -13,6 +13,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { TripProvider } from "@/contexts/TripContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthCallback } from "@/pages/AuthCallback";
+import Dashbord from "./components/Dashbord";
+import Errorpage from "./components/Errorpage";
 
 // TODO:
 // - add Images
@@ -44,7 +46,9 @@ function App() {
         <Route path="/login" element={<LoginForm />} />
         <Route path="/register" element={<SignupForm />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/dashbord" element={<Dashbord />} />
       </Route>
+      <Route path="*" element={<Errorpage />} />
     </Routes>
     </TripProvider>
     </AuthProvider>
