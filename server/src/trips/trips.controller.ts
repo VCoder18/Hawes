@@ -22,7 +22,7 @@ import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { TripUpdateDTO } from './dto/update.dto';
 import { QueryDto } from 'src/common/dto/query.dto';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { ImageFilesValidationPipe } from 'src/common/pipes/image-files-validation.pipe';
+import { ImageFilesValidationPipe } from 'src/common/pipes/image-validation.pipe';
 
 @Controller('trips')
 @UseGuards(AuthGuard)
