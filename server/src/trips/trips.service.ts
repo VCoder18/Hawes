@@ -132,7 +132,7 @@ export class TripsService {
   ): Promise<Trip> {
     const { data: existing, error: fetchError } = await this.supabaseClient
       .from('trips')
-      .select('id, organizer, images')
+      .select('id, organizer, images, status')
       .eq('id', id)
       .single();
 
@@ -142,6 +142,10 @@ export class TripsService {
 
     if (existing.organizer !== userId) {
       throw new UnauthorizedException();
+    }
+
+    if (existing.status !== 'draft') {
+      throw new BadRequestException('Only trips in draft status can be edited');
     }
 
     const removed = existing.images.filter(
