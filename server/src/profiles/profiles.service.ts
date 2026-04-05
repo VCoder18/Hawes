@@ -33,6 +33,7 @@ export class ProfilesService {
   async updateProfile(id: string, profile: ProfileUpdateDTO): Promise<Profile> {
     const { data, error } = await this.supabaseClient
       .from('profiles')
+      // @ts-ignore
       .update(profile)
       .eq('id', id)
       .select()

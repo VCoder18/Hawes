@@ -1,9 +1,9 @@
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
-  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -11,27 +11,10 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Database } from 'src/database.types';
-import {
-  Geography,
-  Trip,
-  TripDifficulty,
-  TripStatus,
-} from '../entities/trips.entity';
+import { TripDifficulty, TripStatus, TripCategory } from '../entities/trips.entity';
+import { TripStopDTO } from './trip-stop.dto';
 
-type TripInsert = Omit<
-  Database['public']['Tables']['trips']['Insert'],
-  'meeting_points'
-> & {
-  meeting_points: Geography[];
-};
-
-type TripCreateShape = Omit<
-  TripInsert,
-  'id' | 'created_at' | 'updated_at' | 'organizer' | 'images'
->;
-
-export class TripCreateDTO implements TripCreateShape {
+export class TripCreateDTO {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -48,19 +31,20 @@ export class TripCreateDTO implements TripCreateShape {
   end_date: string;
 
   @IsOptional()
-  @IsString()
-  itinerary?: string | null;
+  @IsArray()
+  @IsString({ each: true })
+  itinerary?: string[] | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  included?: string[] | null;
 
   @IsOptional()
   @IsInt()
   @Min(1)
   @Type(() => Number)
   max_participants?: number | null;
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => Geography)
-  meeting_points: Geography[];
 
   @IsOptional()
   @IsInt()
@@ -69,52 +53,50 @@ export class TripCreateDTO implements TripCreateShape {
   min_participants?: number | null;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  not_included?: string[] | null;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   price?: number | null;
 
+  @IsOptional()
+  @IsBoolean()
+  returns_to_start?: boolean;
+
+  @IsEnum(TripCategory)
+  category: string;
+
   @IsDateString()
   start_date: string;
 
+  @IsOptional()
   @IsEnum(TripStatus)
   status?: TripStatus;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TripStopDTO)
+  stops: TripStopDTO[];
 
   @IsString()
   title: string;
 
   @IsOptional()
-  @IsString()
-  what_to_bring?: string | null;
+  @IsArray()
+  @IsString({ each: true })
+  what_to_bring?: string[] | null;
 
   constructor() {
     this.difficulty = TripDifficulty.Easy;
     this.start_date = '';
     this.end_date = '';
     this.title = '';
-    this.meeting_points = [];
-  }
-
-  static fromTrip(trip: Trip): TripCreateDTO {
-    const dto = new TripCreateDTO();
-    const keys: (keyof TripCreateShape)[] = [
-      'activities',
-      'description',
-      'difficulty',
-      'end_date',
-      'itinerary',
-      'max_participants',
-      'min_participants',
-      'price',
-      'start_date',
-      'status',
-      'title',
-      'what_to_bring',
-      'meeting_points',
-    ];
-    for (const key of keys) {
-      (dto as any)[key] = trip[key];
-    }
-    return dto;
+    this.category = '';
+    this.returns_to_start = false;
+    this.stops = [];
   }
 }
