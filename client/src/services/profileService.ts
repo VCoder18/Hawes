@@ -115,6 +115,9 @@ export const profileService = {
 
       // Delete auth user
       const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(userId);
+      if (deleteAuthError) {
+        console.warn('Failed to delete auth user (continuing):', deleteAuthError.message);
+      }
       
       // Note: If using anon key, admin.deleteUser won't work.
       // Instead, we'll sign out and let the profile deletion be enough.

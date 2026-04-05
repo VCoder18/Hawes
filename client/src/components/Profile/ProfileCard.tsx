@@ -105,11 +105,11 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
             <p className="text-base sm:text-lg mb-1">@{username}</p>
             <p className="text-base sm:text-lg text-[#475569] mb-2">{bio}</p>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm mb-3">
-              {location && (
+              {location && location !== 'Unknown' && (
                 <>
-                  <div className="flex items-center gap-1 text-text-[#ff5900]">
+                  <div className={`flex items-center gap-1 ${location === 'Foreign' ? 'text-[#ff5900]' : 'text-text-[#ff5900]'}`}>
                     <svg className="size-3" fill="none" viewBox="0 0 12 15">
-                      <path d={svgPaths.p1a900f00} fill="#64748B" />
+                      <path d={svgPaths.p1a900f00} fill={location === 'Foreign' ? '#ff5900' : '#64748B'} />
                     </svg>
                     <span>{location}</span>
                   </div>
@@ -122,73 +122,87 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
             </div>
 
             {/* Website & Social Links */}
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Website */}
-              <a
-                href="https://example.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm text-text-[#ff5900] hover:text-[#00b70d] transition-colors"
-              >
-                <Globe className="size-4" />
-                <span>website</span>
-              </a>
+            {profile?.social_links && profile.social_links.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Website */}
+                {profile.social_links[0] && (
+                  <a
+                    href={profile.social_links[0]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-[#ff5900] hover:text-[#00b70d] transition-colors"
+                  >
+                    <Globe className="size-4" />
+                    <span>website</span>
+                  </a>
+                )}
 
-              {/* Twitter */}
-              <a
-                href="https://twitter.com/shadow_ultimate"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm text-text-[#ff5900] hover:text-[#1DA1F2] transition-colors"
-              >
-                <Twitter className="size-4" />
-                <span className="hidden sm:inline">Twitter</span>
-              </a>
+                {/* Twitter */}
+                {profile.social_links[1] && (
+                  <a
+                    href={profile.social_links[1]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-[#ff5900] hover:text-[#1DA1F2] transition-colors"
+                  >
+                    <Twitter className="size-4" />
+                    <span className="hidden sm:inline">Twitter</span>
+                  </a>
+                )}
 
-              {/* YouTube */}
-              <a
-                href="https://youtube.com/@shadow"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm text-text-[#ff5900] hover:text-[#FF0000] transition-colors"
-              >
-                <Youtube className="size-4" />
-                <span className="hidden sm:inline">YouTube</span>
-              </a>
+                {/* YouTube */}
+                {profile.social_links[2] && (
+                  <a
+                    href={profile.social_links[2]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-[#ff5900] hover:text-[#FF0000] transition-colors"
+                  >
+                    <Youtube className="size-4" />
+                    <span className="hidden sm:inline">YouTube</span>
+                  </a>
+                )}
 
-              {/* Facebook */}
-              <a
-                href="https://facebook.com/shadow"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm text-text-[#ff5900] hover:text-[#1877F2] transition-colors"
-              >
-                <Facebook className="size-4" />
-                <span className="hidden sm:inline">Facebook</span>
-              </a>
+                {/* Facebook */}
+                {profile.social_links[3] && (
+                  <a
+                    href={profile.social_links[3]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-[#ff5900] hover:text-[#1877F2] transition-colors"
+                  >
+                    <Facebook className="size-4" />
+                    <span className="hidden sm:inline">Facebook</span>
+                  </a>
+                )}
 
-              {/* Instagram */}
-              <a
-                href="https://instagram.com/shadow_ultimate"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm text-text-[#ff5900] hover:text-[#E4405F] transition-colors"
-              >
-                <Instagram className="size-4" />
-                <span className="hidden sm:inline">Instagram</span>
-              </a>
+                {/* Instagram */}
+                {profile.social_links[4] && (
+                  <a
+                    href={profile.social_links[4]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-[#ff5900] hover:text-[#E4405F] transition-colors"
+                  >
+                    <Instagram className="size-4" />
+                    <span className="hidden sm:inline">Instagram</span>
+                  </a>
+                )}
 
-              {/* LinkedIn */}
-              <a
-                href="https://linkedin.com/in/shadow"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm text-text-[#ff5900] hover:text-[#0A66C2] transition-colors"
-              >
-                <Linkedin className="size-4" />
-                <span className="hidden sm:inline">LinkedIn</span>
-              </a>
-            </div>
+                {/* LinkedIn */}
+                {profile.social_links[5] && (
+                  <a
+                    href={profile.social_links[5]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-[#ff5900] hover:text-[#0A66C2] transition-colors"
+                  >
+                    <Linkedin className="size-4" />
+                    <span className="hidden sm:inline">LinkedIn</span>
+                  </a>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}

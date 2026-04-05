@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Menu, Search, Bell, MessageSquare, Settings, LogOut, User } from "lucide-react";
-import Avatar from "../assets/images/pfp.svg";
-import logo from "../assets/images/logo.png";
+import Avatar from "@/assets/images/pfp.svg";
+import logo from "@/assets/images/logo.png";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface HeaderProps {
@@ -10,7 +10,7 @@ interface HeaderProps {
   setSidebarOpen: (open: boolean) => void;
 }
 
-export default function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
+export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: HeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const navigate = useNavigate();
@@ -51,7 +51,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
             <img 
               src={logo} 
               alt="Hawes Logo" 
-              className="h-10 cursor-pointer" 
+              className="h-10 w-auto cursor-pointer" 
               onClick={() => navigate("/")} 
             />
           </div>

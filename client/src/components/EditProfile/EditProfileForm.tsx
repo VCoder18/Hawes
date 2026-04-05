@@ -2,12 +2,14 @@ import { socialLinks, privacySettings } from "@/imports/constants";
 import { useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { profileService, type UserProfile } from "@/services/profileService";
 import { DeleteProfileModal } from "./DeleteProfileModal";
+import { SearchableLocationSelect } from "./SearchableLocationSelect";
+import { supabase } from "@/lib/supabase";
 
 export function EditProfileForm() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,9 +21,10 @@ export function EditProfileForm() {
     display_name: '',
     username: '',
     bio: '',
-    location: '',
+    location: 'Unknown',
     email: user?.email || '',
     avatar_url: '',
+    social_links: ['', '', '', '', '', ''], // [website, twitter, youtube, facebook, instagram, linkedin]
   });
 
   useEffect(() => {
@@ -32,17 +35,35 @@ export function EditProfileForm() {
       }
 
       try {
-        const userProfile = await profileService.getCurrentUserProfile();
-        if (userProfile) {
-          setFormData({
-            display_name: userProfile.display_name || '',
-            username: userProfile.username || '',
-            bio: userProfile.bio || '',
-            location: userProfile.location || '',
-            email: user.email || '',
-            avatar_url: userProfile.avatar_url || '',
-          });
+        // Get auth token
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          setIsLoading(false);
+          return;
         }
+
+        // Call API endpoint to get profile
+        const response = await fetch(`${API_BASE_URL}/profiles`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch profile');
+        }
+
+        const userProfile = await response.json();
+        setFormData({
+          display_name: userProfile.display_name || '',
+          username: userProfile.username || '',
+          bio: userProfile.bio || '',
+          location: userProfile.location || 'Unknown',
+          email: user.email || '',
+          avatar_url: userProfile.avatar_url || '',
+          social_links: userProfile.social_links || ['', '', '', '', '', ''],
+        });
       } catch (err) {
         console.error('Failed to load profile:', err);
         setError('Failed to load profile data');
@@ -52,11 +73,19 @@ export function EditProfileForm() {
     };
 
     loadProfile();
-  }, [user]);
+  }, [user, API_BASE_URL]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSocialLinkChange = (index: number, value: string) => {
+    setFormData(prev => {
+      const newSocialLinks = [...prev.social_links];
+      newSocialLinks[index] = value;
+      return { ...prev, social_links: newSocialLinks };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -68,14 +97,62 @@ export function EditProfileForm() {
     setSuccess(false);
 
     try {
-      const { display_name, username, bio, location } = formData;
+      const { display_name, username, bio, location, social_links } = formData;
       
-      await profileService.updateUserProfile(user.id, {
-        display_name,
-        username,
-        bio,
-        location,
+      // Validate username (not empty)
+      if (!username.trim()) {
+        setError('Username is required');
+        setIsSaving(false);
+        return;
+      }
+
+      if (!/^[a-z0-9_]+$/.test(username)) {
+        setError('Username can only contain lowercase letters, numbers, and underscores');
+        setIsSaving(false);
+        return;
+      }
+
+      // Validate display_name (not empty and at least 2 characters)
+      if (!display_name.trim()) {
+        setError('Display name is required');
+        setIsSaving(false);
+        return;
+      }
+
+      if (display_name.length < 2) {
+        setError('Display name must be at least 2 characters');
+        setIsSaving(false);
+        return;
+      }
+      
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setError('Not authenticated');
+        setIsSaving(false);
+        return;
+      }
+
+      // Call API endpoint
+      const response = await fetch(`${API_BASE_URL}/profiles`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          display_name,
+          username,
+          bio,
+          location,
+          social_links: social_links.filter(link => link.trim() !== '').length > 0 ? social_links : null,
+        }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update profile');
+      }
 
       setSuccess(true);
       setTimeout(() => {
@@ -99,8 +176,26 @@ export function EditProfileForm() {
       
       setIsSaving(true);
       try {
-        // Delete profile from database
-        await profileService.deleteProfile(user.id);
+        // Get auth token
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          alert('Not authenticated');
+          setIsSaving(false);
+          return;
+        }
+
+        // Call API endpoint to delete profile
+        const response = await fetch(`${API_BASE_URL}/profiles`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to delete profile');
+        }
         
         // Sign out user
         await signOut();
@@ -212,12 +307,9 @@ export function EditProfileForm() {
             <label className="block text-sm font-medium text-text-[#00b70d] mb-2">
               Location
             </label>
-            <input
-              type="text"
-              name="location"
+            <SearchableLocationSelect
               value={formData.location}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00b70d] focus:border-transparent"
+              onChange={(newLocation) => setFormData(prev => ({ ...prev, location: newLocation }))}
             />
           </div>
 
@@ -239,7 +331,7 @@ export function EditProfileForm() {
               Social Links
             </label>
             <div className="space-y-3">
-              {socialLinks.map((social) => {
+              {socialLinks.map((social, index) => {
                 const IconComponent = social.icon;
                 return (
                   <div key={social.id} className="flex items-center gap-3">
@@ -247,8 +339,10 @@ export function EditProfileForm() {
                       <IconComponent className="size-5 text-text-[#ff5900]" />
                     </div>
                     <input
-                      type="text"
+                      type="url"
                       placeholder={social.placeholder}
+                      value={formData.social_links[index]}
+                      onChange={(e) => handleSocialLinkChange(index, e.target.value)}
                       className="flex-1 px-4 py-2 border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00b70d] focus:border-transparent"
                     />
                   </div>
