@@ -197,7 +197,7 @@ export class TripsService {
   ): Promise<TripWithStops> {
     const { data: existing, error: fetchError } = await this.supabaseClient
       .from('trips')
-      .select('id, organizer')
+      .select('id, organizer, images, status')
       .eq('id', id)
       .single();
 

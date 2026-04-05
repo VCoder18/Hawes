@@ -22,6 +22,7 @@ export interface TripData {
   pricePerPerson: number;
   coverImage: string;
   additionalImages: Array<{ data: string; name: string; type: string }>;
+  scope: "public" | "private";
 }
 
 export interface MeetingLocation {
@@ -126,4 +127,14 @@ export interface EditProfileFormData {
     showActivityStatus: boolean;
     showTripHistory: boolean;
   };
+}
+
+// Roles Definitions
+export type UserRole = 'traveler' | 'organization' | 'agency' | 'services';
+
+export interface UserVerificationRequest {
+  professionalEmail: string;
+  phoneNumber: string;
+  requestedRole: UserRole;
+  status: 'pending' | 'approved' | 'rejected';
 }

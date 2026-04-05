@@ -16,6 +16,8 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
   const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [shareMessage, setShareMessage] = useState('');
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -63,7 +65,7 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
   const bio = profile?.bio || '';
   const location = profile?.location || '';
   const role = profile?.role || 'traveler';
-
+  
   return (
     <div className="bg-white rounded-xl border border-[#e2e8f0] shadow-sm overflow-hidden mb-8">
       {/* Hero Banner */}
@@ -87,12 +89,19 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
           <div className="flex-1 w-full sm:w-auto pb-4 sm:pb-0">
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-2xl sm:text-3xl font-bold text-text-[#00b70d]">{displayName}</h2>
-              {role === 'organizer' && (
-                <svg className="size-5 sm:size-6 shrink-0" fill="none" viewBox="0 0 22 21">
-                  <path d={svgPaths.p13774060} fill="#00B70D" />
-                </svg>
-              )}
+               {role !== 'traveler' && (
+                  <div title={`Verified ${role}`} className="flex items-center">
+                    <svg className="size-5 sm:size-6 shrink-0 fill-none" viewBox="0 0 22 21">
+                    {/* color changes depending on roles : Blue for Agency, green for others */}
+                    <path 
+                    d={svgPaths.p13774060} 
+                    fill={role === 'agency' ? "#3b82f6" : "#00b70d"} 
+                    />
+                    </svg>
+                  </div>
+                )}
             </div>
+
             <p className="text-base sm:text-lg mb-1">@{username}</p>
             <p className="text-base sm:text-lg text-[#475569] mb-2">{bio}</p>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm mb-3">
@@ -107,7 +116,9 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
                   <div className="size-1 rounded-full bg-[#cbd5e1]" />
                 </>
               )}
-              <span className="text-[#00b70d] font-medium capitalize">{role === 'organizer' ? 'Verified Organizer' : 'Traveler'}</span>
+              <span className="text-text-[#00b70d] font-medium capitalize">
+                {role === 'traveler' ? 'Traveler' : `Verified ${role}`}
+              </span>
             </div>
 
             {/* Website & Social Links */}
@@ -198,6 +209,14 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
           <div className="flex gap-3 w-full sm:w-auto justify-start sm:justify-end">
             {isOwnProfile ? (
               <>
+                {isOwnProfile && role === 'traveler' && (
+                  <button
+                    onClick={() => setIsVerificationModalOpen(true)}
+                    className="flex-1 sm:flex-none bg-blue-50 text-blue-600 border border-blue-200 px-6 py-2 rounded-lg font-bold text-sm hover:bg-blue-100 transition-colors"
+                    >
+                    Become a Pro
+                  </button>
+                )}
                 <button 
                   onClick={() => navigate("/settings/profile")}
                   className="flex-1 sm:flex-none bg-bg-[#ff5900] border border-[#e2e8f0] px-6 py-2 rounded-lg font-bold text-text-[#00b70d] text-sm hover:bg-[#e2e8f0] transition-colors"
@@ -242,6 +261,56 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
           <div className="text-xs font-semibold text-text-[#ff5900] uppercase tracking-wider mt-0.5">Followers</div>
         </div>
       </div>
+        {/* --- INSERTION DE LA MODAL ICI --- */}
+        {isVerificationModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6 text-left">
+                  <h3 className="text-xl font-bold text-gray-800">Professional Verification</h3>
+                  <button 
+                    onClick={() => setIsVerificationModalOpen(false)} 
+                    className="text-gray-400 hover:text-gray-600 text-2xl font-light"
+                  >
+                    &times;
+                  </button>
+                </div>
+                
+                <div className="space-y-4 text-left">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Requested Role</label>
+                    <select className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:border-[#00b70d]">
+                      <option value="agency">Agency</option>
+                      <option value="organization">Organization</option>
+                      <option value="services">Services</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Professional Email</label>
+                    <input type="email" placeholder="pro@company.com" className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:border-[#00b70d]" />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Phone Number</label>
+                    <input type="tel" placeholder="+213 -- -- --" className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:border-[#00b70d]" />
+                  </div>
+
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      alert("Verification request sent! Our team will review it.");
+                      setIsVerificationModalOpen(false);
+                    }}
+                    className="w-full py-4 bg-[#00b70d] text-white rounded-xl font-bold hover:bg-[#009a0b] transition-all mt-4 shadow-lg"
+                  >
+                    Submit Request
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

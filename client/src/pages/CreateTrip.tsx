@@ -121,6 +121,7 @@ export default function CreateTrip() {
     destinations: [],
     title: "",
     description: "",
+    scope: "public",
     category: "",
     difficulty: "",
     startDate: "",

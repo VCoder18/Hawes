@@ -10,8 +10,12 @@ import EditProfile from "@/pages/settings/EditProfile";
 import LoginForm from "@/pages/LoginForm";
 import SignupForm from "@/pages/SignupForm";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { TripProvider } from "@/contexts/TripContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthCallback } from "@/pages/AuthCallback";
+import Dashbord from "./components/Dashbord";
+import Errorpage from "./components/Errorpage";
+import JoinTrip from "@/pages/JoinTrip";
 
 // TODO:
 // - add Images
@@ -27,6 +31,7 @@ function App() {
 
   return (
     <AuthProvider>
+      <TripProvider>
       <Routes>
       <Route element={<MainLayout displayNavbar={true} displayFooter={true} />}>
         <Route path="/" element={<Profile />} />
@@ -34,6 +39,7 @@ function App() {
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/profile/:username" element={<Profile />} />
         <Route path="/settings/profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
+        <Route path="/join-trip" element={<JoinTrip />} />
       </Route>
       <Route element={<MainLayout displayNavbar={true} displayFooter={false} />}>
         <Route path="/create-trip" element={<ProtectedRoute><CreateTrip /></ProtectedRoute>} />
@@ -42,8 +48,11 @@ function App() {
         <Route path="/login" element={<LoginForm />} />
         <Route path="/register" element={<SignupForm />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/dashbord" element={<Dashbord />} />
       </Route>
+      <Route path="*" element={<Errorpage />} />
     </Routes>
+    </TripProvider>
     </AuthProvider>
   );
 }

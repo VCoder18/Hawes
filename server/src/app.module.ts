@@ -19,6 +19,12 @@ import { FavoritesModule } from './favorites/favorites.module';
         supabaseUrl: ENV.supabase.url,
       }),
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 30,
+      },
+    ]),
     TripsModule,
     DestinationsModule,
     ProfilesModule,
@@ -26,6 +32,12 @@ import { FavoritesModule } from './favorites/favorites.module';
     FavoritesModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
