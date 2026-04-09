@@ -15,8 +15,10 @@ export interface Database {
           display_name: string;
           username: string;
           avatar_url: string | null;
+          banner_url: string | null;
           bio: string | null;
           location: string | null;
+          social_links: string[] | null;
           website: string | null;
           youtube_url: string | null;
           twitter_url: string | null;
@@ -35,8 +37,10 @@ export interface Database {
           display_name: string;
           username: string;
           avatar_url?: string | null;
+          banner_url?: string | null;
           bio?: string | null;
           location?: string | null;
+          social_links?: string[] | null;
           website?: string | null;
           youtube_url?: string | null;
           twitter_url?: string | null;
@@ -55,8 +59,10 @@ export interface Database {
           display_name?: string;
           username?: string;
           avatar_url?: string | null;
+          banner_url?: string | null;
           bio?: string | null;
           location?: string | null;
+          social_links?: string[] | null;
           website?: string | null;
           youtube_url?: string | null;
           twitter_url?: string | null;
@@ -136,6 +142,7 @@ export interface Database {
           category: string | null;
           difficulty: string;
           cover_image: string | null;
+          attachment_url: string | null;
           start_date: string;
           end_date: string;
           itinerary: string[] | null;
@@ -161,6 +168,7 @@ export interface Database {
           category?: string | null;
           difficulty: string;
           cover_image?: string | null;
+          attachment_url?: string | null;
           start_date: string;
           end_date: string;
           itinerary?: string[] | null;
@@ -186,6 +194,7 @@ export interface Database {
           category?: string | null;
           difficulty?: string;
           cover_image?: string | null;
+          attachment_url?: string | null;
           start_date?: string;
           end_date?: string;
           itinerary?: string[] | null;

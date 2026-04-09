@@ -4,6 +4,8 @@ import {
   IsEnum,
   IsArray,
   IsUrl,
+  ArrayMinSize,
+  ArrayMaxSize,
   MaxLength,
   MinLength,
   Matches,
@@ -11,6 +13,14 @@ import {
 import { UserRole } from '../entities/profiles.entity';
 
 export class ProfileUpdateDTO {
+  @IsOptional()
+  @IsUrl()
+  avatar_url?: string | null;
+
+  @IsOptional()
+  @IsUrl()
+  banner_url?: string | null;
+
   @IsOptional()
   @IsString()
   @MaxLength(512)
@@ -42,6 +52,12 @@ export class ProfileUpdateDTO {
 
   @IsOptional()
   @IsArray()
-  @IsUrl({}, { each: true })
+  @ArrayMinSize(6)
+  @ArrayMaxSize(6)
+  @IsString({ each: true })
+  @Matches(/^$|^https?:\/\/\S+$/i, {
+    each: true,
+    message: 'Each social link must be empty or a valid http/https URL',
+  })
   social_links?: string[] | null;
 }

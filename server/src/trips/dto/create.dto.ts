@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   Min,
+  IsUUID,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -16,6 +17,10 @@ import { TripStopDTO } from './trip-stop.dto';
 
 export class TripCreateDTO {
   @IsOptional()
+  @IsUUID()
+  id?: string;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   activities?: string[] | null;
@@ -23,6 +28,10 @@ export class TripCreateDTO {
   @IsOptional()
   @IsString()
   description?: string | null;
+
+  @IsOptional()
+  @IsString()
+  attachment_url?: string | null;
 
   @IsEnum(TripDifficulty)
   difficulty: TripDifficulty;
@@ -39,6 +48,11 @@ export class TripCreateDTO {
   @IsArray()
   @IsString({ each: true })
   included?: string[] | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 
   @IsOptional()
   @IsInt()

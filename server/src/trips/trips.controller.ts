@@ -8,9 +8,10 @@ import {
   UseGuards,
   Body,
   Query,
-  UseInterceptors,
   UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { TripsService } from './trips.service';
 import {
   AuthGuard,
@@ -21,8 +22,7 @@ import { TripCreateDTO } from './dto/create.dto';
 import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { TripUpdateDTO } from './dto/update.dto';
 import { QueryDto } from 'src/common/dto/query.dto';
-import { FilesInterceptor } from '@nestjs/platform-express';
-import { ImageFilesValidationPipe } from 'src/common/pipes/image-validation.pipe';
+import { TripMediaUploadDTO } from './dto/upload-media.dto';
 
 @Controller('trips')
 @UseGuards(AuthGuard)
@@ -42,24 +42,30 @@ export class TripsController {
   }
 
   @Post()
-  @UseInterceptors(FilesInterceptor('images', 5))
   addTrip(
     @Body() body: TripCreateDTO,
     @CurrentUser() user: SupabaseJWTPayload,
-    @UploadedFile(new ImageFilesValidationPipe()) files?: Express.Multer.File[],
   ) {
-    return this.service.addTrip(user.sub, body, files);
+    return this.service.addTrip(user.sub, body);
+  }
+
+  @Post('uploads')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadTripMedia(
+    @Body() body: TripMediaUploadDTO,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: SupabaseJWTPayload,
+  ) {
+    return this.service.uploadTripMedia(user.sub, body, file);
   }
 
   @Patch(':tripId')
-  @UseInterceptors(FilesInterceptor('images', 5))
   editTrip(
     @Body() body: TripUpdateDTO,
     @CurrentUser() user: SupabaseJWTPayload,
     @Param('tripId') tripId: string,
-    @UploadedFile(new ImageFilesValidationPipe()) files?: Express.Multer.File[],
   ) {
-    return this.service.updateTrip(user.sub, tripId, body, files);
+    return this.service.updateTrip(user.sub, tripId, body);
   }
 
   @Delete(':tripId')

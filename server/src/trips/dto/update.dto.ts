@@ -25,6 +25,10 @@ export class TripUpdateDTO {
   description?: string | null;
 
   @IsOptional()
+  @IsString()
+  attachment_url?: string | null;
+
+  @IsOptional()
   @IsEnum(TripDifficulty)
   difficulty?: TripDifficulty;
 
@@ -41,6 +45,11 @@ export class TripUpdateDTO {
   @IsArray()
   @IsString({ each: true })
   included?: string[] | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 
   @IsOptional()
   @IsInt()

@@ -8,6 +8,9 @@ import { AuthModule } from './auth/auth.module';
 import { DestinationsModule } from './destinations/destinations.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { FavoritesModule } from './favorites/favorites.module';
+import { BookmarksModule } from './bookmarks/bookmarks.module';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
@@ -30,6 +33,7 @@ import { FavoritesModule } from './favorites/favorites.module';
     ProfilesModule,
     AuthModule,
     FavoritesModule,
+    BookmarksModule,
   ],
   controllers: [AppController],
   providers: [

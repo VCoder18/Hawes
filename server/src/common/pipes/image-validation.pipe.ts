@@ -1,19 +1,21 @@
 import {
   PipeTransform,
   Injectable,
-  ArgumentMetadata,
   BadRequestException,
 } from '@nestjs/common';
 
 const MAX_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
+type UploadedImageFile = {
+  size: number;
+  mimetype: string;
+  originalname: string;
+};
+
 @Injectable()
 export class ImageFilesValidationPipe implements PipeTransform {
-  transform(
-    value: Express.Multer.File[] | undefined,
-    metadata: ArgumentMetadata,
-  ) {
+  transform(value: UploadedImageFile[] | undefined) {
     if (!value || value.length === 0) return value;
 
     for (const file of value) {
