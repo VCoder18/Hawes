@@ -3,6 +3,7 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from 'src/database.types';
@@ -15,44 +16,69 @@ export class BookmarksService {
     private readonly supabaseClient: SupabaseClient<Database>,
   ) {}
 
-  async addBookmark(userId: string, tripId: string): Promise<Bookmark> {
-    const { data: tripExists, error: tripError } = await this.supabaseClient
-      .from('trips')
-      .select('id')
-      .eq('id', tripId)
-      .single();
-
-    if (tripError || !tripExists) {
-      throw new NotFoundException(`Trip with id ${tripId} not found`);
-    }
-
-    const { data: existingBookmark } = await this.supabaseClient
-      .from('bookmarks' as any)
+  async getUserBookmarks(userId: string): Promise<Bookmark[]> {
+    const { error, data: bookmarks } = await this.supabaseClient
+      .from('bookmarks')
       .select('*')
-      .eq('user_id', userId)
-      .eq('trip_id', tripId)
-      .single();
+      .eq('user_id', userId);
 
-    if (existingBookmark) {
-      return existingBookmark as Bookmark;
+    if (error || !bookmarks) {
+      console.error(`Failed to fetch user bookmarks: ${error}`);
+      throw new InternalServerErrorException('Failed to fetch user bookmarks');
     }
 
-    const { data, error } = await this.supabaseClient
-      .from('bookmarks' as any)
-      .insert({ user_id: userId, trip_id: tripId } as any)
-      .select('*')
-      .single();
-
-    if (error) {
-      throw new ConflictException(`Failed to add bookmark: ${error.message}`);
-    }
-
-    return data as Bookmark;
+    return bookmarks;
   }
 
-  async removeBookmark(userId: string, tripId: string): Promise<void> {
+  async isBookmarked(userId: string, tripId: string): Promise<boolean> {
+    const { error, data: existingData } = await this.supabaseClient
+      .from('bookmarks')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('trip_id', tripId);
+
+    if (error || !existingData) {
+      throw new InternalServerErrorException('Failed to fetch user bookmarks');
+    }
+
+    return existingData.length > 0;
+  }
+
+  async addBookmark(userId: string, tripId: string): Promise<Bookmark> {
+    const { error: fetchError, data: existingData } = await this.supabaseClient
+      .from('bookmarks')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('trip_id', tripId);
+
+    if (fetchError || !existingData) {
+      console.error(`Failed to fetch user bookmarks: ${fetchError}`);
+      throw new InternalServerErrorException('Failed to fetch user bookmarks');
+    }
+
+    if (existingData.length > 0) {
+      throw new ConflictException(
+        'You already have this trip bookmarked idiot',
+      );
+    }
+
+    const { error, data: bookmark } = await this.supabaseClient
+      .from('bookmarks')
+      .insert({ user_id: userId, trip_id: tripId })
+      .select('*')
+      .single();
+
+    if (error || !bookmark) {
+      console.error(`Failed to add bookmark: ${error.message}`);
+      throw new InternalServerErrorException(`Failed to add bookmark`);
+    }
+
+    return bookmark;
+  }
+
+  async removeBookmark(userId: string, tripId: string): Promise<string> {
     const { error } = await this.supabaseClient
-      .from('bookmarks' as any)
+      .from('bookmarks')
       .delete()
       .eq('user_id', userId)
       .eq('trip_id', tripId);
@@ -60,29 +86,7 @@ export class BookmarksService {
     if (error) {
       throw new NotFoundException('Bookmark not found');
     }
-  }
 
-  async getUserBookmarks(userId: string): Promise<string[]> {
-    const { data, error } = await this.supabaseClient
-      .from('bookmarks' as any)
-      .select('trip_id')
-      .eq('user_id', userId);
-
-    if (error) {
-      return [];
-    }
-
-    return ((data ?? []) as Array<{ trip_id: string }>).map((row) => row.trip_id);
-  }
-
-  async isBookmarked(userId: string, tripId: string): Promise<boolean> {
-    const { data } = await this.supabaseClient
-      .from('bookmarks' as any)
-      .select('*')
-      .eq('user_id', userId)
-      .eq('trip_id', tripId)
-      .single();
-
-    return !!data;
+    return tripId;
   }
 }

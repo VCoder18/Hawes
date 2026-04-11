@@ -10,17 +10,33 @@ import {
 import { AuthGuard, type SupabaseJWTPayload } from 'src/auth/auth.guard';
 import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { BookmarksService } from './bookmarks.service';
+import { Bookmark } from './bookmark.entity';
 
 @Controller('bookmarks')
 @UseGuards(AuthGuard)
 export class BookmarksController {
   constructor(private readonly bookmarksService: BookmarksService) {}
 
+  @Get()
+  async getUserBookmarks(
+    @CurrentUser() user: SupabaseJWTPayload,
+  ): Promise<Bookmark[]> {
+    return this.bookmarksService.getUserBookmarks(user.sub);
+  }
+
+  @Get(':tripId')
+  async isBookmarked(
+    @Param('tripId') tripId: string,
+    @CurrentUser() user: SupabaseJWTPayload,
+  ): Promise<boolean> {
+    return await this.bookmarksService.isBookmarked(user.sub, tripId);
+  }
+
   @Post(':tripId')
   async addBookmark(
     @Param('tripId') tripId: string,
     @CurrentUser() user: SupabaseJWTPayload,
-  ) {
+  ): Promise<Bookmark> {
     return this.bookmarksService.addBookmark(user.sub, tripId);
   }
 
@@ -29,22 +45,7 @@ export class BookmarksController {
   async removeBookmark(
     @Param('tripId') tripId: string,
     @CurrentUser() user: SupabaseJWTPayload,
-  ) {
+  ): Promise<string> {
     return this.bookmarksService.removeBookmark(user.sub, tripId);
-  }
-
-  @Get()
-  async getUserBookmarks(@CurrentUser() user: SupabaseJWTPayload) {
-    const bookmarks = await this.bookmarksService.getUserBookmarks(user.sub);
-    return { bookmarks };
-  }
-
-  @Get(':tripId')
-  async isBookmarked(
-    @Param('tripId') tripId: string,
-    @CurrentUser() user: SupabaseJWTPayload,
-  ) {
-    const isBookmarked = await this.bookmarksService.isBookmarked(user.sub, tripId);
-    return { isBookmarked };
   }
 }

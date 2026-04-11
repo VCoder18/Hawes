@@ -1,5 +1,3 @@
-export type Bookmark = {
-  user_id: string;
-  trip_id: string;
-  created_at: string | null;
-};
+import { Database } from 'src/database.types';
+
+export type Bookmark = Database['public']['Tables']['bookmarks']['Row'];
