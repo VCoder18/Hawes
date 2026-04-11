@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   ParseFilePipeBuilder,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import {
   FileFieldsInterceptor,
@@ -24,6 +25,7 @@ import {
 } from 'src/auth/auth.guard';
 import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { ProfileUpdateDTO } from './dto/update.dto';
+import { ProfilesQueryDto } from './dto/query.dto';
 
 @Controller('profiles')
 @UseGuards(AuthGuard)
@@ -43,8 +45,8 @@ export class ProfilesController {
 
   @Public()
   @Get('by-username/:username')
-  getProfileByUsername(@Param('username') username: string) {
-    return this.service.getProfileByUsername(username);
+  getProfileByUsername(@Query() query: ProfilesQueryDto) {
+    return this.service.getProfileByUsername(query);
   }
 
   @Patch()

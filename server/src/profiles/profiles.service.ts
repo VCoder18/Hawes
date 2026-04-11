@@ -8,6 +8,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from 'src/database.types';
 import { ProfileUpdateDTO } from './dto/update.dto';
 import { Profile } from './entities/profiles.entity';
+import { ProfilesQueryDto } from './dto/query.dto';
 
 @Injectable()
 export class ProfilesService {
@@ -83,12 +84,12 @@ export class ProfilesService {
   }
 
   /// @Return: a user's profile looked up by username
-  // TODO: query filtering
-  async getProfileByUsername(username: string): Promise<Profile[]> {
+  async getProfileByUsername(query: ProfilesQueryDto): Promise<Profile[]> {
     const { data, error } = await this.supabaseClient
       .from('profiles')
       .select('*')
-      .textSearch('username', username);
+      .textSearch('username', query.username)
+      .range(query.offset, query.offset + query.limit);
 
     if (error || !data) {
       throw new NotFoundException('Profile not found');

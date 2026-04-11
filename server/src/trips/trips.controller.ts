@@ -16,11 +16,7 @@ import {
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { TripsService } from './trips.service';
-import {
-  AuthGuard,
-  Public,
-  type SupabaseJWTPayload,
-} from 'src/auth/auth.guard';
+import { AuthGuard, type SupabaseJWTPayload } from 'src/auth/auth.guard';
 import { TripCreateDTO } from './dto/create.dto';
 import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { TripUpdateDTO } from './dto/update.dto';
@@ -36,7 +32,7 @@ export class TripsController {
     @CurrentUser() user: SupabaseJWTPayload,
     @Query() query: TripsQueryDto,
   ) {
-    return this.service.getTrips(user.id, query);
+    return this.service.getTrips(user.sub, query);
   }
 
   @Get(':tripId')
