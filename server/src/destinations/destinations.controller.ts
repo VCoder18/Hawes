@@ -1,14 +1,5 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Query,
-  UsePipes,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { DestinationsService } from './destinations.service';
-import { QueryDto } from 'src/common/dto/query.dto';
-import { ParseJsonFilterPipe } from 'src/common/pipes/parse-json-filter.pipe';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { Public } from 'src/auth/auth.guard';
 
@@ -19,7 +10,6 @@ export class DestinationsController {
 
   @Get()
   @Public()
-  @UsePipes(new ParseJsonFilterPipe())
   getDestinations(@Query() query: QueryDto) {
     return this.service.getDestinations(query);
   }

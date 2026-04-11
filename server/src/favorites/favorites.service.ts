@@ -3,6 +3,8 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from 'src/database.types';
@@ -16,51 +18,48 @@ export class FavoritesService {
   ) {}
 
   async addFavorite(userId: string, destinationId: string): Promise<Favorite> {
-    // Check if destination exists
-    const { data: destExists, error: destError } = await this.supabaseClient
+    const { error: fetchError, data: destination } = await this.supabaseClient
       .from('destinations')
       .select('id')
       .eq('id', destinationId)
       .single();
 
-    if (destError || !destExists) {
-      throw new NotFoundException(`Destination with id ${destinationId} not found`);
+    if (fetchError || !destination) {
+      throw new NotFoundException(
+        `Destination with id ${destinationId} not found`,
+      );
     }
 
-    // Check if already favorited
-    const { data: existingFav } = await this.supabaseClient
+    const { data: existingFavorite } = await this.supabaseClient
       .from('favorite_destinations')
-      .select()
+      .select('id')
       .eq('user_id', userId)
       .eq('destination_id', destinationId)
       .single();
 
-    if (existingFav) {
-      return existingFav;
+    if (existingFavorite) {
+      throw new ConflictException(
+        'You already have this destination in your favorites',
+      );
     }
 
-    // Insert new favorite
     const { data, error } = await this.supabaseClient
       .from('favorite_destinations')
-      // @ts-ignore
       .insert({ user_id: userId, destination_id: destinationId })
       .select()
       .single();
 
-    if (error) {
-      console.error('Favorites service error:', {
-        userId,
-        destinationId,
-        errorCode: error.code,
-        errorMessage: error.message,
-        errorDetails: error.details,
-      });
-      throw new ConflictException(`Failed to add favorite: ${error.message}`);
+    if (error || !data) {
+      console.log(`Failed to add favorite: ${error.message}`);
+      throw new InternalServerErrorException(
+        `Failed to add favorite: ${error.message}`,
+      );
     }
+
     return data;
   }
 
-  async removeFavorite(userId: string, destinationId: string): Promise<void> {
+  async removeFavorite(userId: string, destinationId: string): Promise<string> {
     const { error } = await this.supabaseClient
       .from('favorite_destinations')
       .delete()
@@ -68,30 +67,40 @@ export class FavoritesService {
       .eq('destination_id', destinationId);
 
     if (error) {
-      throw new NotFoundException('Favorite not found');
+      throw new NotFoundException(
+        "You don't have this destination in your favorites",
+      );
     }
+
+    return destinationId;
   }
 
-  async getUserFavorites(userId: string): Promise<string[]> {
-    const { data, error } = await this.supabaseClient
+  async getUserFavorites(userId: string): Promise<Favorite[]> {
+    const { error, data: favorites } = await this.supabaseClient
       .from('favorite_destinations')
-      .select('destination_id')
+      .select('*')
       .eq('user_id', userId);
 
-    if (error) {
-      return [];
+    if (error || !favorites) {
+      console.error(`Failed to fetch user favorites: ${error}`);
+      throw new InternalServerErrorException('Failed to fetch user favorites');
     }
-    return data.map((fav: any) => fav.destination_id);
+
+    return favorites;
   }
 
   async isFavorited(userId: string, destinationId: string): Promise<boolean> {
-    const { data } = await this.supabaseClient
+    const { error, data: favorite } = await this.supabaseClient
       .from('favorite_destinations')
-      .select('*', { count: 'exact' })
+      .select('*')
       .eq('user_id', userId)
       .eq('destination_id', destinationId)
       .single();
 
-    return !!data;
+    if (error || !favorite) {
+      throw new InternalServerErrorException('Failed to fetch user favorites');
+    }
+
+    return !!favorite;
   }
 }
