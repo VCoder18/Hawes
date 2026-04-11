@@ -9,56 +9,84 @@ import {
   Param,
   UploadedFile,
   UseInterceptors,
+  ParseFilePipeBuilder,
+  HttpStatus,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  FileFieldsInterceptor,
+  FileInterceptor,
+} from '@nestjs/platform-express';
 import { ProfilesService } from './profiles.service';
-import { AuthGuard, Public, type SupabaseJWTPayload } from 'src/auth/auth.guard';
+import {
+  AuthGuard,
+  Public,
+  type SupabaseJWTPayload,
+} from 'src/auth/auth.guard';
 import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { ProfileUpdateDTO } from './dto/update.dto';
-import { ProfileMediaUploadDTO } from './dto/upload-media.dto';
 
 @Controller('profiles')
 @UseGuards(AuthGuard)
 export class ProfilesController {
   constructor(private readonly service: ProfilesService) {}
 
-  @Public()
-  @Get('username/:username')
-  getProfileByUsername(@Param('username') username: string) {
-    return this.service.getProfileByUsername(username);
+  @Get()
+  getCurrentUserProfile(@CurrentUser() user: SupabaseJWTPayload) {
+    return this.service.getProfile(user.sub);
   }
 
   @Public()
-  @Get('id/:id')
+  @Get(':id')
   getProfileById(@Param('id') id: string) {
     return this.service.getProfile(id);
   }
 
-  @Get()
-  getProfile(@CurrentUser() user: SupabaseJWTPayload) {
-    return this.service.getProfile(user.sub);
+  @Public()
+  @Get('by-username/:username')
+  getProfileByUsername(@Param('username') username: string) {
+    return this.service.getProfileByUsername(username);
   }
 
   @Patch()
-  editProfile(
-    @Body() body: ProfileUpdateDTO,
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'avatar', maxCount: 1 },
+      { name: 'banner', maxCount: 1 },
+    ]),
+  )
+  updateProfile(
     @CurrentUser() user: SupabaseJWTPayload,
+    @Body() profile: ProfileUpdateDTO,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /^(image\/jpeg|image\/png|image\/webp)$/,
+        })
+        .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
+        .build({
+          fileIsRequired: false,
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        }),
+    )
+    avatar: Express.Multer.File | undefined,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /^(image\/jpeg|image\/png|image\/webp)$/,
+        })
+        .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
+        .build({
+          fileIsRequired: false,
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        }),
+    )
+    banner: Express.Multer.File | undefined,
   ) {
-    return this.service.updateProfile(user.sub, body);
-  }
-
-  @Post('uploads')
-  @UseInterceptors(FileInterceptor('file'))
-  uploadProfileMedia(
-    @Body() body: ProfileMediaUploadDTO,
-    @UploadedFile() file: Express.Multer.File,
-    @CurrentUser() user: SupabaseJWTPayload,
-  ) {
-    return this.service.uploadProfileMedia(user.sub, body, file);
+    return this.service.updateProfile(user.sub, profile, avatar, banner);
   }
 
   @Delete()
-  deleteProfile(@CurrentUser() user: SupabaseJWTPayload) {
+  deleteCurrentUserProfile(@CurrentUser() user: SupabaseJWTPayload) {
     return this.service.deleteProfile(user.sub);
   }
 }

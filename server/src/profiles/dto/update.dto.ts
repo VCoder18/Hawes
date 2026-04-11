@@ -4,7 +4,6 @@ import {
   IsEnum,
   IsArray,
   IsUrl,
-  ArrayMinSize,
   ArrayMaxSize,
   MaxLength,
   MinLength,
@@ -37,7 +36,8 @@ export class ProfileUpdateDTO {
   @MinLength(1)
   @MaxLength(64)
   @Matches(/^[a-z0-9_]+$/, {
-    message: 'Username can only contain lowercase letters, numbers, and underscores',
+    message:
+      'Username can only contain lowercase letters, numbers, or underscores',
   })
   username?: string;
 
@@ -52,12 +52,7 @@ export class ProfileUpdateDTO {
 
   @IsOptional()
   @IsArray()
-  @ArrayMinSize(6)
   @ArrayMaxSize(6)
-  @IsString({ each: true })
-  @Matches(/^$|^https?:\/\/\S+$/i, {
-    each: true,
-    message: 'Each social link must be empty or a valid http/https URL',
-  })
+  @IsUrl()
   social_links?: string[] | null;
 }
