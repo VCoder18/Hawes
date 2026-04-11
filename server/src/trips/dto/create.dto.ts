@@ -12,32 +12,42 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { TripDifficulty, TripStatus, TripCategory } from '../entities/trips.entity';
-import { TripStopDTO } from './trip-stop.dto';
+import {
+  TripDifficulty,
+  TripStatus,
+  TripCategory,
+} from '../entities/trips.entity';
+import { TripStopDTO } from './stop.dto';
 
 export class TripCreateDTO {
   @IsOptional()
   @IsUUID()
   id?: string;
 
+  @IsString()
+  title: string = '';
+
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  activities?: string[] | null;
+  @IsString()
+  slug?: string | null;
 
   @IsOptional()
   @IsString()
   description?: string | null;
 
-  @IsOptional()
-  @IsString()
-  attachment_url?: string | null;
+  @IsEnum(TripCategory)
+  category: TripCategory = TripCategory.Nature;
 
   @IsEnum(TripDifficulty)
-  difficulty: TripDifficulty;
+  difficulty: TripDifficulty = TripDifficulty.Easy;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  activities?: string[] | null;
 
   @IsDateString()
-  end_date: string;
+  end_date: string = '';
 
   @IsOptional()
   @IsArray()
@@ -48,11 +58,6 @@ export class TripCreateDTO {
   @IsArray()
   @IsString({ each: true })
   included?: string[] | null;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  images?: string[];
 
   @IsOptional()
   @IsInt()
@@ -79,13 +84,10 @@ export class TripCreateDTO {
 
   @IsOptional()
   @IsBoolean()
-  returns_to_start?: boolean;
-
-  @IsEnum(TripCategory)
-  category: string;
+  returns_to_start?: boolean = false;
 
   @IsDateString()
-  start_date: string;
+  start_date: string = '';
 
   @IsOptional()
   @IsEnum(TripStatus)
@@ -94,23 +96,10 @@ export class TripCreateDTO {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => TripStopDTO)
-  stops: TripStopDTO[];
-
-  @IsString()
-  title: string;
+  stops: TripStopDTO[] = [];
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   what_to_bring?: string[] | null;
-
-  constructor() {
-    this.difficulty = TripDifficulty.Easy;
-    this.start_date = '';
-    this.end_date = '';
-    this.title = '';
-    this.category = '';
-    this.returns_to_start = false;
-    this.stops = [];
-  }
 }

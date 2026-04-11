@@ -10,8 +10,11 @@ import {
   Query,
   UploadedFile,
   UseInterceptors,
+  ParseFilePipeBuilder,
+  HttpStatus,
+  UploadedFiles,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { TripsService } from './trips.service';
 import {
   AuthGuard,
@@ -22,7 +25,6 @@ import { TripCreateDTO } from './dto/create.dto';
 import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { TripUpdateDTO } from './dto/update.dto';
 import { QueryDto } from 'src/common/dto/query.dto';
-import { TripMediaUploadDTO } from './dto/upload-media.dto';
 
 @Controller('trips')
 @UseGuards(AuthGuard)
@@ -42,25 +44,46 @@ export class TripsController {
   }
 
   @Post()
-  addTrip(
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'images', maxCount: 5 },
+      { name: 'attachment', maxCount: 1 },
+    ]),
+  )
+  createTrip(
     @Body() body: TripCreateDTO,
     @CurrentUser() user: SupabaseJWTPayload,
+    @UploadedFiles(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /^(image\/jpeg|image\/png|image\/webp)$/,
+        })
+        .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
+        .build({
+          fileIsRequired: false,
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        }),
+    )
+    images: Array<Express.Multer.File> | undefined,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType:
+            /^(application\/pdf|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/,
+        })
+        .addMaxSizeValidator({ maxSize: 10 * 1024 * 1024 })
+        .build({
+          fileIsRequired: false,
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        }),
+    )
+    attachment: Express.Multer.File | undefined,
   ) {
-    return this.service.addTrip(user.sub, body);
-  }
-
-  @Post('uploads')
-  @UseInterceptors(FileInterceptor('file'))
-  uploadTripMedia(
-    @Body() body: TripMediaUploadDTO,
-    @UploadedFile() file: Express.Multer.File,
-    @CurrentUser() user: SupabaseJWTPayload,
-  ) {
-    return this.service.uploadTripMedia(user.sub, body, file);
+    return this.service.createTrip(user.sub, body, images, attachment);
   }
 
   @Patch(':tripId')
-  editTrip(
+  updateTrip(
     @Body() body: TripUpdateDTO,
     @CurrentUser() user: SupabaseJWTPayload,
     @Param('tripId') tripId: string,

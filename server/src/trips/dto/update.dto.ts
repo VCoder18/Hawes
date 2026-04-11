@@ -11,8 +11,12 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { TripDifficulty, TripStatus, TripCategory } from '../entities/trips.entity';
-import { TripStopDTO } from './trip-stop.dto';
+import {
+  TripDifficulty,
+  TripStatus,
+  TripCategory,
+} from '../entities/trips.entity';
+import { TripStopDTO } from './stop.dto';
 
 export class TripUpdateDTO {
   @IsOptional()
@@ -80,7 +84,7 @@ export class TripUpdateDTO {
 
   @IsOptional()
   @IsEnum(TripCategory)
-  category?: string;
+  category?: TripCategory;
 
   @IsOptional()
   @IsDateString()
@@ -91,12 +95,6 @@ export class TripUpdateDTO {
   status?: TripStatus;
 
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => TripStopDTO)
-  stops?: TripStopDTO[];
-
-  @IsOptional()
   @IsString()
   title?: string;
 
@@ -104,4 +102,15 @@ export class TripUpdateDTO {
   @IsArray()
   @IsString({ each: true })
   what_to_bring?: string[] | null;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TripStopDTO)
+  stopsToCreate?: TripStopDTO[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  stopIDsToDelete?: string[];
 }
