@@ -1,10 +1,21 @@
 import { supabase } from '../lib/supabase';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+async function getAccessToken(): Promise<string | null> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  return session?.access_token ?? null;
+}
+
 export interface UserProfile {
   id: string;
   display_name: string;
   username: string;
   avatar_url: string | null;
+  banner_url: string | null;
   bio: string | null;
   location: string | null;
   social_links: string[] | null;
@@ -16,18 +27,20 @@ export interface UserProfile {
 export const profileService = {
   async getCurrentUserProfile(): Promise<UserProfile | null> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) return null;
+      const token = await getAccessToken();
+      if (!token) return null;
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      const response = await fetch(`${API_BASE_URL}/profiles`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      if (error) throw error;
-      return data as UserProfile;
+      if (!response.ok) {
+        throw new Error(`Failed to fetch profile: ${response.status}`);
+      }
+
+      return (await response.json()) as UserProfile;
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
       return null;
@@ -36,14 +49,15 @@ export const profileService = {
 
   async getUserProfileById(userId: string): Promise<UserProfile | null> {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      const response = await fetch(
+        `${API_BASE_URL}/profiles/id/${encodeURIComponent(userId)}`,
+      );
 
-      if (error) throw error;
-      return data as UserProfile;
+      if (!response.ok) {
+        throw new Error(`Failed to fetch profile by id: ${response.status}`);
+      }
+
+      return (await response.json()) as UserProfile;
     } catch (error) {
       console.error('Failed to fetch profile:', error);
       return null;
@@ -52,14 +66,15 @@ export const profileService = {
 
   async getUserProfileByUsername(username: string): Promise<UserProfile | null> {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('username', username.toLowerCase())
-        .single();
+      const response = await fetch(
+        `${API_BASE_URL}/profiles/username/${encodeURIComponent(username.toLowerCase())}`,
+      );
 
-      if (error) throw error;
-      return data as UserProfile;
+      if (!response.ok) {
+        throw new Error(`Failed to fetch profile by username: ${response.status}`);
+      }
+
+      return (await response.json()) as UserProfile;
     } catch (error) {
       console.error('Failed to fetch profile by username:', error);
       return null;
@@ -83,22 +98,64 @@ export const profileService = {
     }
   },
 
-  async uploadAvatar(userId: string, file: File): Promise<string | null> {
+  async uploadAvatar(file: File): Promise<string | null> {
     try {
-      const filename = `${userId}-${Date.now()}`;
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filename, file, { upsert: true });
+      const token = await getAccessToken();
+      if (!token) return null;
 
-      if (uploadError) throw uploadError;
+      const formData = new FormData();
+      formData.append('kind', 'avatar');
+      formData.append('fileName', file.name);
+      formData.append('file', file, file.name);
 
-      const { data } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filename);
+      const response = await fetch(`${API_BASE_URL}/profiles/uploads`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
 
-      return data.publicUrl;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown upload error' }));
+        throw new Error(errorData?.message || 'Failed to upload avatar');
+      }
+
+      const { publicUrl } = await response.json();
+      return publicUrl ?? null;
     } catch (error) {
       console.error('Failed to upload avatar:', error);
+      return null;
+    }
+  },
+
+  async uploadBanner(file: File): Promise<string | null> {
+    try {
+      const token = await getAccessToken();
+      if (!token) return null;
+
+      const formData = new FormData();
+      formData.append('kind', 'banner');
+      formData.append('fileName', file.name);
+      formData.append('file', file, file.name);
+
+      const response = await fetch(`${API_BASE_URL}/profiles/uploads`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown upload error' }));
+        throw new Error(errorData?.message || 'Failed to upload banner');
+      }
+
+      const { publicUrl } = await response.json();
+      return publicUrl ?? null;
+    } catch (error) {
+      console.error('Failed to upload banner:', error);
       return null;
     }
   },

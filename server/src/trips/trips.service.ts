@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -10,226 +9,415 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from 'src/database.types';
 import { TripCreateDTO } from './dto/create.dto';
 import { TripUpdateDTO } from './dto/update.dto';
-import { Trip, TripAffiliation } from './entities/trips.entity';
 import {
-  paginatedResponse,
-  PaginatedResponseDto,
-} from 'src/common/dto/paginated-response.dto';
-import { applySupabaseQuery } from 'src/common/utils/query-builder';
-import { QueryDto } from 'src/common/dto/query.dto';
-import { TripStopDTO, TripStopType } from './dto/trip-stop.dto';
-
-interface TripStopRow {
-  id: string;
-  trip_id: string;
-  stop_order: number;
-  stop_type: TripStopType;
-  destination_id: string | null;
-  location: unknown;
-  label: string | null;
-  created_at: string | null;
-  updated_at: string | null;
-}
-
-export type TripWithStops = Trip & { stops: TripStopRow[] };
+  Trip,
+  TripAffiliation,
+  TripStop,
+  TripWithStops,
+} from './entities/trips.entity';
+import { randomUUID } from 'crypto';
+import {
+  DestinationsCount,
+  ParticipantsRange,
+  QuickFilter,
+  TripsQueryDto,
+} from './dto/query.dto';
 
 @Injectable()
 export class TripsService {
-  constructor(
-    @Inject(SupabaseClient)
-    private readonly supabaseClient: SupabaseClient<Database>,
-  ) {}
+  constructor(private readonly supabaseClient: SupabaseClient<Database>) {}
 
-  private validateStopOrder(stops: TripStopDTO[]): void {
-    if (!stops.length) {
-      return;
-    }
+  async uploadImages(
+    userId: string,
+    files: Express.Multer.File[],
+  ): Promise<string[]> {
+    const uploads = files.map(
+      async (file: Express.Multer.File): Promise<string> => {
+        const ext = file.originalname.split('.').pop();
+        const path = `${userId}/${randomUUID()}.${ext}`;
 
-    const orders = stops.map((stop) => stop.stop_order).sort((a, b) => a - b);
-    for (let i = 0; i < orders.length; i += 1) {
-      if (orders[i] !== i) {
-        throw new BadRequestException(
-          'Stops must have continuous stop_order values starting from 0',
-        );
-      }
-    }
+        const { error } = await this.supabaseClient.storage
+          .from('trips-images')
+          .upload(path, file.buffer, {
+            contentType: file.mimetype,
+            upsert: false,
+          });
+
+        if (error) {
+          throw new InternalServerErrorException(
+            `Failed to upload image "${file.originalname}": ${error.message}`, // TODO: delete any successfully uploaded files in this batch, or retry
+          );
+        }
+
+        const {
+          data: { publicUrl },
+        } = this.supabaseClient.storage.from('trips-images').getPublicUrl(path);
+
+        return publicUrl;
+      },
+    );
+
+    return Promise.all(uploads);
   }
 
-  private mapStopForInsert(tripId: string, stop: TripStopDTO) {
-    const [lng, lat] = stop.location.coordinates;
+  async uploadAttachment(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    const ext = file.originalname.split('.').pop();
+    const path = `${userId}/${randomUUID()}.${ext}`;
 
-    return {
-      trip_id: tripId,
-      stop_order: stop.stop_order,
-      stop_type: stop.stop_type,
-      destination_id:
-        stop.stop_type === TripStopType.Destination
-          ? (stop.destination_id ?? null)
-          : null,
-      location: `SRID=4326;POINT(${lng} ${lat})`,
-      label: stop.label ?? null,
-    };
-  }
-
-  private async replaceTripStops(tripId: string, stops: TripStopDTO[]): Promise<void> {
-    this.validateStopOrder(stops);
-
-    const { error: deleteError } = await this.supabaseClient
-      .from('trip_stops' as any)
-      .delete()
-      .eq('trip_id', tripId);
-
-    if (deleteError) {
-      throw new BadRequestException('Failed to update trip stops');
-    }
-
-    if (!stops.length) {
-      return;
-    }
-
-    const payload = stops.map((stop) => this.mapStopForInsert(tripId, stop));
-    const { error: insertError } = await this.supabaseClient
-      .from('trip_stops' as any)
-      .insert(payload as any);
-
-    if (insertError) {
-      throw new BadRequestException('Failed to save trip stops');
-    }
-  }
-
-  private async getTripStops(tripId: string): Promise<TripStopRow[]> {
-    const { data, error } = await this.supabaseClient
-      .from('trip_stops' as any)
-      .select('*')
-      .eq('trip_id', tripId)
-      .order('stop_order', { ascending: true });
+    const { error } = await this.supabaseClient.storage
+      .from('trips-attachements')
+      .upload(path, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
 
     if (error) {
-      throw new InternalServerErrorException('Failed to fetch trip stops');
-    }
-
-    return (data ?? []) as TripStopRow[];
-  }
-
-  /// @Return: all trips
-  async getTrips(query: QueryDto): Promise<PaginatedResponseDto<Trip>> {
-    const qb = applySupabaseQuery(this.supabaseClient, 'trips', query, {
-      searchFields: ['title', 'description'],
-      allowedFilters: ['organizer'],
-      allowedSortFields: [
-        'title',
-        'created_at',
-        'start_date',
-        'end_date',
-        'price',
-        'difficulty',
-        'status',
-        'start_date',
-      ],
-      defaultSort: 'start_date',
-    });
-
-    const { data, error, count } = await qb;
-
-    if (error || !data || count === null) {
       throw new InternalServerErrorException(
-        "Can't fetch trips at the instant",
+        `Failed to upload attachment "${file.originalname}": ${error.message}`, // TODO: delete any successfully uploaded files in this batch, or retry
       );
     }
 
-    return paginatedResponse(data as Trip[], count, query);
+    const {
+      data: { publicUrl },
+    } = this.supabaseClient.storage
+      .from('trips-attachements')
+      .getPublicUrl(path);
+
+    return publicUrl;
+  }
+
+  /// @Return: all trips
+  async getTrips(userId: string, query: TripsQueryDto): Promise<Trip[]> {
+    const {
+      search,
+      tripType,
+      quickFilter,
+      difficulty,
+      participants,
+      placeType,
+      minSpots,
+      month,
+      destinationsCount,
+      priceMin,
+      priceMax,
+      offset = 0,
+      limit = 20,
+    } = query;
+
+    let tripsQuery = this.supabaseClient.from('trips').select('*');
+
+    if (search) {
+      tripsQuery = tripsQuery.textSearch('title', search);
+    }
+
+    if (tripType) {
+      tripsQuery = tripsQuery.eq('category', tripType);
+    }
+
+    if (difficulty) {
+      tripsQuery = tripsQuery.eq('difficulty', difficulty);
+    }
+
+    if (minSpots !== undefined) {
+      tripsQuery = tripsQuery.gte('min_participants', minSpots);
+    }
+
+    if (priceMin !== undefined) {
+      tripsQuery = tripsQuery.gte('price', priceMin);
+    }
+
+    if (priceMax !== undefined) {
+      tripsQuery = tripsQuery.lte('price', priceMax);
+    }
+
+    if (month) {
+      // tripsQuery.eq(`EXTRACT(MONTH FROM "start_date")::int`, month);
+    }
+
+    const idSets: string[][] = [];
+
+    if (placeType) {
+      const { error, data } = await this.supabaseClient.rpc(
+        'filter_trips_by_place_type',
+        { p_place_type: placeType },
+      );
+
+      if (error || !data) {
+        console.error(`Failed filter with place type: ${error}`);
+        throw new BadRequestException('Failed to filter by place type');
+      }
+
+      idSets.push(data.map((r) => r.trip_id));
+    }
+
+    if (quickFilter === QuickFilter.BOOKMARKS) {
+      const { error, data } = await this.supabaseClient.rpc(
+        'filter_trips_by_bookmark',
+        { p_user_id: userId },
+      );
+
+      if (error || !data) {
+        console.error(`Failed to filter by bookmark: ${error}`);
+        throw new BadRequestException('Failed to filter by bookmark');
+      }
+
+      idSets.push(data.map((r) => r.trip_id));
+    }
+
+    if (quickFilter && quickFilter !== QuickFilter.BOOKMARKS) {
+      const { error, data } = await this.supabaseClient.rpc(
+        'filter_trips_by_creator_type',
+        { p_creator_type: quickFilter },
+      );
+
+      if (error || !data) {
+        console.error(`Failed to filter by user role: ${error}`);
+        throw new BadRequestException('Failed to filter by user role');
+      }
+
+      idSets.push(data.map((r) => r.trip_id));
+    }
+
+    if (participants) {
+      const [min, max] = {
+        [ParticipantsRange.ZERO_TO_FIVE]: [0, 5],
+        [ParticipantsRange.FIVE_TO_FIFTEEN]: [5, 15],
+        [ParticipantsRange.FIFTEEN_TO_FIFTY]: [15, 50],
+        [ParticipantsRange.FIFTY_PLUS]: [50, null],
+      }[participants];
+
+      const { error, data } = await this.supabaseClient.rpc(
+        'filter_trips_by_participants_range',
+        { p_min: min, p_max: max },
+      );
+
+      if (error || !data) {
+        console.error(`Failed to filter by participants range: ${error}`);
+        throw new BadRequestException('Failed to filter by participants range');
+      }
+
+      idSets.push(data.map((r) => r.trip_id));
+    }
+
+    if (destinationsCount) {
+      const [min, max] = {
+        [DestinationsCount.ONE]: [1, 1],
+        [DestinationsCount.TWO_PLUS]: [2, null],
+        [DestinationsCount.THREE_PLUS]: [3, null],
+        [DestinationsCount.FIVE_PLUS]: [5, null],
+      }[destinationsCount];
+
+      const { data, error } = await this.supabaseClient.rpc(
+        'filter_trips_by_destinations_count',
+        { p_min: min, p_max: max },
+      );
+
+      if (error)
+        throw new InternalServerErrorException(
+          'Failed to filter by destinations count',
+        );
+
+      idSets.push(data.map((r: { trip: string }) => r.trip));
+    }
+
+    if (idSets.length > 0) {
+      const intersected = idSets.reduce((a, b) =>
+        a.filter((id) => b.includes(id)),
+      );
+
+      if (intersected.length === 0) return [];
+
+      tripsQuery = tripsQuery.in('id', intersected);
+    }
+
+    const { data: trips, error: fetchTripsError } = await tripsQuery.range(
+      offset,
+      offset + limit,
+    );
+
+    if (fetchTripsError || !trips) {
+      throw new NotFoundException('Failed to fetch trips');
+    }
+
+    return trips;
   }
 
   /// @Return: the trip with the given id
   async getTripById(tripId: string): Promise<TripWithStops> {
-    const { data: trip, error } = await this.supabaseClient
+    const { data: trip, error: fetchTripError } = await this.supabaseClient
       .from('trips')
       .select('*')
       .eq('id', tripId)
       .single();
 
-    if (error || !trip) {
+    if (fetchTripError || !trip) {
       throw new NotFoundException('Trip not found');
     }
 
-    const stops = await this.getTripStops(tripId);
-    return { ...(trip as Trip), stops };
+    const { data: stops, error: fetchStopsError } = await this.supabaseClient
+      .from('trip_stops')
+      .select('*')
+      .eq('id', tripId);
+
+    if (fetchStopsError || !stops) {
+      throw new InternalServerErrorException('Failed to fetch trip stops');
+    }
+
+    return { ...trip, stops };
   }
 
-  /// @Return: the added trip
-  async addTrip(userId: string, trip: TripCreateDTO): Promise<TripWithStops> {
-    const { stops, ...tripPayload } = trip;
+  /// @Return: the created trip
+  async createTrip(
+    userId: string,
+    tripDTO: TripCreateDTO,
+    images: Express.Multer.File[] | undefined,
+    attachment: Express.Multer.File | undefined,
+  ): Promise<TripWithStops> {
+    const { stops, ...trip } = tripDTO;
 
-    const { error, data } = await this.supabaseClient
+    let images_urls: string[] = [];
+    if (images) {
+      images_urls = await this.uploadImages(userId, images);
+    }
+
+    let attachment_url: string | null = null;
+    if (attachment) {
+      attachment_url = await this.uploadAttachment(userId, attachment);
+    }
+
+    const { error, data: createdTrip } = await this.supabaseClient
       .from('trips')
       .insert({
-        ...(tripPayload as any),
-        images: [], // TODO: file uploads
+        ...trip,
+        images: images_urls,
+        attachment_url,
         organizer: userId,
-      } as any)
-      .select()
+      })
+      .select('*')
       .single();
 
-    if (error || !data) {
-      console.error(error);
+    if (error || !createdTrip) {
+      console.error(`Failed to create trip: ${error}`);
       throw new BadRequestException('Failed to create trip');
     }
 
-    try {
-      // @ts-expect-error - table types issue
-      await this.replaceTripStops(data.id, stops);
-    } catch (stopError) {
-      // @ts-expect-error - table types issue
-      await this.supabaseClient.from('trips').delete().eq('id', data.id);
-      throw stopError;
+    const results = await Promise.all(
+      stops.map((stop) =>
+        this.supabaseClient
+          .from('trip_stops')
+          .insert({ ...stop, trip: trip.id })
+          .select('*')
+          .single(),
+      ),
+    );
+
+    if (results.some((result) => result.error || !result.data)) {
+      console.error(
+        `Failed to create trip stops: ${results.map((r) => r.error)}`,
+      );
+      throw new BadRequestException('Failed to create trip stops'); // TODO: fault tolerance
     }
 
-    // @ts-expect-error - table types issue
-    const savedStops = await this.getTripStops(data.id);
-    return { ...(data as Trip), stops: savedStops };
+    return { ...createdTrip, stops: results.map((result) => result.data) };
   }
 
-  /// @Return: the updated trip fields
+  /// @Return: the updated trip and only updated stops
   async updateTrip(
     userId: string,
-    id: string,
-    trip: TripUpdateDTO,
+    tripId: string,
+    tripDTO: TripUpdateDTO,
   ): Promise<TripWithStops> {
-    const { data: existing, error: fetchError } = await this.supabaseClient
-      .from('trips')
-      .select('id, organizer, images, status')
-      .eq('id', id)
-      .single();
+    const { stopIDsToDelete, stopsToCreate, ...trip } = tripDTO;
 
-    if (fetchError || !existing) {
+    if (
+      Object.keys(trip).length === 0 &&
+      (!stopsToCreate || stopsToCreate.length === 0) &&
+      (!stopIDsToDelete || stopIDsToDelete.length === 0)
+    ) {
+      throw new BadRequestException(
+        'You should provide at least a trip property to modify',
+      );
+    }
+
+    const { data: currentTrip, error: tripFetchError } =
+      await this.supabaseClient
+        .from('trips')
+        .select('id, organizer, images, status')
+        .eq('id', tripId)
+        .single();
+
+    if (tripFetchError || !currentTrip) {
       throw new NotFoundException('Trip not found');
     }
 
-    // @ts-expect-error - table types issue
-    if (existing.organizer !== userId) {
+    if (currentTrip.organizer !== userId) {
       throw new UnauthorizedException();
     }
 
-    const { stops, ...tripPayload } = trip;
-    const hasTripFields = Object.keys(tripPayload).length > 0;
+    if (currentTrip.status !== 'draft') {
+      throw new BadRequestException('Only draft trips can be updated');
+    }
 
-    if (hasTripFields) {
-      const { error: updateError } = await this.supabaseClient
-        .from('trips')
-        // @ts-expect-error - table types issue
-        .update(tripPayload as any)
-        .eq('id', id);
+    // 1) Create new stops
+    let updatedStops: TripStop[] = [];
+    if (stopsToCreate && stopsToCreate.length > 0) {
+      const results = await Promise.all(
+        stopsToCreate.map((stop) =>
+          this.supabaseClient
+            .from('trip_stops')
+            .insert({ ...stop, trip: tripId })
+            .select('*')
+            .single(),
+        ),
+      );
 
-      if (updateError) {
-        throw new BadRequestException('Failed to update trip');
+      if (results.some((result) => result.error || !result.data)) {
+        console.error(
+          `Failed to update trip stop(s): ${results.map((r) => r.error)}`,
+        );
+        throw new BadRequestException('Failed to update trip stop(s)'); // TODO: fault tolerance
+      }
+
+      updatedStops = results.map((result) => result.data);
+    }
+
+    // 2) Delete stops
+    if (stopIDsToDelete && stopIDsToDelete.length > 0) {
+      const results = await Promise.all(
+        stopIDsToDelete.map((stopId) =>
+          this.supabaseClient.from('trip_stops').delete().eq('id', stopId),
+        ),
+      );
+
+      if (results.some((result) => result.error)) {
+        console.error(
+          `Failed to delete trip stop(s): ${results.map((r) => r.error)}`,
+        );
+        throw new BadRequestException('Failed to update trip stop(s)'); // TODO: fault tolerance
       }
     }
 
-    if (stops) {
-      await this.replaceTripStops(id, stops);
+    // 4) Update trip
+    let updatedTrip: Trip;
+    if (Object.keys(trip).length > 0) {
+      const { error: updateError, data } = await this.supabaseClient
+        .from('trips')
+        .update(trip)
+        .eq('id', tripId)
+        .select('*')
+        .single();
+
+      if (updateError || !updatedTrip) {
+        throw new BadRequestException('Failed to update trip');
+      }
+
+      updatedTrip = data;
     }
 
-    return this.getTripById(id);
+    return { ...updatedTrip, stops: updatedStops };
   }
 
   /// @Return: the id of the deleted trip
@@ -244,7 +432,6 @@ export class TripsService {
       throw new NotFoundException('Trip not found');
     }
 
-    // @ts-ignore
     if (existing.organizer !== userId) {
       throw new UnauthorizedException();
     }
@@ -269,7 +456,6 @@ export class TripsService {
       .eq('trip_id', tripId);
 
     if (affiliations) {
-      // @ts-expect-error - table types issue
       if (affiliations.some((p) => p.user_id === userId)) {
         throw new BadRequestException(
           'You are already participating in the trip',
@@ -287,9 +473,7 @@ export class TripsService {
       }
 
       if (
-        // @ts-expect-error - table types issue
         trip.max_participants &&
-        // @ts-expect-error - table types issue
         trip.max_participants <= affiliations.length
       ) {
         throw new BadRequestException('Trip is full');
@@ -298,7 +482,6 @@ export class TripsService {
 
     const { error, data } = await this.supabaseClient
       .from('trip_participants')
-      // @ts-ignore
       .insert({
         user_id: userId,
         trip_id: tripId,
@@ -326,7 +509,6 @@ export class TripsService {
       throw new BadRequestException('Affiliation to the trip not found');
     }
 
-    // @ts-expect-error - table types issue
     if (affiliation.user_id !== userId) {
       throw new UnauthorizedException('You are not affiliated to this trip');
     }
