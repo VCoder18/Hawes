@@ -24,7 +24,7 @@ import {
 import { TripCreateDTO } from './dto/create.dto';
 import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { TripUpdateDTO } from './dto/update.dto';
-import { QueryDto } from 'src/common/dto/query.dto';
+import { TripsQueryDto } from './dto/query.dto';
 
 @Controller('trips')
 @UseGuards(AuthGuard)
@@ -32,12 +32,13 @@ export class TripsController {
   constructor(private readonly service: TripsService) {}
 
   @Get()
-  @Public()
-  getTrips(@Query() query: QueryDto) {
-    return this.service.getTrips(query);
+  getTrips(
+    @CurrentUser() user: SupabaseJWTPayload,
+    @Query() query: TripsQueryDto,
+  ) {
+    return this.service.getTrips(user.id, query);
   }
 
-  @Public()
   @Get(':tripId')
   getTripById(@Param('tripId') tripId: string) {
     return this.service.getTripById(tripId);

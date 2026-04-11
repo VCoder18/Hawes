@@ -613,6 +613,38 @@ export type Database = {
         | { Args: { table_name: string }; Returns: string }
       enablelongtransactions: { Args: never; Returns: string }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      filter_trips_by_bookmark: {
+        Args: { p_user_id: string }
+        Returns: {
+          trip_id: string
+        }[]
+      }
+      filter_trips_by_creator_type: {
+        Args: { p_creator_type: Database["public"]["Enums"]["user_role"] }
+        Returns: {
+          trip_id: string
+        }[]
+      }
+      filter_trips_by_destinations_count: {
+        Args: { p_max?: number; p_min: number }
+        Returns: {
+          trip: string
+        }[]
+      }
+      filter_trips_by_participants_range: {
+        Args: { p_max?: number; p_min: number }
+        Returns: {
+          trip_id: string
+        }[]
+      }
+      filter_trips_by_place_type: {
+        Args: {
+          p_place_type: Database["public"]["Enums"]["destination_category"]
+        }
+        Returns: {
+          trip_id: string
+        }[]
+      }
       geometry: { Args: { "": string }; Returns: unknown }
       geometry_above: {
         Args: { geom1: unknown; geom2: unknown }
