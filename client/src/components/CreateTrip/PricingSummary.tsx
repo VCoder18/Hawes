@@ -6,12 +6,12 @@ interface PricingSummaryProps {
 
 export function PricingSummary({ minParticipants, maxParticipants, pricePerPerson }: PricingSummaryProps) {
   const PLATFORM_FEE_RATE = 0.1;
-  const minGross = minParticipants * pricePerPerson;
-  const maxGross = maxParticipants * pricePerPerson;
-  const minFee = minGross * PLATFORM_FEE_RATE;
-  const maxFee = maxGross * PLATFORM_FEE_RATE;
-  const minNet = minGross - minFee;
-  const maxNet = maxGross - maxFee;
+  const minGross = Math.floor(minParticipants * pricePerPerson);
+  const maxGross = Math.floor(maxParticipants * pricePerPerson);
+  const minFee = Math.floor(minGross * PLATFORM_FEE_RATE);
+  const maxFee = Math.floor(maxGross * PLATFORM_FEE_RATE);
+  const minNet = Math.floor(minGross - minFee);
+  const maxNet = Math.floor(maxGross - maxFee);
 
   return (
     <div className="bg-bg-[#ff5900] rounded-xl p-6 space-y-3">

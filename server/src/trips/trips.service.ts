@@ -44,6 +44,7 @@ export class TripsService {
           });
 
         if (error) {
+          console.error(`Failed to upload image "${file.originalname}": ${error.message}`);
           throw new InternalServerErrorException(
             `Failed to upload image "${file.originalname}": ${error.message}`, // TODO: delete any successfully uploaded files in this batch, or retry
           );
@@ -68,7 +69,7 @@ export class TripsService {
     const path = `${userId}/${randomUUID()}.${ext}`;
 
     const { error } = await this.supabaseClient.storage
-      .from('trips-attachements')
+      .from('trips-attachments')
       .upload(path, file.buffer, {
         contentType: file.mimetype,
         upsert: false,

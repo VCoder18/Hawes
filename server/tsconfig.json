@@ -24,5 +24,13 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
   },
-  "exclude": ["dist", "vitest.config.ts", "vitest.e2e.config.ts", "test"]
+  "exclude": [
+    "dist",
+    "vitest.config.ts",
+    "vitest.e2e.config.ts",
+    "test",
+    "mock.ts",
+    "mock.js",
+    "mock.d.ts"
+  ]
 }

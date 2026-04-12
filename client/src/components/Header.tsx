@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Menu, Search, Bell, MessageSquare, Settings, LogOut, User } from "lucide-react";
 import Avatar from "@/assets/images/pfp.svg";
 import logo from "@/assets/images/logo.png";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 interface HeaderProps {
   sidebarOpen: boolean;
@@ -13,8 +16,58 @@ interface HeaderProps {
 export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: HeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string>(Avatar);
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAvatar = async () => {
+      if (!user) {
+        setAvatarUrl(Avatar);
+        return;
+      }
+
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+          if (!isMounted) return;
+          setAvatarUrl(Avatar);
+          return;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/profiles`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (!response.ok) {
+          if (!isMounted) return;
+          setAvatarUrl(Avatar);
+          return;
+        }
+
+        const profile = await response.json();
+        if (!isMounted) return;
+        setAvatarUrl(profile?.avatar_url || Avatar);
+      } catch {
+        if (!isMounted) return;
+        setAvatarUrl(Avatar);
+      }
+    };
+
+    void loadAvatar();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +128,7 @@ export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: He
           {/* Navigation - Desktop Only */}
           <nav className="hidden lg:flex items-center gap-6 xl:gap-8 lg:mr-6">
             <Link to="/register" className="text-[#334155] text-sm font-medium hover:text-[#00b70d]">Explore</Link>
-            <Link to="/create-trip" className="text-[#334155] text-sm font-medium hover:text-[#00b70d]">Trips</Link>
+            <Link to="/trips" className="text-[#334155] text-sm font-medium hover:text-[#00b70d]">Trips</Link>
             <Link to="/browse" className="text-[#334155] text-sm font-medium hover:text-[#00b70d]">Destinations</Link>
             <Link to="/login" className="text-[#334155] text-sm font-medium hover:text-[#00b70d]">Community</Link>
           </nav>
@@ -95,7 +148,7 @@ export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: He
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="size-8 sm:size-10 rounded-full overflow-hidden border-2 border-[rgba(19,127,236,0.2)] hover:border-[#00b70d] transition-colors"
               >
-                <img src={Avatar} alt="Profile" className="size-full object-cover" />
+                <img src={avatarUrl} alt="Profile" className="size-full object-cover object-center" />
               </button>
 
               {/* Dropdown Menu */}

@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsNumber,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { Database } from 'src/database.types';
 
 export type Trip = Database['public']['Tables']['trips']['Row'];
@@ -61,7 +62,13 @@ export class Geography implements GeographyBase {
   @IsEnum(GeographyType)
   public type: GeographyType;
 
+  /*
+   * Multipart form-data submits nested values as strings.
+   * Coerce coordinates to numbers before IsNumber validation so
+   * stops[i].location.coordinates passes for /trips create requests.
+   */
   @IsArray()
+  @Type(() => Number)
   @IsNumber({}, { each: true })
   @ArrayMinSize(2)
   @ArrayMaxSize(2)
