@@ -7,6 +7,5 @@ import { BookmarksService } from './bookmarks.service';
   imports: [SupabaseModule.injectClient()],
   controllers: [BookmarksController],
   providers: [BookmarksService],
-  exports: [BookmarksService],
 })
 export class BookmarksModule {}
