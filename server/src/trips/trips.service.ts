@@ -44,7 +44,9 @@ export class TripsService {
           });
 
         if (error) {
-          console.error(`Failed to upload image "${file.originalname}": ${error.message}`);
+          console.error(
+            `Failed to upload image "${file.originalname}": ${error.message}`,
+          );
           throw new InternalServerErrorException(
             `Failed to upload image "${file.originalname}": ${error.message}`, // TODO: delete any successfully uploaded files in this batch, or retry
           );
@@ -84,7 +86,7 @@ export class TripsService {
     const {
       data: { publicUrl },
     } = this.supabaseClient.storage
-      .from('trips-attachements')
+      .from('trips-attachments')
       .getPublicUrl(path);
 
     return publicUrl;
@@ -280,12 +282,13 @@ export class TripsService {
     const { stops, ...trip } = tripDTO;
 
     let images_urls: string[] = [];
-    if (images) {
+
+    if (images && Array.isArray(images)) {
       images_urls = await this.uploadImages(userId, images);
     }
 
     let attachment_url: string | null = null;
-    if (attachment) {
+    if (attachment && Array.isArray(images)) {
       attachment_url = await this.uploadAttachment(userId, attachment);
     }
 
@@ -325,6 +328,7 @@ export class TripsService {
     return { ...createdTrip, stops: results.map((result) => result.data) };
   }
 
+  // TODO: get back file uploads bro
   /// @Return: the updated trip and only updated stops
   async updateTrip(
     userId: string,

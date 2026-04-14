@@ -12,11 +12,9 @@ import {
   ParseFilePipeBuilder,
   HttpStatus,
   Query,
+  UploadedFiles,
 } from '@nestjs/common';
-import {
-  FileFieldsInterceptor,
-  FileInterceptor,
-} from '@nestjs/platform-express';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ProfilesService } from './profiles.service';
 import {
   AuthGuard,
@@ -59,7 +57,7 @@ export class ProfilesController {
   updateProfile(
     @CurrentUser() user: SupabaseJWTPayload,
     @Body() profile: ProfileUpdateDTO,
-    @UploadedFile(
+    @UploadedFiles(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
           fileType: /^(image\/jpeg|image\/png|image\/webp)$/,
@@ -70,19 +68,13 @@ export class ProfilesController {
           errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
         }),
     )
-    avatar: Express.Multer.File | undefined,
-    @UploadedFile(
-      new ParseFilePipeBuilder()
-        .addFileTypeValidator({
-          fileType: /^(image\/jpeg|image\/png|image\/webp)$/,
-        })
-        .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
-        .build({
-          fileIsRequired: false,
-          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
-        }),
-    )
-    banner: Express.Multer.File | undefined,
+    {
+      avatar,
+      banner,
+    }: {
+      avatar: Express.Multer.File | undefined;
+      banner: Express.Multer.File | undefined;
+    },
   ) {
     return this.service.updateProfile(user.sub, profile, avatar, banner);
   }

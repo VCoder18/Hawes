@@ -21,6 +21,7 @@ import { TripCreateDTO } from './dto/create.dto';
 import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { TripUpdateDTO } from './dto/update.dto';
 import { TripsQueryDto } from './dto/query.dto';
+import { TripMediaPipe } from './pipes/trip-media.pipe';
 
 @Controller('trips')
 @UseGuards(AuthGuard)
@@ -50,31 +51,8 @@ export class TripsController {
   createTrip(
     @Body() body: TripCreateDTO,
     @CurrentUser() user: SupabaseJWTPayload,
-    @UploadedFiles(
-      new ParseFilePipeBuilder()
-        .addFileTypeValidator({
-          fileType: /^(image\/jpeg|image\/png|image\/webp)$/,
-        })
-        .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
-        .build({
-          fileIsRequired: false,
-          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
-        }),
-    )
-    images: Array<Express.Multer.File> | undefined,
-    @UploadedFile(
-      new ParseFilePipeBuilder()
-        .addFileTypeValidator({
-          fileType:
-            /^(application\/pdf|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/,
-        })
-        .addMaxSizeValidator({ maxSize: 10 * 1024 * 1024 })
-        .build({
-          fileIsRequired: false,
-          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
-        }),
-    )
-    attachment: Express.Multer.File | undefined,
+    @UploadedFiles(TripMediaPipe)
+    { images, attachment },
   ) {
     return this.service.createTrip(user.sub, body, images, attachment);
   }
