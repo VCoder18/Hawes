@@ -86,7 +86,7 @@ export class TripsService {
     const {
       data: { publicUrl },
     } = this.supabaseClient.storage
-      .from('trips-attachements')
+      .from('trips-attachments')
       .getPublicUrl(path);
 
     return publicUrl;
