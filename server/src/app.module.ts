@@ -11,6 +11,7 @@ import { FavoritesModule } from './favorites/favorites.module';
 import { BookmarksModule } from './bookmarks/bookmarks.module';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
     DestinationsModule,
     FavoritesModule,
     BookmarksModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [
