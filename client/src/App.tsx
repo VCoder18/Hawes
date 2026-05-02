@@ -30,6 +30,7 @@ function App() {
   }, [pathname]);
 
   return (
+<<<<<<< Updated upstream
     <AuthProvider>
       <TripProvider>
       <Routes>
@@ -54,6 +55,36 @@ function App() {
     </Routes>
     </TripProvider>
     </AuthProvider>
+=======
+    <>
+      <AuthProvider>
+        <TripProvider>
+          <Routes>
+            <Route element={<MainLayout displayNavbar={true} displayFooter={true} />}>
+              <Route path="/" element={<Profile />} />
+              <Route path="/browse" element={<BrowseDestinations />} />
+              <Route path="/trips" element={<BrowseTrips />} />
+              <Route path="/trips/:id" element={<JoinTrip />} />
+              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/profile/:username" element={<Profile />} />
+              <Route path="/settings/profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<Dashboard />} />
+            </Route>
+            <Route element={<MainLayout displayNavbar={true} displayFooter={false} />}>
+              <Route path="/create-trip" element={<ProtectedRoute><CreateTrip /></ProtectedRoute>} />
+            </Route>
+            <Route element={<MainLayout displayNavbar={false} displayFooter={false} />}>
+              <Route path="/login" element={<LoginForm />} />
+              <Route path="/register" element={<SignupForm />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+            </Route>
+            <Route path="*" element={<ErrorPageWrapper />} />
+          </Routes>
+        </TripProvider>
+      </AuthProvider>
+      <Toaster />
+    </>
+>>>>>>> Stashed changes
   );
 }
 

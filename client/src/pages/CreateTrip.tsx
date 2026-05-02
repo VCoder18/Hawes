@@ -22,13 +22,23 @@ import { TripPreviewPanel } from "@/components/CreateTrip/TripPreviewPanel";
 // Import constants and types
 import {
   steps,
-  itemsPerPage,
   destinationsList,
   categoryIconMap,
   browseDestinationCategories,
   includedOptions,
 } from "@/imports/constants";
 import type { TripData, Destination, MeetingLocation } from "@/imports/types";
+<<<<<<< Updated upstream
+=======
+import {
+  buildStopsPayload,
+  calculateDistanceKm,
+  dataUrlToFile,
+  matchesPopularityLevel,
+  parseDestinationCoordinates,
+  sortIncludedByOptions,
+} from "@/lib/create-trip-utils";
+>>>>>>> Stashed changes
 
 const parseDestinationCoordinates = (destination: any): { lat: number; lng: number } | null => {
   if (Number.isFinite(destination?.lat) && Number.isFinite(destination?.lng)) {
@@ -84,6 +94,45 @@ const parseDestinationCoordinates = (destination: any): { lat: number; lng: numb
   return null;
 };
 
+const ALGERIA_BOUNDS = {
+  minLat: 16,
+  maxLat: 38,
+  minLng: -10,
+  maxLng: 13.5,
+};
+
+const isWithinAlgeria = (lat: number, lng: number) =>
+  lat >= ALGERIA_BOUNDS.minLat &&
+  lat <= ALGERIA_BOUNDS.maxLat &&
+  lng >= ALGERIA_BOUNDS.minLng &&
+  lng <= ALGERIA_BOUNDS.maxLng;
+
+const resolveDestinationCoordinates = (dbDest: any): { lat: number; lng: number } => {
+  const rawCoordinates = dbDest?.location?.coordinates;
+
+  if (Array.isArray(rawCoordinates) && rawCoordinates.length >= 2) {
+    const first = Number(rawCoordinates[0]);
+    const second = Number(rawCoordinates[1]);
+
+    if (Number.isFinite(first) && Number.isFinite(second)) {
+      const asLngLat = { lng: first, lat: second };
+      const asLatLng = { lng: second, lat: first };
+
+      if (isWithinAlgeria(asLngLat.lat, asLngLat.lng)) return asLngLat;
+      if (isWithinAlgeria(asLatLng.lat, asLatLng.lng)) return asLatLng;
+
+      return asLngLat;
+    }
+  }
+
+  const parsed = parseDestinationCoordinates(dbDest);
+  if (parsed) {
+    return parsed;
+  }
+
+  return { lat: 0, lng: 0 };
+};
+
 export default function CreateTrip() {
   const MAX_MEETING_POINTS = 20;
   const [currentStep, setCurrentStep] = useState(1);
@@ -100,14 +149,19 @@ export default function CreateTrip() {
   const [maxDistance, setMaxDistance] = useState(100);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+<<<<<<< Updated upstream
   const [destinations, setDestinations] = useState<Destination[]>(destinationsList);
+=======
+  const [allFetchedDestinations, setAllFetchedDestinations] = useState<Destination[]>([]);
+  const [selectedDestinationFullData, setSelectedDestinationFullData] = useState<Destination[]>([]);
+  const [orderedStopIds, setOrderedStopIds] = useState<string[]>([]);
+  const [totalDestinationResults, setTotalDestinationResults] = useState(0);
+>>>>>>> Stashed changes
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
   // Step 3: Schedule
-  const [newMeetingLocation, setNewMeetingLocation] = useState("");
-  const [newMeetingTime, setNewMeetingTime] = useState("");
   const [newItinerarySummary, setNewItinerarySummary] = useState("");
   const [newItineraryDetails, setNewItineraryDetails] = useState("");
   const [expandedItinerary, setExpandedItinerary] = useState<Set<number>>(new Set());
@@ -150,6 +204,7 @@ export default function CreateTrip() {
     }
   }, [currentStep, maxStepReached]);
 
+<<<<<<< Updated upstream
   useEffect(() => {
     setLoading(true);
     setError(null);
@@ -166,6 +221,229 @@ export default function CreateTrip() {
     if (hasTripsOnly) {
       apiFilters.trip_ids = { operator: "eq", value: "has_trips" };
     }
+=======
+  // Build query params for API
+  const buildQueryParams = (pageNum: number) => {
+    const params = new URLSearchParams();
+    const LIMIT = 6;
+    const offset = (pageNum - 1) * LIMIT;
+    params.append('limit', LIMIT.toString());
+    params.append('offset', offset.toString());
+
+    if (searchQuery) {
+      params.append('search', searchQuery);
+    }
+    if (selectedCategory !== "all") {
+      params.append('category', selectedCategory);
+    }
+    if (showFavoritesOnly) {
+      params.append('quickFilter', 'favorites');
+    } else if (hasTripsOnly) {
+      params.append('quickFilter', 'has_trips');
+    }
+    if (minRating > 0) {
+      params.append('minRating', minRating.toString());
+    }
+    if (selectedPopularity) {
+      params.append('popularity', selectedPopularity);
+    }
+    if (selectedMonth) {
+      const monthNum = selectedMonth === "next-30" ? "3" : selectedMonth;
+      params.append('month', monthNum);
+    }
+    if (maxDistance < 100) {
+      params.append('maxDistanceKm', maxDistance.toString());
+    }
+    return params;
+  };
+
+  // Fetch single page of destinations
+  const fetchDestinationsPage = async (pageNum: number) => {
+    const buildLocalFallbackPage = () => {
+      const LIMIT = 6;
+      const offset = (pageNum - 1) * LIMIT;
+
+      const monthMatches = (bestPeriods: string[] | undefined) => {
+        if (!selectedMonth) return true;
+        const targetMonth = Number(selectedMonth === "next-30" ? 3 : selectedMonth);
+        if (!Number.isFinite(targetMonth) || targetMonth < 1 || targetMonth > 12) return true;
+
+        const periods = Array.isArray(bestPeriods) ? bestPeriods : [];
+        if (periods.length === 0) return true;
+
+        return periods.some((period) => {
+          const [start, end] = String(period).split(":");
+          const startMonth = Number(start?.split("-")?.[0]);
+          const endMonth = Number(end?.split("-")?.[0]);
+          if (!Number.isFinite(startMonth) || !Number.isFinite(endMonth)) return false;
+
+          if (startMonth <= endMonth) {
+            return targetMonth >= startMonth && targetMonth <= endMonth;
+          }
+
+          return targetMonth >= startMonth || targetMonth <= endMonth;
+        });
+      };
+
+      const normalizedSearch = searchQuery.trim().toLowerCase();
+
+      const transformedAll = destinationsList.map((destination) => ({
+        ...destination,
+        isFavorite: favorites[String(destination.id)] || false,
+      }));
+
+      const filtered = transformedAll.filter((destination) => {
+        const matchesSearch = !normalizedSearch
+          ? true
+          : destination.name.toLowerCase().includes(normalizedSearch) ||
+            destination.region.toLowerCase().includes(normalizedSearch) ||
+            destination.category.toLowerCase().includes(normalizedSearch);
+        const matchesCategory = selectedCategory === "all" || destination.category === selectedCategory;
+        const matchesFavorites = !showFavoritesOnly || destination.isFavorite;
+        const matchesHasTrips = !hasTripsOnly || destination.tripsAvailable > 0;
+        const matchesMonth = monthMatches(destination.best_periods);
+
+        return (
+          matchesSearch &&
+          matchesCategory &&
+          matchesFavorites &&
+          matchesHasTrips &&
+          matchesMonth
+        );
+      });
+
+      return {
+        destinations: filtered.slice(offset, offset + LIMIT),
+        total: filtered.length,
+      };
+    };
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      const params = buildQueryParams(pageNum);
+      const response = await fetch(`${API_BASE_URL}/destinations?${params.toString()}`, { headers });
+      
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      const data = await response.json();
+      
+      const destinations = data.data || [];
+      if (!Array.isArray(destinations)) return { destinations: [], total: 0 };
+      
+      const transformed = destinations.map((dbDest: any) => {
+        const { lat, lng } = resolveDestinationCoordinates(dbDest);
+        return {
+          id: dbDest.id,
+          name: dbDest.name,
+          type: dbDest.category,
+          region: dbDest.region,
+          image: dbDest.images?.[0] || "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop",
+          rating: dbDest.rating || 4.5,
+          reviews: Math.floor(Math.random() * 200) + 10,
+          peopleVisiting: dbDest.peopleVisiting || Math.floor(Math.random() * 1000) + 50,
+          tripsAvailable: dbDest.trip_ids?.length || 0,
+          category: dbDest.category,
+          description: dbDest.description || "",
+          isFavorite: favorites[String(dbDest.id)] || false,
+          lat,
+          lng,
+          best_periods: dbDest.best_periods || [],
+        };
+      });
+      
+      return {
+        destinations: transformed,
+        total: data.total || 0,
+      };
+    } catch (err) {
+      console.error("Failed to fetch destinations:", err);
+      return buildLocalFallbackPage();
+    }
+  };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory, selectedMonth, hasTripsOnly, minRating, selectedPopularity, maxDistance, showFavoritesOnly]);
+
+  // Fetch destinations when page or filters change
+  useEffect(() => {
+    if (!isInitialized) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    fetchDestinationsPage(currentPage).then((result) => {
+      setAllFetchedDestinations(result.destinations);
+      setTotalDestinationResults(result.total);
+      setLoading(false);
+    }).catch(() => {
+      setError("Could not load destinations");
+      setLoading(false);
+    });
+  }, [currentPage, searchQuery, selectedCategory, selectedMonth, hasTripsOnly, minRating, selectedPopularity, maxDistance, showFavoritesOnly, isInitialized, favorites]);
+
+  useEffect(() => {
+    if (tripData.destinations.length === 0) {
+      setSelectedDestinationFullData([]);
+      return;
+    }
+
+    setSelectedDestinationFullData((prev) => {
+      const byName = new globalThis.Map(prev.map((destination) => [destination.name, destination]));
+
+      allFetchedDestinations.forEach((destination) => {
+        if (tripData.destinations.includes(destination.name)) {
+          byName.set(destination.name, destination);
+        }
+      });
+
+      destinationsList.forEach((destination) => {
+        if (tripData.destinations.includes(destination.name) && !byName.has(destination.name)) {
+          byName.set(destination.name, destination as Destination);
+        }
+      });
+
+      return tripData.destinations
+        .map((name) => byName.get(name))
+        .filter((destination): destination is Destination => Boolean(destination));
+    });
+  }, [tripData.destinations, allFetchedDestinations]);
+
+  const toggleDestinationSelection = (destination: Destination) => {
+    setTripData((prev) => {
+      const exists = prev.destinations.includes(destination.name);
+      return {
+        ...prev,
+        destinations: exists
+          ? prev.destinations.filter((name) => name !== destination.name)
+          : [...prev.destinations, destination.name],
+      };
+    });
+
+    setSelectedDestinationFullData((prev) => {
+      const exists = prev.some((selected) => selected.name === destination.name);
+      if (exists) {
+        return prev.filter((selected) => selected.name !== destination.name);
+      }
+      return [...prev, destination];
+    });
+  };
+
+  const removeDestinationByName = (name: string) => {
+    setTripData((prev) => ({
+      ...prev,
+      destinations: prev.destinations.filter((destinationName) => destinationName !== name),
+    }));
+
+    setSelectedDestinationFullData((prev) =>
+      prev.filter((destination) => destination.name !== name)
+    );
+  };
+>>>>>>> Stashed changes
 
     if (selectedMonth && selectedMonth !== "next-30") {
       const monthNum = selectedMonth.padStart(2, "0");
@@ -298,14 +576,6 @@ export default function CreateTrip() {
       },
     ]);
     return true;
-  };
-
-  const addMeetingLocation = () => {
-    const added = addMeetingLocationEntry({ location: newMeetingLocation, time: newMeetingTime });
-    if (added) {
-      setNewMeetingLocation("");
-      setNewMeetingTime("");
-    }
   };
 
   const removeMeetingLocation = (index: number) => {
@@ -503,6 +773,7 @@ export default function CreateTrip() {
     setUploadedDocument(null);
   };
 
+<<<<<<< Updated upstream
   const buildStopsPayload = () => {
     console.log("buildStopsPayload called");
     console.log("tripData.meetingLocations:", tripData.meetingLocations);
@@ -516,6 +787,26 @@ export default function CreateTrip() {
         isFiniteLat: Number.isFinite(meeting.lat),
         isFiniteLng: Number.isFinite(meeting.lng),
       });
+=======
+  const buildStops = () =>
+    buildStopsPayload(tripData.meetingLocations, selectedDestinationPoints, orderedStopIds);
+
+  const buildDraftStops = () => {
+    const safeMeetingLocations = tripData.meetingLocations.filter(
+      (meeting) => Number.isFinite(meeting.lat) && Number.isFinite(meeting.lng)
+    );
+
+    const safeDestinationPoints = selectedDestinationPoints.filter(
+      (destination) => Number.isFinite(destination.lat) && Number.isFinite(destination.lng)
+    );
+
+    return buildStopsPayload(
+      safeMeetingLocations,
+      safeDestinationPoints,
+      orderedStopIds,
+    );
+  };
+>>>>>>> Stashed changes
 
       if (!Number.isFinite(meeting.lat) || !Number.isFinite(meeting.lng)) {
         throw new Error(`Meeting stop ${index + 1} is missing map coordinates.`);
@@ -583,6 +874,7 @@ export default function CreateTrip() {
         return;
       }
 
+<<<<<<< Updated upstream
       let stops;
       try {
         stops = buildStopsPayload();
@@ -590,6 +882,9 @@ export default function CreateTrip() {
         console.error("ERROR building stops payload:", error);
         throw error;
       }
+=======
+      const stops = status === "draft" ? buildDraftStops() : buildStops();
+>>>>>>> Stashed changes
       const allActivities = [...tripData.activities, ...tripData.customActivities];
       
       // Validate stops before sending
@@ -643,6 +938,7 @@ export default function CreateTrip() {
       console.log("Payload stops specifically:", payload.stops);
       console.log("JSON stringified payload:", JSON.stringify(payload, null, 2));
 
+<<<<<<< Updated upstream
       const response = await fetch(`${API_BASE_URL}/trips`, {
         method: "POST",
         headers: {
@@ -651,6 +947,84 @@ export default function CreateTrip() {
         },
         body: JSON.stringify(payload),
       });
+=======
+      if (hasMedia) {
+        const formData = new FormData();
+
+        formData.append("title", payload.title);
+        if (payload.description) formData.append("description", payload.description);
+        formData.append("category", payload.category);
+        formData.append("difficulty", payload.difficulty);
+        formData.append("start_date", payload.start_date);
+        formData.append("end_date", payload.end_date);
+        formData.append("status", payload.status);
+        formData.append("min_participants", String(payload.min_participants));
+        formData.append("max_participants", String(payload.max_participants));
+        formData.append("price", String(payload.price));
+        // returns_to_start is optional and defaults to false on backend.
+        // Avoid sending multipart boolean strings ("false") that fail IsBoolean validation.
+
+        payload.activities.forEach((value, index) => formData.append(`activities[${index}]`, value));
+        payload.itinerary.forEach((value, index) => formData.append(`itinerary[${index}]`, value));
+        payload.included.forEach((value, index) => formData.append(`included[${index}]`, value));
+        payload.not_included.forEach((value, index) => formData.append(`not_included[${index}]`, value));
+        payload.what_to_bring.forEach((value, index) => formData.append(`what_to_bring[${index}]`, value));
+
+        payload.stops.forEach((stop, index) => {
+          formData.append(`stops[${index}][type]`, stop.type);
+          if (typeof stop.index === "number") {
+            formData.append(`stops[${index}][index]`, String(stop.index));
+          }
+          formData.append(`stops[${index}][location][type]`, "Point");
+          formData.append(`stops[${index}][location][coordinates][0]`, String(stop.location.coordinates[0]));
+          formData.append(`stops[${index}][location][coordinates][1]`, String(stop.location.coordinates[1]));
+
+          if (stop.label) {
+            formData.append(`stops[${index}][label]`, stop.label);
+          }
+
+          if ("destination" in stop && stop.destination) {
+            formData.append(`stops[${index}][destination]`, stop.destination);
+          }
+        });
+
+        if (tripData.coverImage) {
+          const coverFile = await dataUrlToFile({
+            data: tripData.coverImage,
+            name: "cover-image.png",
+            type: "image/png",
+          });
+          formData.append("images", coverFile);
+        }
+
+        for (const imageDraft of tripData.additionalImages) {
+          const file = await dataUrlToFile(imageDraft);
+          formData.append("images", file);
+        }
+
+        if (uploadedDocument) {
+          const attachmentFile = await dataUrlToFile(uploadedDocument);
+          formData.append("attachment", attachmentFile);
+        }
+
+        response = await fetch(`${API_BASE_URL}/trips`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: formData,
+        });
+      } else {
+        response = await fetch(`${API_BASE_URL}/trips`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+      }
+>>>>>>> Stashed changes
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
@@ -742,6 +1116,7 @@ export default function CreateTrip() {
   const centerLat = 36.7538;
   const centerLng = 3.0588;
 
+<<<<<<< Updated upstream
   const calculateDistance = (lat: number, lng: number) => {
     const R = 6371;
     const dLat = ((lat - centerLat) * Math.PI) / 180;
@@ -758,6 +1133,10 @@ export default function CreateTrip() {
 
   // Filter destinations based on all filters
   let filteredDestinations = destinations.filter((dest) => {
+=======
+  // Filter destinations based on all filters (client-side filtering)
+  let filteredDestinations = allFetchedDestinations.filter((dest) => {
+>>>>>>> Stashed changes
     const matchesRating = dest.rating >= minRating;
     const matchesPopularity = matchesPopularityLevel(selectedPopularity, dest.peopleVisiting);
 
@@ -779,6 +1158,7 @@ export default function CreateTrip() {
       matchesRating &&
       matchesPopularity &&
       matchesDistance &&
+<<<<<<< Updated upstream
       matchesFavorites &&
       matchesCategory &&
       matchesTrips &&
@@ -792,21 +1172,73 @@ export default function CreateTrip() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+=======
+      matchesFavorites
+    );
+  });
+
+  // Pagination - calculate total pages from API total
+  const totalPages = Math.max(1, Math.ceil(totalDestinationResults / 6));
+  // On current page, show only the 6 items fetched
+  const paginatedDestinations = filteredDestinations;
+
+  useEffect(() => {
+    const safeTotalPages = Math.max(1, totalPages);
+    if (currentPage > safeTotalPages) {
+      setCurrentPage(safeTotalPages);
+    }
+  }, [currentPage, totalPages]);
+>>>>>>> Stashed changes
 
   // Get all selected activities
   const allActivities = [...tripData.activities, ...tripData.customActivities];
   const selectedDestinationPoints = useMemo(
     () => {
       const byName = new globalThis.Map<string, Destination>();
+<<<<<<< Updated upstream
       [...destinationsList, ...destinations].forEach((destination) => {
+=======
+      // Seed with mock data, then override with fetched and selected DB records
+      ;[...destinationsList, ...allFetchedDestinations, ...selectedDestinationFullData].forEach((destination) => {
+>>>>>>> Stashed changes
         byName.set(destination.name, destination);
       });
       return tripData.destinations
         .map((name) => byName.get(name))
         .filter((destination): destination is Destination => Boolean(destination));
     },
+<<<<<<< Updated upstream
     [destinations, tripData.destinations]
+=======
+    [selectedDestinationFullData, allFetchedDestinations, tripData.destinations]
+>>>>>>> Stashed changes
   );
+  const mergedReviewStops = useMemo(() => {
+    const meetingStops = tripData.meetingLocations.map((meeting) => ({
+      id: `meeting:${meeting.placeId || `${meeting.location}-${meeting.time}-${meeting.lat ?? "na"}-${meeting.lng ?? "na"}`}`,
+      label: meeting.location,
+      type: "meeting" as const,
+      time: meeting.time,
+    }));
+
+    const destinationStops = selectedDestinationPoints.map((destination) => ({
+      id: `destination:${destination.id}`,
+      label: destination.name,
+      type: "destination" as const,
+      time: "",
+    }));
+
+    const combined = [...meetingStops, ...destinationStops];
+    const byId = new globalThis.Map(combined.map((stop) => [stop.id, stop]));
+    const ordered = orderedStopIds
+      .map((id) => byId.get(id))
+      .filter(Boolean) as Array<{ id: string; label: string; type: "meeting" | "destination"; time?: string }>;
+    const rest = combined.filter(
+      (stop) => !ordered.some((orderedStop) => orderedStop.id === stop.id)
+    );
+
+    return [...ordered, ...rest];
+  }, [orderedStopIds, selectedDestinationPoints, tripData.meetingLocations]);
 
   return (
     <>
@@ -853,10 +1285,12 @@ export default function CreateTrip() {
                 showFilters={showFilters}
                 setShowFilters={setShowFilters}
                 tripData={tripData}
-                toggleArrayItem={toggleArrayItem as (field: string, item: string) => void}
+                onToggleDestination={toggleDestinationSelection}
+                onRemoveDestinationByName={removeDestinationByName}
                 setSelectedDestination={setSelectedDestination}
                 paginatedDestinations={paginatedDestinations}
                 totalPages={totalPages}
+                totalDestinationResults={totalDestinationResults}
                 isInitialized={isInitialized}
                 browseDestinationCategories={browseDestinationCategories}
                 getCategoryIcon={getCategoryIcon}
@@ -876,10 +1310,8 @@ export default function CreateTrip() {
               <Step3ScheduleMapLibreAlt
                 tripData={tripData}
                 selectedDestinations={selectedDestinationPoints}
-                newMeetingLocation={newMeetingLocation}
-                onMeetingLocationChange={setNewMeetingLocation}
-                newMeetingTime={newMeetingTime}
-                onMeetingTimeChange={setNewMeetingTime}
+                orderedPointIds={orderedStopIds}
+                onOrderedPointIdsChange={setOrderedStopIds}
                 newItinerarySummary={newItinerarySummary}
                 onItinerarySummaryChange={setNewItinerarySummary}
                 newItineraryDetails={newItineraryDetails}
@@ -888,7 +1320,6 @@ export default function CreateTrip() {
                 onToggleItineraryExpanded={toggleItineraryExpanded}
                 onDateSelect={handleDateSelect}
                 duration={duration}
-                onAddMeetingLocation={addMeetingLocation}
                 onAddMeetingLocationEntry={addMeetingLocationEntry}
                 onRemoveMeetingLocation={removeMeetingLocation}
                 onReorderMeetingLocations={reorderMeetingLocations}
@@ -956,6 +1387,7 @@ export default function CreateTrip() {
             {currentStep === 8 && (
               <Step8ReviewAndPublish
                 tripData={tripData}
+                mergedStops={mergedReviewStops}
                 duration={duration}
                 allActivities={allActivities}
                 onPublish={validateAndPublish}
@@ -987,7 +1419,7 @@ export default function CreateTrip() {
         <DestinationModal
           destination={selectedDestination}
           isSaved={tripData.destinations.includes(selectedDestination.name)}
-          onToggleSave={() => toggleArrayItem("destinations", selectedDestination.name)}
+          onToggleSave={() => toggleDestinationSelection(selectedDestination)}
           onClose={() => setSelectedDestination(null)}
         />
       )}

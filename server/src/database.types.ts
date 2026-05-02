@@ -109,6 +109,7 @@ export interface Database {
           trip_ids?: string[] | null;
         };
         Update: {
+<<<<<<< Updated upstream
           id?: string;
           name?: string;
           slug?: string;
@@ -127,6 +128,106 @@ export interface Database {
           trip_ids?: string[] | null;
         };
       };
+=======
+          auth_name?: string | null
+          auth_srid?: number | null
+          proj4text?: string | null
+          srid?: number
+          srtext?: string | null
+        }
+        Relationships: []
+      }
+      trip_participants: {
+        Row: {
+          id: string
+          joined_at: string | null
+          trip_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          joined_at?: string | null
+          trip_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          joined_at?: string | null
+          trip_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_participants_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trip_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trip_stops: {
+        Row: {
+          created_at: string | null
+          destination: string | null
+          id: string
+          index: number | null
+          label: string | null
+          location: unknown
+          time: string | null
+          trip: string
+          type: Database["public"]["Enums"]["trip_stop_type"]
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          destination?: string | null
+          id?: string
+          index?: number | null
+          label?: string | null
+          location: unknown
+          time?: string | null
+          trip: string
+          type: Database["public"]["Enums"]["trip_stop_type"]
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          destination?: string | null
+          id?: string
+          index?: number | null
+          label?: string | null
+          location?: unknown
+          time?: string | null
+          trip?: string
+          type?: Database["public"]["Enums"]["trip_stop_type"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_stops_destination_fkey"
+            columns: ["destination"]
+            isOneToOne: false
+            referencedRelation: "destinations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trip_stops_trip_fkey"
+            columns: ["trip"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+>>>>>>> Stashed changes
       trips: {
         Row: {
           id: string;

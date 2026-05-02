@@ -1,4 +1,31 @@
+<<<<<<< Updated upstream
 import React, { useState } from 'react';
+=======
+import {
+  X,
+  MapPin,
+  Zap,
+  Compass,
+  Download,
+  Home,
+  Utensils,
+  Tent,
+  Bus,
+  Shield,
+  User,
+  Users,
+  Puzzle,
+  Calendar,
+  Clock,
+  Share2,
+  ShieldCheck,
+  Check,
+  ChevronUp,
+  ChevronDown,
+} from 'lucide-react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+>>>>>>> Stashed changes
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
@@ -24,10 +51,151 @@ import x from "@/assets/images/x.png";
 import up from "@/assets/images/chevron-up.png";
 import down from "@/assets/images/chevron-down.png";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 
 
 const JoinTrip = () => {
+<<<<<<< Updated upstream
+=======
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { id } = useParams<{ id: string }>();
+  const [trip, setTrip] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedItinerary, setExpandedItinerary] = useState<Set<number>>(new Set([0]));
+
+  useEffect(() => {
+    const loadTrip = async () => {
+      const previewTrip = (location.state as { previewTrip?: any } | null)?.previewTrip;
+
+      if (previewTrip) {
+        setTrip(previewTrip);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+
+      if (!id) {
+        setError("Trip ID not found");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/trips/${id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setTrip(data);
+          setError(null);
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Fall back to local mock data below.
+      }
+
+      const fallback = getTripById(id);
+      if (fallback) {
+        setTrip(fallback);
+        setError(null);
+      } else {
+        setError("Trip not found");
+      }
+
+      setLoading(false);
+    };
+
+    void loadTrip();
+  }, [id, location.state]);
+
+  const handleClose = () => {
+    navigate(-1);
+  };
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="relative bg-[#FDFCF0] rounded-3xl w-[95vw] h-[95vh] flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00b70d]" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !trip) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="relative bg-[#FDFCF0] rounded-3xl p-8 text-center">
+          <p className="text-red-500 mb-4">{error || "Trip not found"}</p>
+          <button
+            onClick={handleClose}
+            className="px-6 py-2 bg-[#00b70d] text-white rounded-lg hover:bg-[#00a00a]"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const coverImage =
+    (Array.isArray(trip.images) && trip.images.length > 0 ? trip.images[0] : null) ||
+    trip.coverImage;
+  const startsAt = trip.start_date || trip.startDate;
+  const endsAt = trip.end_date || trip.endDate;
+  const stops = Array.isArray(trip.stops) ? trip.stops : [];
+  const firstMeetingPoint = stops.find((stop: any) => {
+    const stopType = String(stop?.type || stop?.stop_type || "").toLowerCase();
+    return stopType === "meeting";
+  });
+  const firstMeetingLabel = firstMeetingPoint?.label || "Meeting point TBD";
+  const meetingTime =
+    firstMeetingPoint?.time ||
+    firstMeetingPoint?.hour ||
+    firstMeetingPoint?.meeting_time ||
+    trip?.meeting_time ||
+    "Time TBD";
+  const meetingDateLabel = startsAt
+    ? new Date(startsAt).toLocaleDateString(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "Date TBD";
+  const itinerary = trip.itinerary || [];
+  const activities = trip.activities || [];
+  const included = trip.included || [];
+  const notIncluded = trip.not_included || [];
+  const whatToBring = trip.what_to_bring || [];
+  const currentParticipants = trip.current_participants || 0;
+  const maxParticipants = trip.max_participants || 1;
+  const availableSpots = Math.max(0, maxParticipants - currentParticipants);
+  const pricePerPerson = trip.price || 0;
+  const tripDurationDays = startsAt && endsAt
+    ? Math.max(
+        1,
+        Math.ceil((new Date(endsAt).getTime() - new Date(startsAt).getTime()) / (1000 * 60 * 60 * 24))
+      )
+    : 0;
+  const tripDurationNights = Math.max(0, tripDurationDays - 1);
+  const participantPercentage = Math.min(100, Math.max(0, (currentParticipants / maxParticipants) * 100));
+
+  const toggleItinerary = (index: number) => {
+    setExpandedItinerary((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
+
+>>>>>>> Stashed changes
   return (
     <div className="min-h-screen bg-[#FDFCF0] font-sans text-[#1A2E05] pb-10">
       
@@ -50,7 +218,11 @@ const JoinTrip = () => {
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-2">Tassili n'Ajjer Expedition</h1>
           <p className="flex items-center gap-1 text-[11px] font-medium text-white/90">
+<<<<<<< Updated upstream
             <span className="!text-[#FDFCF0] text-sm"><img src={p} alt="meeting point"className=' h-[20px] w-[20px]' /></span> Meeting Point: Djanet Airport, Algeria
+=======
+            <MapPin className="w-4 h-4 text-[#FDFCF0]" /> {firstMeetingLabel} • {meetingDateLabel} • {meetingTime}
+>>>>>>> Stashed changes
           </p>
         </div>
       </div>
@@ -63,10 +235,19 @@ const JoinTrip = () => {
           <p className="text-gray-600 text-sm leading-relaxed text-justify">
             Embark on a mesmerizing journey into the heart of the Algerian Sahara. Experience the vast golden dunes of Erg Admer, majestic sandstone towers of Tassili n'Ajjer, and ancient Tuareg traditions. This expedition is designed for those who seek adventure and cultural immersion in one of the world's most breathtaking environments.
           </p>
+          {activities.length > 0 && (
+            <h3 className="text-2xl font-bold mt-8 mb-3 text-[#1A2E05]">Activities</h3>
+          )}
           <div className="flex flex-wrap gap-2 mt-6">
+<<<<<<< Updated upstream
             {['Trekking', '4x4 Desert Safari', 'Stargazing', 'Touareg Culture', 'Rock Art Exploring'].map(tag => (
               <Badge key={tag} className="bg-[#E8F5E9] hover:bg-[#E8F5E9] text-[#4CAF50] border-none rounded-lg px-3 py-1.5 text-[10px] font-bold">
                 {tag}
+=======
+            {activities.slice(0, 5).map((activity: string) => (
+              <Badge key={activity} className="bg-[#E8F5E9] hover:bg-[#E8F5E9] text-[#4CAF50] border-none rounded-lg px-3.5 py-2 text-xs font-bold">
+                {activity}
+>>>>>>> Stashed changes
               </Badge>
             ))}
           </div>
@@ -86,6 +267,7 @@ const JoinTrip = () => {
             <div className="absolute left-[39px] top-12 bottom-12 w-[1.5px] bg-[#4CAF50]/40" />
             
             <div className="space-y-8">
+<<<<<<< Updated upstream
               {[
                 { day: 1, title: "Arrival in Djanet & Oasis Welcome", active: true, desc: "Meet your Touareg guide at Djanet Airport. Short transfer to the palm grove for a traditional welcome tea. Afternoon briefing and exploration of the local oasis." },
                 { day: 2, title: "Tadrat Rouge & Rock Art" },
@@ -100,6 +282,39 @@ const JoinTrip = () => {
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center ${item.active ? 'bg-[#E8F5E9]' : 'bg-gray-50'}`}>
                        <span className="text-[#4CAF50] text-[10px]">{item.active ? (<img src={up} alt="up" className="h-[20px] w-[20px]" />) : (<img src={down} alt="down" className="h-[20px] w-[20px]" />)}</span>
                     </div>
+=======
+              {itinerary.map((item: any, i: number) => {
+                const itemText = typeof item === 'string' ? item : item.summary || '';
+                const parts = itemText.split('\n');
+                const dayTitle = parts[0] || '';
+                const dayDesc = parts.slice(1).join('\n').trim();
+                
+                return (
+                  <div key={i} className="relative pl-10">
+                    {i < itinerary.length - 1 && (
+                      <div className="absolute left-[14px] top-4 bottom-[-34px] w-[1.5px] bg-[#4CAF50]/40" />
+                    )}
+                    <div className="absolute left-[9px] top-1 w-3 h-3 rounded-full bg-[#4CAF50] border-[3px] border-white z-10 shadow-[0_0_0_1px_rgba(74,175,80,0.3)]" />
+                    <button
+                      type="button"
+                      onClick={() => toggleItinerary(i)}
+                      className="w-full flex justify-between items-center group cursor-pointer text-left"
+                    >
+                      <span className="font-bold text-[14px]">Day {i + 1}: {dayTitle}</span>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center bg-[#E8F5E9]`}>
+                         {expandedItinerary.has(i) ? (
+                           <ChevronUp className="w-4 h-4 text-[#4CAF50]" />
+                         ) : (
+                           <ChevronDown className="w-4 h-4 text-[#4CAF50]" />
+                         )}
+                      </div>
+                    </button>
+                    {expandedItinerary.has(i) && dayDesc && (
+                      <p className="mt-4 text-gray-500 text-[12px] leading-relaxed max-w-2xl">
+                        {dayDesc}
+                      </p>
+                    )}
+>>>>>>> Stashed changes
                   </div>
                   {item.active && (
                     <p className="mt-4 text-gray-500 text-[12px] leading-relaxed max-w-2xl">
@@ -207,19 +422,28 @@ const JoinTrip = () => {
                    <div className="flex items-center gap-4">
                       <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-gray-50"><img src={cal} alt="calender"className=' h-[20px] w-[20px]' /></div>
                       <div>
+<<<<<<< Updated upstream
                         <p className="text-[13px] font-bold">Nov 12 - Nov 18</p>
+=======
+                        <p className="text-[13px] font-bold">{startsAt ? new Date(startsAt).toLocaleDateString() : 'TBD'} - {endsAt ? new Date(endsAt).toLocaleDateString() : 'TBD'}</p>
+>>>>>>> Stashed changes
                         <p className="text-[10px] text-gray-400 font-medium">Fixed Departure</p>
                       </div>
                    </div>
                    <div className="flex items-center gap-4">
                       <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-gray-50"><img src={cl} alt="clock"className=' h-[20px] w-[20px]' /></div>
                       <div>
+<<<<<<< Updated upstream
                         <p className="text-[13px] font-bold">5 Days / 4 Nights</p>
+=======
+                        <p className="text-[13px] font-bold">{tripDurationDays} Days / {tripDurationNights} Nights</p>
+>>>>>>> Stashed changes
                         <p className="text-[10px] text-gray-400 font-medium">Immersive Experience</p>
                       </div>
                    </div>
                 </div>
 
+<<<<<<< Updated upstream
                 <div className="bg-[#D1F2D1]/50 p-5 rounded-[25px] flex justify-between items-center border border-[#B8EBB8]">
                   <div className="text-[12px] font-bold">
                     <p className="text-[#1A2E05]">Limited Availability</p>
@@ -227,7 +451,20 @@ const JoinTrip = () => {
                   </div>
                   <div className="w-9 h-9 rounded-full bg-[#4CAF50] flex items-center justify-center text-white text-[11px] font-black">
                     3
+=======
+                <div className="bg-[#D1F2D1]/50 p-5 rounded-[25px] border border-[#B8EBB8] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[#1A2E05] text-lg font-bold">Participants</p>
+                    <p className="text-[#1A2E05]/80 text-sm font-semibold">{currentParticipants}/{maxParticipants}</p>
                   </div>
+                  <div className="h-3 rounded-full bg-white/80 overflow-hidden border border-[#B8EBB8]">
+                    <div
+                      className="h-full bg-[#4CAF50] transition-all"
+                      style={{ width: `${participantPercentage}%` }}
+                    />
+>>>>>>> Stashed changes
+                  </div>
+                  <p className="text-[#1A2E05]/70 text-sm font-medium">{availableSpots} spots available</p>
                 </div>
 
                 <Button className="w-full bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold py-8 rounded-[22px] text-base shadow-lg shadow-orange-200 uppercase tracking-wide">

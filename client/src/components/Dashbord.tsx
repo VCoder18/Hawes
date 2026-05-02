@@ -1,111 +1,191 @@
+<<<<<<< Updated upstream:client/src/components/Dashbord.tsx
 import React, {useState} from 'react' ;
 import { X } from 'lucide-react'; 
 import Sidebar from './Sidebar';
+=======
+import {useState} from 'react';
+import { X, LayoutDashboard, Compass, User, Users, Settings, Plus } from 'lucide-react'; 
+>>>>>>> Stashed changes:client/src/pages/Dashbord.tsx
 import { Link } from "react-router-dom";
+import { TripCard } from "@/components/BrowseTrips/TripCard";
 
-const Dashbord =() => {
+const dashboardTrips = [
+  {
+    id: "1",
+    title: "Exploring Timgad Ruins",
+    category: "completed",
+    difficulty: "moderate",
+    images: ["src/images/timgadd.png"],
+    start_date: "2026-01-15T00:00:00Z",
+    end_date: "2026-01-22T00:00:00Z",
+    current_participants: 15,
+    max_participants: 20,
+    min_participants: 10,
+    price: 3500,
+    description: "",
+    stops: [{ id: "1", label: "Batna, Algeria", stop_type: "meeting_point", location: {}, destination_id: null, trip_id: "1", created_at: null, updated_at: null }]
+  },
+  {
+    id: "2",
+    title: "Discover Ghardaïa Culture",
+    category: "upcoming",
+    difficulty: "easy",
+    images: ["src/images/ghardaia.png"],
+    start_date: "2026-04-05T00:00:00Z",
+    end_date: "2026-04-12T00:00:00Z",
+    current_participants: 7,
+    max_participants: 15,
+    min_participants: 5,
+    price: 4500,
+    description: "",
+    stops: [{ id: "2", label: "Ghardaïa, Algeria", stop_type: "meeting_point", location: {}, destination_id: null, trip_id: "2", created_at: null, updated_at: null }]
+  },
+  {
+    id: "3",
+    title: "Casbah Algiers",
+    category: "cancelled",
+    difficulty: "moderate",
+    images: ["src/images/algiers.png"],
+    start_date: "2025-10-10T00:00:00Z",
+    end_date: "2025-10-15T00:00:00Z",
+    current_participants: 15,
+    max_participants: 20,
+    min_participants: 10,
+    price: 2000,
+    description: "",
+    stops: [{ id: "3", label: "Algiers", stop_type: "meeting_point", location: {}, destination_id: null, trip_id: "3", created_at: null, updated_at: null }]
+  },
+  {
+    id: "4",
+    title: "Mediterranean",
+    category: "live",
+    difficulty: "moderate",
+    images: ["src/images/oran.png"],
+    start_date: "2026-03-10T00:00:00Z",
+    end_date: "2026-03-20T00:00:00Z",
+    current_participants: 10,
+    max_participants: 15,
+    min_participants: 8,
+    price: 6000,
+    description: "",
+    stops: [{ id: "4", label: "Oran, Algeria", stop_type: "meeting_point", location: {}, destination_id: null, trip_id: "4", created_at: null, updated_at: null }]
+  },
+  {
+    id: "5",
+    title: "Constantine Bridges",
+    category: "draft",
+    difficulty: "hard",
+    images: ["src/images/constantine.png"],
+    start_date: "2026-05-10T00:00:00Z",
+    end_date: "2026-05-15T00:00:00Z",
+    current_participants: 15,
+    max_participants: 25,
+    min_participants: 10,
+    price: 4000,
+    description: "",
+    stops: [{ id: "5", label: "Constantine", stop_type: "meeting_point", location: {}, destination_id: null, trip_id: "5", created_at: null, updated_at: null }]
+  }
+];
+
+const Dashbord = () => {
     const [isOpen, setIsOpen] = useState(false);
+
     return (
-    <div className='flex h-screen w-screen '>
-        <div className='md:grid md:grid-cols-4 grid grid-cols-2'>
-            <div className=' md:col-start-1 md:col-end-2 bg-white col-start-1 col-end-2'>
-                <nav className='flex flex-col  gap-1 px-4 '>
-                    <Link to="/register" className="px-4 py-2 text-[#334155] font-medium flex items-center md:hover:bg-[#00B70D1A] hover:bg-white md:hover:border md:hover:border-[#00B70D1A] hover:border-[#00B70DCC]  rounded-lg transition-colors "
-                       onClick={() => setSidebarOpen(false)} >
-                     <img src='src/images/home2.svg'></img>   
-                     <span className='text-[19.05px] pl-3 text-[#0D2805B2]'>Home</span>
+    <div className='flex flex-col md:flex-row gap-6 w-full'>
+        {/* Local Dashboard Sidebar */}
+        <div className='w-full md:w-64 shrink-0'>
+            <nav className='flex flex-col gap-2'>
+                <Link to="/" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
+                    <LayoutDashboard className="w-5 h-5" />   
+                    <span className='pl-3'>Home</span>
+                </Link>
+                <Link to="/dashboard" className="px-4 py-3 text-[#00B70D] font-medium flex items-center bg-[#00B70D1A] rounded-xl transition-colors">
+                    <Compass className="w-5 h-5" />   
+                    <span className='pl-3'>My Trips</span>
+                </Link>
+                <Link to="/browse" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
+                    <Compass className="w-5 h-5" />   
+                    <span className='pl-3'>Explore</span>
+                </Link>
+
+                <div className='border-t border-gray-200 my-2'></div>
+                 
+                <div className="px-2">
+                    <Link to="/create-trip" className='w-full flex items-center justify-center gap-2 border-2 border-[#FF5900] rounded-xl py-3 px-4 hover:bg-[#FF5900] hover:text-white group transition-colors'>
+                        <Plus className="w-5 h-5 text-[#FF5900] group-hover:text-white" />
+                        <span className='text-[#FF5900] group-hover:text-white font-semibold'>Create New Trip</span>
                     </Link>
-                    <Link to="/register" className="px-4 py-2 text-[#334155] font-medium flex items-center md:bg-[#00B70D1A] rounded-lg md:border  md:border-[#00B70D1A] border-[#00B70DCC] bg-white  transition-colors "
-                       onClick={() => setSidebarOpen(false)} >
-                     <img src='src/images/My Trips.svg'></img>   
-                     <span className='text-[19.05px] pl-3 text-[#0D2805]'>My Trips</span>
-                    </Link>
-
-
-                    <Link to="/register" className="px-4 py-2 text-[#334155] font-medium flex items-center md:hover:bg-[#00B70D1A] hover:bg-white md:hover:border md:hover:border-[#00B70D1A] hover:border-[#00B70DCC] rounded-lg transition-colors "
-                       onClick={() => setSidebarOpen(false)} >
-                     <img src='src/images/explore.svg'></img>   
-                     <span className='text-[19.05px] pl-3 text-[#0D2805B2]'>Explore</span>
-                    </Link>
-                </nav>
-
-                <div className='border border-[#00B70D33] mt-3 mb-1 ml-3 mr-3 px-5'></div>
-                 <div >
-                    <button className='border-2 border-[#FF5900] rounded-xl m-5 md:pr-18 md:pl-15 pt-2 py-2 pr-2 pl-2'>
-                        <span className='text-[#FF5900] text-[19.05px]'>Create New Trip</span>
-                    </button>
-                 </div>
-                 <div className='border border-[#00B70D33] mt-1 mb-3 ml-3 mr-3 px-5'></div>
-
-                  <nav className='flex flex-col  gap-1 px-4 '>
-                    <Link to="/register" className="px-4 py-2 text-[#334155] font-medium flex items-center md:hover:bg-[#00B70D1A] hover:bg-white md:hover:border md:hover:border-[#00B70D1A] hover:border-[#00B70DCC] rounded-lg transition-colors "
-                       onClick={() => setSidebarOpen(false)} >
-                     <img src='src/images/profile.svg'></img>   
-                     <span className='text-[19.05px] pl-3 text-[#0D2805B2]'>Profile</span>
-                    </Link>
-                    <Link to="/register" className="px-4 py-2 text-[#334155] font-medium flex items-center md:hover:bg-[#00B70D1A] hover:bg-white md:hover:border md:hover:border-[#00B70D1A] hover:border-[#00B70DCC] rounded-lg transition-colors "
-                       onClick={() => setSidebarOpen(false)} >
-                     <img src='src/images/Community.svg'></img>   
-                     <span className='text-[19.05px] pl-3 text-[#0D2805B2]'>Community</span>
-                    </Link>
-                    <Link to="/register" className="px-4 py-2 text-[#334155] font-medium flex items-center md:hover:bg-[#00B70D1A] hover:bg-white md:hover:border md:hover:border-[#00B70D1A] hover:border-[#00B70DCC] rounded-lg transition-colors "
-                       onClick={() => setSidebarOpen(false)} >
-                     <img src='src/images/Settings.svg'></img>   
-                     <span className='text-[19.05px] pl-3 text-[#0D2805B2]'>Settings</span>
-                    </Link>
-                </nav>
-            </div>
-
-            <div className='md:col-start-2 md:col-end-5 col-start-2 col-end-3 flex flex-col'>
-                <header className=' bg-white border-b border-gray-200 min-h-[60px] flex items-center px-4'>
-                    <Sidebar />
-
-
-
-                    
-                </header>
-                
-              <main className='flex-1 p-8 overflow-y-auto'>
-              <h1 className='font-bold md:pl-8 pl-2 md:text-[48px] text-[35.6px]'>Trip History</h1>
-
-             <div className=' md:flex relative md:items-center justify-center pl-2 gap-3 w-full md:pr-2 md:ml-7 md:mr-4 py-1 '>
-                
-                <div className='border border-gray-300 bg-white flex items-center rounded-md md:pl- flex relative w-full px-3 py-1 '>
-                <img src='src/images/search.svg' className='justify-start'></img>
-                <input type="text" placeholder='Search destinations...' className='justify-start rounded-md flex border border-gray-50 bg-[#FFFFFF] md:pr-70 w-full outline-none'></input>
                 </div>
-              <div className='flex  items-center col-start-2 col-end-3 md:gap-2 gap-1  bg-white md:pl-1'>
-               <div className='  rounded-md bg-[#0D28050D]  md:pl-1 pl-3 pr-2'>
-                <select className='flex rounded-full '>
-                    <option className='flex rounded-full hover:bg-gray-100'>User Role</option>
-                    <option className=' rounded-md hover:bg-gray-100'>I Organized</option>
-                    <option className='flex rounded-full hover:bg-gray-100'>I Joined</option>
-                </select>
-              </div>
-              <div className='rounded-md bg-[#0D28050D] md:pl-1 pl-2 pr-1 '>
-                <select >
-                    <option>All Statuses</option>
-                    <option className='flex rounded-md'>Completed</option>
-                    <option>Upcoming</option>
-                    <option>Live</option>
-                    <option>Cancelled</option>
-                    <option>Draft</option>
-                </select>
-              </div>
-              </div>
-               
-              </div>
+                 
+                <div className='border-t border-gray-200 my-2'></div>
 
-             <div className='md:flex md:items-center pt-7 gap-3 md:pl-8 pl-2 grid grid-rows-2'>
-                <div className='row-start-1 row-end-2 flex gap-1'>
-               <button className='md:rounded-full rounded-2xl border border-gray-300 font-semibold text-[#0D2805CC] bg-[#0D2805CC] md:pt-2 md:pb-2 pt-1 pb-1 md:pl-6 md:pr-6 pl-1 pr-1 text-white '>All</button>
-               <button className='md:rounded-full rounded-2xl border border-gray-300 font-semibold text-[#0D2805CC] hover:bg-[#0D2805CC] hover:text-white bg-white md:pt-2 md:pb-2 pt-1 pb-1 md:pl-6 md:pr-6 pl-1 pr-1 '>Upcoming</button>
-               <button className='md:rounded-full rounded-2xl border border-gray-300 font-semibold text-[#0D2805CC] hover:bg-[#0D2805CC] hover:text-white bg-white md:pt-2 md:pb-2 pt-1 pb-1 md:pl-6 md:pr-6 pl-1 pr-1 '>Ongoing</button>
-               <button className='md:rounded-full rounded-2xl border border-gray-300 font-semibold text-[#0D2805CC] hover:bg-[#0D2805CC] hover:text-white bg-white md:pt-2 md:pb-2 pt-1 pb-1 md:pl-6 md:pr-6 pl-1 pr-1'>Past</button></div>
-               <div className='row-start-2 row-end-3 flex gap-1'>
-                <button className='md:rounded-full rounded-2xl border border-gray-300 font-semibold text-[#0D2805CC] hover:bg-[#0D2805CC] hover:text-white bg-white md:pt-2 md:pb-2 pt-1 pb-1 md:pl-6 md:pr-6 pl-1 pr-1'>Last Week</button>
-                <button className='md:rounded-full rounded-2xl border border-gray-300 font-semibold text-[#0D2805CC] hover:bg-[#0D2805CC] hover:text-white bg-white md:pt-2 md:pb-2 pt-1 pb-1 md:pl-6 md:pr-6 pl-1 pr-1'>Last Year</button>
-            <div className="relative inline-block">
+                <Link to="/profile" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
+                    <User className="w-5 h-5" />   
+                    <span className='pl-3'>Profile</span>
+                </Link>
+                <Link to="/community" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
+                    <Users className="w-5 h-5" />   
+                    <span className='pl-3'>Community</span>
+                </Link>
+                <Link to="/settings/profile" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
+                    <Settings className="w-5 h-5" />   
+                    <span className='pl-3'>Settings</span>
+                </Link>
+            </nav>
+        </div>
+
+        {/* Dashboard Main Content */}
+        <div className='flex-1 flex flex-col min-w-0'>
+            <main className='w-full pb-8'>
+                <h1 className="font-['Merriweather'] font-bold text-3xl md:text-4xl text-[#0d2805] mb-8">Trip History</h1>
+
+                {/* Search & Filters Bar */}
+                <div className="bg-white rounded-2xl shadow-lg p-4 mb-6">
+                    <div className="flex flex-col md:flex-row gap-3">
+                        {/* Search Input */}
+                        <div className="flex-1 relative">
+                            <img src='src/images/search.svg' className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 opacity-60" alt="Search" />
+                            <input
+                                type="text"
+                                placeholder="Search destinations..."
+                                className="w-full pl-12 pr-4 py-3 border border-[#e2e8f0] rounded-xl text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00b70d] transition-all"
+                            />
+                        </div>
+
+                        {/* Selectors */}
+                        <div className="flex gap-2">
+                            <select className="appearance-none cursor-pointer bg-no-repeat bg-[position:right_1rem_center] bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%230d2805%22%3E%3Cpath%20d%3D%22M5.293%207.293a1%201%200%20011.414%200L10%2010.586l3.293-3.293a1%201%200%20111.414%201.414l-4%204a1%201%200%2001-1.414%200l-4-4a1%201%200%20010-1.414z%22%2F%3E%3C%2Fsvg%3E')] pr-10 pl-5 py-3 bg-[#0D28050D] hover:bg-[#0D28051A] text-[#0d2805] font-semibold rounded-xl border-none outline-none focus:ring-2 focus:ring-[#00b70d] transition-colors shadow-sm">
+                                <option>Role: Any</option>
+                                <option>I Organized</option>
+                                <option>I Joined</option>
+                            </select>
+                            
+                            <select className="appearance-none cursor-pointer bg-no-repeat bg-[position:right_1rem_center] bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%230d2805%22%3E%3Cpath%20d%3D%22M5.293%207.293a1%201%200%20011.414%200L10%2010.586l3.293-3.293a1%201%200%20111.414%201.414l-4%204a1%201%200%2001-1.414%200l-4-4a1%201%200%20010-1.414z%22%2F%3E%3C%2Fsvg%3E')] pr-10 pl-5 py-3 bg-[#0D28050D] hover:bg-[#0D28051A] text-[#0d2805] font-semibold rounded-xl border-none outline-none focus:ring-2 focus:ring-[#00b70d] transition-colors shadow-sm">
+                                <option>All Statuses</option>
+                                <option>Completed</option>
+                                <option>Upcoming</option>
+                                <option>Live</option>
+                                <option>Cancelled</option>
+                                <option>Draft</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Filter Chips */}
+                <div className="mb-8 rounded-2xl border border-[#e2e8f0] bg-white p-4 shadow-sm">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <button className="px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all bg-[#00b70d] text-white shadow-lg">All</button>
+                        <button className="px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]">Upcoming</button>
+                        <button className="px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]">Ongoing</button>
+                        <button className="px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]">Past</button>
+
+                        <div className="w-px h-6 bg-[#e2e8f0] mx-2 hidden sm:block"></div>
+
+                        <button className="px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all bg-white text-gray-600 border border-[#e2e8f0] hover:border-gray-400">Last Week</button>
+                        <button className="px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all bg-white text-gray-600 border border-[#e2e8f0] hover:border-gray-400">Last Year</button>
+
+                        <div className="ml-auto relative inline-block">
             <button
              onClick={() => setIsOpen(!isOpen)}
              className="md:px-6 px-4 py-2 bg-white text-gray-700 md:rounded-full rounded-2xl hover:bg-[#0D2805CC] transition-colors border border-gray-200"
@@ -201,213 +281,22 @@ const Dashbord =() => {
              </div>
               )}
             </div>
-             </div> 
-             </div>
-             <div className='md:pl-9 pl-2 pt-6 pb-4 flex  '>
-             <p className=' text-[16px] font-black pr-1'>5 </p>
-             <p className=' text-[16px] font-light'>destinations found</p>
-             </div>
-             <div className='grid grid-cols-1 md:grid md:grid-cols-2 pr-1 gap-5'>
-                <div className='md:col-start-1 md:col-end-2  md:flex flex-col'>
-                  <div className='flex-col  gap-4 md:pl-9 md:py-5 pl-2 w-full'>
-                    <div className='bg-white rounded-2xl shadow-sm mb-11 relative w-full'>
-                    <img src="src/images/timgadd.png" className='flex md:w-[470.4480285644531] md:h-[273.7151794433594]  pl-1 pb-2 object-cover  rounded-t-2xl'></img>
-                    <div className='absolute top-4 left-4 bg-[#0D2805E5] text-white text-[17.11px] rounded-md py-1 px-3'>COMPLETED</div>
-                    <div className='absolute top-4 right-4 bg-white p-2 rounded-full' >
-                       <img src='src/images/couronne.svg'></img>
-                    </div>
-                    <p className='md:text-[25.09px] text-[18.24px] font-bold pl-3'>Exploring Timgad Ruins</p>
-                    <div className='flex items-center pt-1 pl-3'>
-                        <img src="src/images/localis.svg"></img>
-                        <p className='text-[#0D280599] md:text-[18.99px] text-[14.51px]'>Starting point: Batna, Algeria</p>
-                    </div>
-                    <div className='flex items-center pt-1 pl-3 pb-3'>
-                    <p className='text-[14.51px]'>Jan 15-Jan 22 2026 </p>
-                    <p className='text-[#0D280599] pl-1'>(Completed)</p>
-                    </div>
-                    <div className='border border-gray-100 mt-3 mb-3 ml-3 mr-3'></div>
-                    <div className='flex items-center'>
-                    <div className='flex items-center -space-x-5'>
-                        <img src="src/images/img1.png" className='pl-1'></img>
-                        <img src="src/images/img2.png" className=''></img>
-                        <img src="src/images/img3.png"></img>
-                    </div>
-                    <p className='pl-3 text-[12.44px]'>15 participants</p>
-                    </div>
-                    <div className='border border-gray-100 mt-2 mb-10'></div>
-                    <div className='flex items-center justify-between pb-8'>
-                        <button className='flex items-center md:pl-3'>
-                            <img src="src/images/chathub.svg" className='md:pr-2 pr-0.5'></img>
-                            <span>Chat Hup</span>
-                        </button>
-                        <button className='border border-gray-400 rounded-md md:pb-2 md:pt-2 md:pr-3 md:pl-3 md:mr-3 p-1 mr-2'>
-                            <span>View more</span>
-                        </button>
-
-                    </div>
-                 </div>
+          </div>
+        </div>
+          
+          <div className="mb-6">
+            <p className="text-gray-500">
+               <span className="font-bold text-[#00b70d]">5</span> destinations found
+            </p>
+          </div>
 
 
-                    <div className='bg-white rounded-2xl shadow-sm mb-10 relative'>
-                    <img src="src/images/ghardaia.png" className='flex w-[470.4480285644531] h-[273.7151794433594] pb-2 rounded-t-2xl'></img>
-                    <div className='absolute top-4 left-4 bg-[#FF5900E5] text-white text-[17.11px] rounded-md py-1 px-3'>UPCOMING</div>
-                    <div className='absolute top-4 right-4 bg-white p-2 rounded-full' >
-                         <img src='src/images/couronne.svg'></img>
-                    </div>
-                    <p className='md:text-[25.09px] text-[18.24px] font-bold pl-3'>Discover Ghardaïa Culture</p>
-                    <div className='flex items-center pt-1 pl-3'>
-                        <img src="src/images/localis.svg"></img>
-                        <p className='text-[#0D280599] md:text-[18.99px] text-[14.51px] '>Starting point: Ghardaïa, Algeria</p>
-                    </div>
-                    <div className='flex items-center pt-1 pl-3 pb-3'>
-                    <p className='text-[14.51px]'>Apr 5-Apr 12 2026  </p>
-                    <p className='text-[#0D280599] pl-1'>(Upcoming)</p>
-                    </div>
-                    <div className='border border-gray-100 mt-3 mb-3 ml-3 mr-3'></div>
-                    <div className='flex items-center'>
-                    <div className='flex items-center -space-x-5'>
-                        <img src="src/images/img3.png" className='pl-1'></img>
-                        <img src="src/images/img1.png" className=''></img>
-                        <img src="src/images/img2.png"></img>
-                    </div>
-                    <p className='pl-3 text-[12.44px]'>7 participants</p>
-                    </div>
-                    <div className='border border-gray-100 mt-2 mb-9'></div>
-                    <div className='flex items-center justify-between pb-8'>
-                        <button className='flex items-center md:pl-3'>
-                            <img src="src/images/chathub.svg" className='md:pr-2 pr-0.5'></img>
-                            <span>Chat Hup</span>
-                        </button>
-                        <button className='border border-gray-400 rounded-md md:pb-2 md:pt-2 md:pr-3 md:pl-3 md:mr-3 p-1 mr-2'>
-                            <span>View more</span>
-                        </button>
-
-                    </div>
-                    </div>
-
-
-                    <div className='bg-white rounded-2xl shadow-sm md:mb-10 mb-2 relative'>
-                    <img src="src/images/algiers.png" className='flex w-[470.4480285644531] h-[273.7151794433594] pb-2 rounded-t-2xl'></img>
-                     <div className='absolute top-4 left-4 bg-[#6A7282E5] text-white text-[17.11px] rounded-md py-1 px-3'>CANCELLED</div>
-                     <div className='absolute top-4 right-4 bg-white p-2 rounded-full' >
-                         <img src='src/images/person.svg'></img>
-                    </div>
-                    <p className='md:text-[25.09px] text-[18.24px] font-bold pl-3'>Casbah Algiers</p>
-                    <div className='flex items-center pt-1 pl-3'>
-                        <img src="src/images/localis.svg"></img>
-                        <p className='text-[#0D280599] md:text-[18.99px] text-[14.51px]'>Starting point: Algiers</p>
-                    </div>
-                    <div className='flex items-center pt-1 pl-3 pb-3'>
-                    <p className='text-[14.51px]'>Oct 10-Oct 15  </p>
-                    <p className='text-[#0D280599] pl-1'>(Cancelled)</p>
-                    </div>
-                    <div className='border border-gray-100 mt-3 mb-3 ml-3 mr-3'></div>
-                    <div className='flex items-center'>
-                    <div className='flex items-center -space-x-5'>
-                        <img src="src/images/img1.png" className='pl-1'></img>
-                        <img src="src/images/img2.png" className=''></img>
-                        <img src="src/images/img3.png"></img>
-                    </div>
-                    <p className='md:pl-3 pl-15 text-[12.44px]'>You (friend 1, 2) + 12 others</p>
-                    </div>
-                    <div className='border border-gray-100 mt-2 mb-9'></div>
-                    <div className='flex items-center justify-between pb-8'>
-                        <button className='flex items-center md:pl-3'>
-                            <img src="src/images/chathub.svg" className='md:pr-2 pr-0.5'></img>
-                            <span>Chat Hup</span>
-                        </button>
-                        <button className='border border-gray-400 rounded-md md:pb-2 md:pt-2 md:pr-3 md:pl-3 md:mr-3 p-1 mr-2'>
-                            <span>View more</span>
-                        </button>
-
-                    </div>
-                    </div>
-                  </div>
-                  
-                </div>
-                <div className='flex md:col-start-2 md:col-end-3 md:pr-5'>
-                    
-                 <div className='flex-col  gap-4 pl-2 py-5'>
-                 <div className='bg-white rounded-2xl shadow-sm mb-10 relative'>
-                 <img src="src/images/oran.png" className='flex w-[470.4480285644531] h-[273.7151794433594] pb-2 rounded-t-2xl'></img>
-                  <div className='absolute top-4 left-4 bg-[#00B70DE5] text-white text-[17.11px] rounded-md py-1 px-3'>LIVE</div>
-                  <div className='absolute top-4 right-4 bg-white p-2 rounded-full' >
-                         <img src='src/images/person.svg'></img>
-                    </div>
-                    <p className='md:text-[25.09px] text-[18.24px] font-bold pl-3'>Mediterranean</p>
-                    <div className='flex items-center pt-1 pl-3'>
-                        <img src="src/images/localis.svg"></img>
-                        <p className='text-[#0D280599] md:text-[18.99px] text-[14.51px] '>Starting point: Oran, Algeria</p>
-                    </div>
-                    <div className='flex items-center pt-1 pl-3 pb-3'>
-                    <p className='text-[14.51px]'>Mar 10-Mar 20 2026  </p>
-                    <p className='text-[#0D280599] text-[14.51px] pl-1 '>(Live)</p>
-                    </div>
-                    <div className='border border-gray-100 mt-3 mb-3 ml-3 mr-3'></div>
-                    <div className='flex items-center'>
-                    <div className='flex items-center -space-x-5'>
-                        <img src="src/images/img2.png" className='pl-1'></img>
-                        <img src="src/images/img1.png" className=''></img>
-                    </div>
-                    <p className='md:pl-3 text-[12.44px] pl-11'>You (friend 1, 2) + 7 others</p>
-                    </div>
-                    <div className='border border-gray-100 mt-2 mb-9'></div>
-                    <div className='flex items-center justify-between pb-8'>
-                        <button className='flex items-center md:pl-3'>
-                            <img src="src/images/chathub.svg" className='md:pr-2 pr-1'></img>
-                            <span>Chat Hup</span>
-                        </button>
-                        <button className='border border-gray-400 rounded-md md:pb-2 md:pt-2 md:pr-3 md:pl-3 md:mr-3 p-1 mr-1'>
-                            <span >View more</span>
-                        </button>
-
-                    </div>
-                    </div>
-                    <div className='bg-white rounded-2xl shadow-sm mb-10 relative'>
-                 <img src="src/images/constantine.png" className='flex w-[470.4480285644531] h-[273.7151794433594] pb-2 rounded-t-2xl'></img>
-                 <div className='absolute top-4 left-4 bg-[#F0B100E5] text-white text-[17.11px] rounded-md py-1 px-3'>DRAFT</div>
-                 <div className='absolute top-4 right-4 bg-white p-2 rounded-full' >
-                         <img src='src/images/couronne.svg'></img>
-                    </div>
-                    <p className='md:text-[25.09px] text-[17.04px] font-bold pl-3'>Constantine Bridges</p>
-                    <div className='flex items-center pt-1 pl-3'>
-                        <img src="src/images/localis.svg"></img>
-                        <p className='text-[#0D280599] md:text-[18.99px] text-[14.51px]'>Starting point: Constantine</p>
-                    </div>
-                    <div className='flex items-center pt-1 pl-3 pb-3'>
-                    <p className='text-[14.51px]'>May 10-May 15 2026 </p>
-                    <p className='text-[#0D280599] pl-1'>(Draft) </p>
-                    </div>
-                    <div className='border border-gray-100 mt-3 mb-3 ml-3 mr-3'></div>
-                    <div className='flex items-center'>
-                    <div className='flex items-center -space-x-5'>
-                        <img src="src/images/img1.png" className='pl-1'></img>
-                        <img src="src/images/img2.png" className=''></img>
-                    </div>
-                    <p className='pl-3 text-[12.44px]'>15 participants</p>
-                    </div>
-                    <div className='border border-gray-100 mt-2 mb-9'></div>
-                    <div className='flex items-center justify-between pb-8'>
-                        <button className='flex items-center md:pl-3'>
-                            <img src="src/images/editdraft.png" className='md:pr-2 pr-0.5'></img>
-                            <span>Edit draft</span>
-                        </button>
-                        <button className='border border-gray-400 rounded-md md:pb-2 md:pt-2 md:pr-3 md:pl-3 md:mr-3 p-1 mr-2'>
-                            <span>Post</span>
-                        </button>
-
-                    </div>
-                    </div>
-                    
-                    </div>
-                    
-
-                </div>
-
-             </div>
-             </main>
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+                {dashboardTrips.map(trip => (
+                    <TripCard key={trip.id} trip={trip} isMine={true} />
+                ))}
             </div>
-            
+            </main>
         </div>
     </div>
     );

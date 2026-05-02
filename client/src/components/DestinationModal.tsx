@@ -25,11 +25,16 @@ interface DestinationModalProps {
 
 export function DestinationModal({ destination, isSaved, onToggleSave, onClose }: DestinationModalProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [failedImages, setFailedImages] = useState<Set<number>>(new Set());
   
   // Use images array from database, fall back to single image repeated if not available
   const images = destination.images && destination.images.length > 0 
     ? destination.images 
     : [destination.image, destination.image, destination.image];
+
+  const handleImageError = (index: number) => {
+    setFailedImages((prev) => new Set(prev).add(index));
+  };
 
   // Convert MM-DD:MM-DD format to readable month names
   const formatBestPeriod = (period: string): string => {
@@ -63,12 +68,22 @@ export function DestinationModal({ destination, isSaved, onToggleSave, onClose }
       {/* Modal */}
       <div className="fixed inset-2 sm:inset-6 md:inset-y-8 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-3xl bg-[#ffffe8] rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col">
         {/* Hero Image with Carousel */}
-        <div className="relative h-64 sm:h-80 shrink-0">
-          <img 
-            src={images[currentImageIndex]} 
-            alt={destination.name}
-            className="w-full h-full object-cover"
-          />
+        <div className="relative h-64 sm:h-80 shrink-0 bg-gray-200">
+          {failedImages.has(currentImageIndex) ? (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
+              <div className="text-center space-y-2">
+                <div className="w-16 h-16 rounded-lg bg-gray-400 mx-auto animate-pulse" />
+                <p className="text-gray-500 text-sm">Image unavailable</p>
+              </div>
+            </div>
+          ) : (
+            <img 
+              src={images[currentImageIndex]} 
+              alt={destination.name}
+              className="w-full h-full object-cover"
+              onError={() => handleImageError(currentImageIndex)}
+            />
+          )}
           
           {/* Image Navigation Dots */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">

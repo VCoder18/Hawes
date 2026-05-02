@@ -17,6 +17,12 @@ import {
 import { QueryDto } from 'src/common/dto/query.dto';
 import { applySupabaseQuery } from 'src/common/utils/query-builder';
 
+type DestinationsResponse = {
+  data: Destination[];
+  total: number;
+  hasMore: boolean;
+};
+
 @Injectable()
 export class DestinationsService {
   constructor(
@@ -26,6 +32,7 @@ export class DestinationsService {
 
   /// @Return: all destinations
   async getDestinations(
+<<<<<<< Updated upstream
     query: QueryDto,
     userId?: string,
   ): Promise<PaginatedResponseDto<DestinationResponse>> {
@@ -41,6 +48,36 @@ export class DestinationsService {
         ...query,
         filters: otherFilters,
       };
+=======
+    userId: string,
+    query: DestinationsQueryDto,
+  ): Promise<DestinationsResponse> {
+    const {
+      search,
+      quickFilter,
+      category,
+      minRating,
+      popularity,
+      month,
+      maxDistanceKm,
+      offset,
+      limit,
+    } = query;
+
+    const idSets: string[][] = [];
+
+    if (quickFilter === DestinationQuickFilter.FAVORITES) {
+      const { data, error } = await this.supabaseClient.rpc(
+        'filter_destinations_by_favorite',
+        { p_user_id: userId },
+      );
+
+      if (error || !data) {
+        throw new InternalServerErrorException('Failed to filter favorites');
+      }
+
+      idSets.push(data.map((r: { destination_id: string }) => r.destination_id));
+>>>>>>> Stashed changes
     }
 
     let qb = applySupabaseQuery(
@@ -78,8 +115,12 @@ export class DestinationsService {
         ? favoritesOnlyFilter.value
         : undefined);
 
+<<<<<<< Updated upstream
     if (favoritesOnlyFilter && !favoritesUserId) {
       return paginatedResponse<DestinationResponse>([], 0, modifiedQuery);
+=======
+      idSets.push(data.map((r: { destination_id: string }) => r.destination_id));
+>>>>>>> Stashed changes
     }
 
     if (favoritesOnlyFilter && favoritesUserId) {
@@ -88,6 +129,7 @@ export class DestinationsService {
         .select('destination_id')
         .eq('user_id', favoritesUserId);
 
+<<<<<<< Updated upstream
       if (favError) {
         throw new InternalServerErrorException(
           "Can't fetch user favorites",
@@ -98,6 +140,28 @@ export class DestinationsService {
       if (favoriteIds.length === 0) {
         // User has no favorites, return empty result
         return paginatedResponse<DestinationResponse>([], 0, modifiedQuery);
+=======
+      if (error || !data) {
+        throw new InternalServerErrorException('Failed to filter by popularity');
+      }
+
+      idSets.push(data.map((r: { destination_id: string }) => r.destination_id));
+    }
+
+    let destinationsQuery = this.supabaseClient
+      .from('destinations')
+      .select('*', { count: 'exact' });
+
+    if (idSets.length > 0) {
+      const intersected = idSets.reduce((a, b) => a.filter((id) => b.includes(id)));
+
+      if (intersected.length === 0) {
+        return {
+          data: [],
+          total: 0,
+          hasMore: false,
+        };
+>>>>>>> Stashed changes
       }
 
       qb = qb.in('id', favoriteIds);
@@ -126,6 +190,7 @@ export class DestinationsService {
       finalCount = destinations.length;
     }
 
+<<<<<<< Updated upstream
     const normalizedDestinations = destinations.map((destination) =>
       this.normalizeDestination(destination),
     );
@@ -284,6 +349,38 @@ export class DestinationsService {
       // Ranges overlap if one doesn't end before the other starts
       return !(endDoy < pStartDoy || startDoy > pEndDoy);
     });
+=======
+    if (minRating) {
+      destinationsQuery = destinationsQuery.gte('rating', minRating);
+    }
+
+    if (month) {
+      // TODO: this will get replaced with intervals
+    }
+
+    if (maxDistanceKm !== undefined) {
+      // TODO: later
+    }
+
+    const to = offset + limit - 1;
+    const {
+      data: destinations,
+      error,
+      count,
+    } = await destinationsQuery.range(offset, to);
+
+    if (error || !destinations) {
+      throw new NotFoundException('No destinations found');
+    }
+
+    const total = count ?? 0;
+
+    return {
+      data: destinations,
+      total,
+      hasMore: to + 1 < total,
+    };
+>>>>>>> Stashed changes
   }
 
   /// @Return: the destination with the given id

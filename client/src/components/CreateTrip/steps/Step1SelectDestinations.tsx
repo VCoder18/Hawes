@@ -30,10 +30,12 @@ interface Step1Props {
   showFilters: boolean;
   setShowFilters: (show: boolean) => void;
   tripData: any;
-  toggleArrayItem: (field: string, item: string) => void;
+  onToggleDestination: (destination: Destination) => void;
+  onRemoveDestinationByName: (name: string) => void;
   setSelectedDestination: (dest: Destination) => void;
   paginatedDestinations: Destination[];
   totalPages: number;
+  totalDestinationResults: number;
   isInitialized: boolean;
   browseDestinationCategories: string[];
   getCategoryIcon: (category: string) => any;
@@ -63,10 +65,12 @@ export function Step1SelectDestinations({
   showFilters,
   setShowFilters,
   tripData,
-  toggleArrayItem,
+  onToggleDestination,
+  onRemoveDestinationByName,
   setSelectedDestination,
   paginatedDestinations,
   totalPages,
+  totalDestinationResults,
   isInitialized,
   browseDestinationCategories,
   getCategoryIcon,
@@ -217,12 +221,17 @@ export function Step1SelectDestinations({
               <SelectedTag
                 key={dest}
                 label={dest}
-                onRemove={() => toggleArrayItem("destinations", dest)}
+                onRemove={() => onRemoveDestinationByName(dest)}
               />
             ))}
           </div>
         </div>
       )}
+
+      {/* Results Count */}
+      <div className="mb-4 text-sm text-[#757575]">
+        <span className="font-semibold text-[#00b70d]">{totalDestinationResults}</span> destinations found
+      </div>
 
       {/* Destination List */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -231,7 +240,7 @@ export function Step1SelectDestinations({
             key={dest.id}
             destination={dest}
             isSelected={tripData.destinations.includes(dest.name)}
-            onSelect={() => toggleArrayItem("destinations", dest.name)}
+            onSelect={() => onToggleDestination(dest)}
             onDetails={() => setSelectedDestination(dest)}
           />
         ))}

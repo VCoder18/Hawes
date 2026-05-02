@@ -49,66 +49,55 @@ export default function BrowseDestinations() {
     loadUser();
   }, []);
 
-  // Helper to build backend filters object
-  const buildBackendFilters = () => {
-    const filters: Record<string, any> = {};
+  // Helper to build backend query parameters
+  const buildQueryParams = (pageNum: number) => {
+    const params = new URLSearchParams();
     
+    // Pagination
+    const LIMIT = 12;
+    const offset = (pageNum - 1) * LIMIT;
+    params.append('limit', LIMIT.toString());
+    params.append('offset', offset.toString());
+    
+    // Search
+    if (searchQuery) {
+      params.append('search', searchQuery);
+    }
+    
+    // Category
     if (selectedCategory !== "all") {
-      filters.category = { operator: "eq", value: selectedCategory };
+      params.append('category', selectedCategory);
     }
     
-    if (hasTripsOnly) {
-      filters.trip_ids = { operator: "eq", value: "has_trips" };
+    // Quick filters (favorites or has_trips)
+    if (showFavoritesOnly) {
+      params.append('quickFilter', 'favorites');
+    } else if (hasTripsOnly) {
+      params.append('quickFilter', 'has_trips');
     }
     
-    if (selectedMonth && selectedMonth !== "next-30") {
-      const monthNum = selectedMonth.padStart(2, '0');
-      const startDay = "01";
-      const endDay = monthNum === "02" ? "28" : (["04", "06", "09", "11"].includes(monthNum) ? "30" : "31");
-      filters.best_periods = { operator: "eq", value: `${monthNum}-${startDay}:${monthNum}-${endDay}` };
-    } else if (selectedMonth === "next-30") {
-      filters.best_periods = { operator: "eq", value: "03-01:04-30" };
-    }
-    
-    // Include rating filter
+    // Rating
     if (minRating > 0) {
-      filters.rating = { operator: "gte", value: minRating };
+      params.append('minRating', minRating.toString());
     }
     
-    // Include popularity filter (convert to peopleVisiting ranges)
+    // Popularity
     if (selectedPopularity) {
-      let minPeople = 0, maxPeople = 10000;
-      switch (selectedPopularity) {
-        case "quiet":
-          maxPeople = 50;
-          break;
-        case "moderate":
-          minPeople = 50;
-          maxPeople = 200;
-          break;
-        case "popular":
-          minPeople = 200;
-          maxPeople = 500;
-          break;
-        case "very-popular":
-          minPeople = 500;
-          break;
-      }
-      filters.peopleVisiting = { operator: "range", value: `${minPeople}:${maxPeople}` };
+      params.append('popularity', selectedPopularity);
     }
     
-    // Include distance filter
+    // Month
+    if (selectedMonth) {
+      const monthNum = selectedMonth === "next-30" ? "3" : selectedMonth;
+      params.append('month', monthNum);
+    }
+    
+    // Max distance
     if (maxDistance < 100) {
-      filters.distance_from_center = { operator: "lte", value: maxDistance };
-    }
-
-    // Include favorites filter for backend. We pass user id so filtering works
-    // even if request user context is missing on public routes.
-    if (showFavoritesOnly && userId) {
-      filters.favorites_only = { operator: "eq", value: userId };
+      params.append('maxDistanceKm', maxDistance.toString());
     }
     
-    return filters;
+    return params;
   };
 
   // Fetch destinations with pagination
@@ -123,29 +112,14 @@ export default function BrowseDestinations() {
       setError(null);
       
       const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
-      const LIMIT = 12;
-      const offset = (pageNum - 1) * LIMIT;
       
-      const filters = buildBackendFilters();
-      
-      const params = new URLSearchParams();
-      params.append('limit', LIMIT.toString());
-      params.append('offset', offset.toString());
-      
-      if (searchQuery) {
-        params.append('search', searchQuery);
-      }
-      if (Object.keys(filters).length > 0) {
-        params.append('filters', JSON.stringify(filters));
-      }
-      
+      const params = buildQueryParams(pageNum);
       const endpoint = `${API_BASE_URL}/destinations?${params.toString()}`;
       
       const fetchWithAuth = async () => {
         const { data: { session } } = await supabase.auth.getSession();
         const headers: Record<string, string> = {};
         
-        // Add auth header if user is logged in (for favorites filtering)
         if (session?.access_token) {
           headers['Authorization'] = `Bearer ${session.access_token}`;
         }
@@ -469,11 +443,13 @@ export default function BrowseDestinations() {
       )}
 
       {/* Results Count */}
-      <div className="mb-6">
-        <p className="text-text-[#ff5900]">
-          <span className="font-bold text-text-[#00b70d]">{totalResults}</span> destinations found
-        </p>
-      </div>
+      {!loading && (
+        <div className="mb-6">
+          <p className="text-text-[#ff5900]">
+            <span className="font-bold text-text-[#00b70d]">{totalResults}</span> destinations found
+          </p>
+        </div>
+      )}
 
       {/* Destinations Grid or Map View */}
       {viewMode === "grid" ? (

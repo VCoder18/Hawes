@@ -6,6 +6,7 @@ import type { TripData } from "@/imports/types";
 
 interface Step8Props {
   tripData: TripData;
+  mergedStops: Array<{ id: string; label: string; type: "meeting" | "destination"; time?: string }>;
   duration: { days: number; nights: number } | null;
   allActivities: string[];
   onPublish: () => void;
@@ -15,6 +16,7 @@ interface Step8Props {
 
 export function Step8ReviewAndPublish({
   tripData,
+  mergedStops,
   duration,
   allActivities,
   onPublish,
@@ -32,6 +34,7 @@ export function Step8ReviewAndPublish({
       {/* Review Sections */}
       <div className="space-y-4">
         <ReviewSection
+<<<<<<< Updated upstream
           title="Destinations"
           onEdit={() => onEditStep(1)}
           content={
@@ -49,6 +52,8 @@ export function Step8ReviewAndPublish({
         />
 
         <ReviewSection
+=======
+>>>>>>> Stashed changes
           title="Trip Basics"
           onEdit={() => onEditStep(2)}
           content={
@@ -84,12 +89,30 @@ export function Step8ReviewAndPublish({
                 </p>
               )}
               <div>
-                <span className="font-semibold">Stops:</span>
-                {tripData.meetingLocations.length > 0 ? (
+                <span className="font-semibold">Stops & Destinations:</span>
+                {mergedStops.length > 0 ? (
                   <ul className="ml-4 mt-1 space-y-1">
+<<<<<<< Updated upstream
                     {tripData.meetingLocations.map((meeting, idx) => (
                       <li key={idx}>
                         • {meeting.location} - {meeting.time}
+=======
+                    {mergedStops.map((stop) => (
+                      <li key={stop.id} className="break-words flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center justify-center size-4 rounded-full text-[10px] font-bold ${
+                            stop.type === "destination"
+                              ? "bg-[#fff1e8] text-[#ff5900]"
+                              : "bg-[#e9fbe9] text-[#00b70d]"
+                          }`}
+                        >
+                          {stop.type === "destination" ? "D" : "S"}
+                        </span>
+                        <span>
+                          {stop.label}
+                          {stop.time ? ` - ${stop.time}` : ""}
+                        </span>
+>>>>>>> Stashed changes
                       </li>
                     ))}
                   </ul>

@@ -40,9 +40,80 @@ export class TripsService {
     private readonly supabaseClient: SupabaseClient<Database>,
   ) {}
 
+<<<<<<< Updated upstream
   private validateStopOrder(stops: TripStopDTO[]): void {
     if (!stops.length) {
       return;
+=======
+  private toGeographyPoint(location: {
+    type: string;
+    coordinates: [number, number];
+  }): string {
+    const lng = Number(location.coordinates?.[0]);
+    const lat = Number(location.coordinates?.[1]);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new BadRequestException('Stop coordinates are invalid');
+    }
+
+    return `SRID=4326;POINT(${lng} ${lat})`;
+  }
+
+  async uploadImages(
+    userId: string,
+    files: Express.Multer.File[],
+  ): Promise<string[]> {
+    const uploads = files.map(
+      async (file: Express.Multer.File): Promise<string> => {
+        const ext = file.originalname.split('.').pop();
+        const path = `${userId}/${randomUUID()}.${ext}`;
+
+        const { error } = await this.supabaseClient.storage
+          .from('trips-images')
+          .upload(path, file.buffer, {
+            contentType: file.mimetype,
+            upsert: false,
+          });
+
+        if (error) {
+          console.error(
+            `Failed to upload image "${file.originalname}": ${error.message}`,
+          );
+          throw new InternalServerErrorException(
+            `Failed to upload image "${file.originalname}": ${error.message}`, // TODO: delete any successfully uploaded files in this batch, or retry
+          );
+        }
+
+        const {
+          data: { publicUrl },
+        } = this.supabaseClient.storage.from('trips-images').getPublicUrl(path);
+
+        return publicUrl;
+      },
+    );
+
+    return Promise.all(uploads);
+  }
+
+  async uploadAttachment(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    const ext = file.originalname.split('.').pop();
+    const path = `${userId}/${randomUUID()}.${ext}`;
+
+    const { error } = await this.supabaseClient.storage
+      .from('trips-attachments')
+      .upload(path, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (error) {
+      throw new InternalServerErrorException(
+        `Failed to upload attachment "${file.originalname}": ${error.message}`, // TODO: delete any successfully uploaded files in this batch, or retry
+      );
+>>>>>>> Stashed changes
     }
 
     const orders = stops.map((stop) => stop.stop_order).sort((a, b) => a - b);
@@ -112,6 +183,7 @@ export class TripsService {
   }
 
   /// @Return: all trips
+<<<<<<< Updated upstream
   async getTrips(query: QueryDto): Promise<PaginatedResponseDto<Trip>> {
     const qb = applySupabaseQuery(this.supabaseClient, 'trips', query, {
       searchFields: ['title', 'description'],
@@ -128,6 +200,10 @@ export class TripsService {
       ],
       defaultSort: 'start_date',
     });
+=======
+  async getTrips(userId: string | null, query: TripsQueryDto): Promise<Trip[]> {
+    let tripsQuery = this.supabaseClient.from('trips').select('*');
+>>>>>>> Stashed changes
 
     const { data, error, count } = await qb;
 
@@ -152,15 +228,45 @@ export class TripsService {
       throw new NotFoundException('Trip not found');
     }
 
+<<<<<<< Updated upstream
     const stops = await this.getTripStops(tripId);
     return { ...(trip as Trip), stops };
+=======
+    const { data: stops, error: fetchStopsError } = await this.supabaseClient
+      .from('trip_stops')
+      .select('*')
+      .eq('trip', tripId)
+      .order('index', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true });
+
+    if (fetchStopsError || !stops) {
+      throw new InternalServerErrorException('Failed to fetch trip stops');
+    }
+
+    return { ...trip, stops };
+>>>>>>> Stashed changes
   }
 
   /// @Return: the added trip
   async addTrip(userId: string, trip: TripCreateDTO): Promise<TripWithStops> {
     const { stops, ...tripPayload } = trip;
 
+<<<<<<< Updated upstream
     const { error, data } = await this.supabaseClient
+=======
+    let images_urls: string[] = [];
+
+    if (images && Array.isArray(images)) {
+      images_urls = await this.uploadImages(userId, images);
+    }
+
+    let attachment_url: string | null = null;
+    if (attachment) {
+      attachment_url = await this.uploadAttachment(userId, attachment);
+    }
+
+    const { error, data: createdTrip } = await this.supabaseClient
+>>>>>>> Stashed changes
       .from('trips')
       .insert({
         ...(tripPayload as any),
@@ -175,6 +281,7 @@ export class TripsService {
       throw new BadRequestException('Failed to create trip');
     }
 
+<<<<<<< Updated upstream
     try {
       // @ts-expect-error - table types issue
       await this.replaceTripStops(data.id, stops);
@@ -182,6 +289,31 @@ export class TripsService {
       // @ts-expect-error - table types issue
       await this.supabaseClient.from('trips').delete().eq('id', data.id);
       throw stopError;
+=======
+    const results = await Promise.all(
+      stops.map((stop) =>
+        this.supabaseClient
+          .from('trip_stops')
+          .insert({
+            ...stop,
+            location: this.toGeographyPoint(stop.location),
+            trip: createdTrip.id,
+          })
+          .select('*')
+          .single(),
+      ),
+    );
+
+    if (results.some((result) => result.error || !result.data)) {
+      console.error('Failed to create trip stops', {
+        errors: results
+          .filter((result) => result.error)
+          .map((result) => result.error),
+        stops,
+        createdTripId: createdTrip.id,
+      });
+      throw new BadRequestException('Failed to create trip stops'); // TODO: fault tolerance
+>>>>>>> Stashed changes
     }
 
     // @ts-expect-error - table types issue
@@ -213,8 +345,58 @@ export class TripsService {
     const { stops, ...tripPayload } = trip;
     const hasTripFields = Object.keys(tripPayload).length > 0;
 
+<<<<<<< Updated upstream
     if (hasTripFields) {
       const { error: updateError } = await this.supabaseClient
+=======
+    // 1) Create new stops
+    let updatedStops: TripStop[] = [];
+    if (stopsToCreate && stopsToCreate.length > 0) {
+      const results = await Promise.all(
+        stopsToCreate.map((stop) =>
+          this.supabaseClient
+            .from('trip_stops')
+            .insert({
+              ...stop,
+              location: this.toGeographyPoint(stop.location),
+              trip: tripId,
+            })
+            .select('*')
+            .single(),
+        ),
+      );
+
+      if (results.some((result) => result.error || !result.data)) {
+        console.error(
+          `Failed to update trip stop(s): ${results.map((r) => r.error)}`,
+        );
+        throw new BadRequestException('Failed to update trip stop(s)'); // TODO: fault tolerance
+      }
+
+      updatedStops = results.map((result) => result.data);
+    }
+
+    // 2) Delete stops
+    if (stopIDsToDelete && stopIDsToDelete.length > 0) {
+      const results = await Promise.all(
+        stopIDsToDelete.map((stopId) =>
+          this.supabaseClient.from('trip_stops').delete().eq('id', stopId),
+        ),
+      );
+
+      if (results.some((result) => result.error)) {
+        console.error(
+          `Failed to delete trip stop(s): ${results.map((r) => r.error)}`,
+        );
+        throw new BadRequestException('Failed to update trip stop(s)'); // TODO: fault tolerance
+      }
+    }
+
+    // 4) Update trip
+    let updatedTrip: Trip;
+    if (Object.keys(trip).length > 0) {
+      const { error: updateError, data } = await this.supabaseClient
+>>>>>>> Stashed changes
         .from('trips')
         // @ts-expect-error - table types issue
         .update(tripPayload as any)

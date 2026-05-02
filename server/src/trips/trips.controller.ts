@@ -12,11 +12,15 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { TripsService } from './trips.service';
+<<<<<<< Updated upstream
 import {
   AuthGuard,
   Public,
   type SupabaseJWTPayload,
 } from 'src/auth/auth.guard';
+=======
+import { AuthGuard, Public, type SupabaseJWTPayload } from 'src/auth/auth.guard';
+>>>>>>> Stashed changes
 import { TripCreateDTO } from './dto/create.dto';
 import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { TripUpdateDTO } from './dto/update.dto';
@@ -31,12 +35,21 @@ export class TripsController {
 
   @Get()
   @Public()
+<<<<<<< Updated upstream
   getTrips(@Query() query: QueryDto) {
     return this.service.getTrips(query);
+=======
+  getTrips(
+    @CurrentUser() user: SupabaseJWTPayload | undefined,
+    @Query() query: TripsQueryDto,
+  ) {
+    return this.service.getTrips(user?.sub ?? null, query);
+>>>>>>> Stashed changes
   }
 
   @Public()
   @Get(':tripId')
+  @Public()
   getTripById(@Param('tripId') tripId: string) {
     return this.service.getTripById(tripId);
   }
@@ -46,9 +59,22 @@ export class TripsController {
   addTrip(
     @Body() body: TripCreateDTO,
     @CurrentUser() user: SupabaseJWTPayload,
+<<<<<<< Updated upstream
     @UploadedFile(new ImageFilesValidationPipe()) files?: Express.Multer.File[],
   ) {
     return this.service.addTrip(user.sub, body, files);
+=======
+    @UploadedFiles(TripMediaPipe)
+    files: { images?: unknown[]; attachment?: unknown[] },
+  ) {
+    const { images, attachment } = files ?? {};
+    return this.service.createTrip(
+      user.sub,
+      body,
+      images as any,
+      (attachment?.[0] as any) ?? undefined,
+    );
+>>>>>>> Stashed changes
   }
 
   @Patch(':tripId')

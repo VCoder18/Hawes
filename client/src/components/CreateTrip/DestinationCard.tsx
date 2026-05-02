@@ -1,4 +1,5 @@
 import { Heart, Info, Check, MapPin } from "lucide-react";
+import { useState } from "react";
 
 interface DestinationCardProps {
   destination: any;
@@ -8,6 +9,8 @@ interface DestinationCardProps {
 }
 
 export function DestinationCard({ destination, isSelected, onSelect, onDetails }: DestinationCardProps) {
+  const [imageError, setImageError] = useState(false);
+
   return (
     <div
       className={`relative p-4 rounded-xl border-2 transition-all ${
@@ -18,11 +21,18 @@ export function DestinationCard({ destination, isSelected, onSelect, onDetails }
     >
       <button onClick={onSelect} className="text-left w-full">
         <div className="flex items-start gap-3">
-          <img
-            src={destination.image}
-            alt={destination.name}
-            className="size-16 rounded-lg object-cover"
-          />
+          {imageError ? (
+            <div className="size-16 rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded bg-gray-400 animate-pulse" />
+            </div>
+          ) : (
+            <img
+              src={destination.image}
+              alt={destination.name}
+              className="size-16 rounded-lg object-cover shrink-0"
+              onError={() => setImageError(true)}
+            />
+          )}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <h4 className="font-bold text-text-[#00b70d] line-clamp-1">{destination.name}</h4>

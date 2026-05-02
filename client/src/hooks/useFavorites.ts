@@ -27,9 +27,9 @@ export function useFavorites() {
         });
 
         if (response.ok) {
-          const { favorites: favList } = await response.json();
+          const favList = await response.json();
           const favMap = favList.reduce(
-            (acc: FavoritesState, id: string) => ({ ...acc, [id]: true }),
+            (acc: FavoritesState, fav: { destination_id: string }) => ({ ...acc, [fav.destination_id]: true }),
             {}
           );
           setFavorites(favMap);

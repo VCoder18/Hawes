@@ -24,11 +24,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 interface Step3MapLibreAltProps {
   tripData: TripData;
   selectedDestinations: Destination[];
-  newMeetingLocation: string;
-  onMeetingLocationChange: (val: string) => void;
-  newMeetingTime: string;
-  onMeetingTimeChange: (val: string) => void;
-  onAddMeetingLocation: () => void;
+  orderedPointIds: string[];
+  onOrderedPointIdsChange: (ids: string[]) => void;
   onAddMeetingLocationEntry: (entry: MeetingLocation) => boolean;
   onRemoveMeetingLocation: (index: number) => void;
   onReorderMeetingLocations: (reorderedLocations: MeetingLocation[]) => void;
@@ -175,11 +172,8 @@ function getDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: numbe
 export function Step3ScheduleMapLibreAlt({
   tripData,
   selectedDestinations,
-  newMeetingLocation,
-  onMeetingLocationChange,
-  newMeetingTime,
-  onMeetingTimeChange,
-  onAddMeetingLocation,
+  orderedPointIds,
+  onOrderedPointIdsChange,
   onAddMeetingLocationEntry,
   onRemoveMeetingLocation,
   onReorderMeetingLocations,
@@ -218,7 +212,6 @@ export function Step3ScheduleMapLibreAlt({
   const [algeriaBorder, setAlgeriaBorder] = useState<any>(null);
   const [cinematicMode, setCinematicMode] = useState(false);
   const [mapStyle, setMapStyle] = useState<'tiled' | 'minimal' | 'dark'>('minimal');
-  const [orderedPointIds, setOrderedPointIds] = useState<string[]>([]);
   const [isStopPickerOpen, setIsStopPickerOpen] = useState(false);
 
   const mapRef = useRef<MapRef | null>(null);
@@ -250,12 +243,26 @@ export function Step3ScheduleMapLibreAlt({
     [selectedDestinations]
   );
 
+  const getMeetingStableId = (point: MeetingLocation) =>
+    `meeting:${point.placeId || `${point.location}-${point.time}-${point.lat ?? "na"}-${point.lng ?? "na"}`}`;
+
+  const buildReorderedMeetings = (first: MeetingLocation, rest: MeetingLocation[]) => {
+    const byId = new globalThis.Map<string, MeetingLocation>();
+    [first, ...rest].forEach((item) => {
+      const key = getMeetingStableId(item);
+      if (!byId.has(key)) {
+        byId.set(key, item);
+      }
+    });
+    return Array.from(byId.values());
+  };
+
   const meetingPoints = useMemo<SchedulePoint[]>(
     () =>
-      tripData.meetingLocations.map((point, index) => ({
+      tripData.meetingLocations.map((point) => ({
         ...point,
         pointType: "meeting" as const,
-        stableId: `meeting:${point.placeId || `${point.location}-${point.time}-${point.lat ?? "na"}-${point.lng ?? "na"}`}-${index}`,
+        stableId: getMeetingStableId(point),
       })),
     [tripData.meetingLocations]
   );
@@ -264,25 +271,24 @@ export function Step3ScheduleMapLibreAlt({
 
   useEffect(() => {
     const allIds = allPoints.map((point) => point.stableId);
-    setOrderedPointIds((prev) => {
-      const idSet = new Set(allIds);
-      const kept = prev.filter((id) => idSet.has(id));
-      const added = allIds.filter((id) => !kept.includes(id));
-      return [...kept, ...added];
-    });
-  }, [allPoints]);
+    const idSet = new Set(allIds);
+    const kept = orderedPointIds.filter((id) => idSet.has(id));
+    const added = allIds.filter((id) => !kept.includes(id));
+    let next = [...kept, ...added];
+
+    if (
+      next.length !== orderedPointIds.length ||
+      next.some((id, index) => id !== orderedPointIds[index])
+    ) {
+      onOrderedPointIdsChange(next);
+    }
+  }, [allPoints, meetingPoints, onOrderedPointIdsChange, orderedPointIds]);
 
   const orderedPoints = useMemo(() => {
     const pointById = new globalThis.Map(allPoints.map((point) => [point.stableId, point]));
     const points = orderedPointIds
       .map((id) => pointById.get(id))
       .filter((point): point is SchedulePoint => Boolean(point));
-
-    const firstMeetingIndex = points.findIndex((point) => point.pointType === "meeting");
-    if (firstMeetingIndex > 0) {
-      const [firstMeeting] = points.splice(firstMeetingIndex, 1);
-      points.unshift(firstMeeting);
-    }
 
     return points;
   }, [allPoints, orderedPointIds]);
@@ -711,8 +717,8 @@ export function Step3ScheduleMapLibreAlt({
       return false;
     }
 
-    // Time is required only for the first meeting point
-    if (tripData.meetingLocations.length === 0 && !candidateTime.trim()) {
+    // Time is required whenever the first meeting slot is being filled
+    if ((tripData.meetingLocations.length === 0 || isFirstMeetingPointMissing) && !candidateTime.trim()) {
       setMapSelectionError("Set the meeting time for the first meeting point.");
       return false;
     }
@@ -736,15 +742,29 @@ export function Step3ScheduleMapLibreAlt({
       !resolved.location.startsWith("Pinned Point (") &&
       resolved.location.trim().length > 0;
 
-    const added = onAddMeetingLocationEntry({
+    const entryForAdd = {
       ...candidatePoint,
       location: hasResolvedName ? (resolved.location as string) : candidatePoint.location,
       address: resolved.address || candidatePoint.address,
       placeId: resolved.placeId || candidatePoint.placeId,
       time: candidateTime.trim(),
-    });
+    };
+
+    const added = onAddMeetingLocationEntry(entryForAdd);
 
     if (!added) return false;
+
+    const shouldInsertAsFirst = isFirstMeetingPointMissing || tripData.meetingLocations.length === 0;
+
+    if (shouldInsertAsFirst) {
+      const reordered = buildReorderedMeetings(entryForAdd, tripData.meetingLocations);
+      onReorderMeetingLocations(reordered);
+
+      const newFirstId = getMeetingStableId(entryForAdd);
+      const reorderedIds = [newFirstId, ...orderedPointIds.filter((id) => id !== newFirstId)];
+      onOrderedPointIdsChange(reorderedIds);
+      setIsFirstMeetingPointMissing(false);
+    }
 
     setCandidatePoint(null);
     setCandidateTime("");
@@ -761,13 +781,7 @@ export function Step3ScheduleMapLibreAlt({
 
   const handleReorderPoints = (reorderedPoints: SchedulePoint[]) => {
     const normalized = [...reorderedPoints];
-    const firstMeetingIndex = normalized.findIndex((point) => point.pointType === "meeting");
-    if (firstMeetingIndex > 0) {
-      const [firstMeeting] = normalized.splice(firstMeetingIndex, 1);
-      normalized.unshift(firstMeeting);
-    }
-
-    setOrderedPointIds(normalized.map((point) => point.stableId));
+    onOrderedPointIdsChange(normalized.map((point) => point.stableId));
     const reorderedMeetings = normalized
       .filter((point) => point.pointType === "meeting")
       .map((point) => ({
@@ -824,25 +838,8 @@ export function Step3ScheduleMapLibreAlt({
       return;
     }
 
-    // Add candidate using normal validation flow first.
     const added = await handleAddCandidateToTrip();
     if (!added) return;
-
-    // If it was added, move it to first slot and clear missing-P1 state.
-    const updatedWithNew = [
-      ...tripData.meetingLocations,
-      {
-        location: candidatePoint.location,
-        time: candidateTime.trim(),
-        lat: candidatePoint.lat,
-        lng: candidatePoint.lng,
-        address: candidatePoint.address,
-        placeId: candidatePoint.placeId,
-      },
-    ];
-
-    const insertedAsFirst = [updatedWithNew[updatedWithNew.length - 1], ...updatedWithNew.slice(0, -1)];
-    onReorderMeetingLocations(insertedAsFirst);
     setIsFirstMeetingPointMissing(false);
   };
 

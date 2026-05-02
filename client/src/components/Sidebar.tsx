@@ -70,7 +70,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
               Explore
             </Link>
             <Link
-              to="/create-trip"
+              to="/trips"
               className="px-4 py-3 text-[#334155] font-medium hover:bg-bg-[#ff5900] rounded-lg transition-colors block"
               onClick={() => setSidebarOpen(false)}
             >
