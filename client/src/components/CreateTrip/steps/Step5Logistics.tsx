@@ -10,6 +10,8 @@ import {
   Check,
   X,
   Plus,
+  Zap,
+  Package,
 } from "lucide-react";
 import type { TripData } from "@/imports/types";
 
@@ -39,7 +41,6 @@ export function Step5Logistics({
   const [newWhatToBringItem, setNewWhatToBringItem] = useState("");
   const customItems = tripData.included.filter((item) => !includedOptions.includes(item));
   const premadeIncluded = tripData.included.filter((item) => includedOptions.includes(item));
-  const premadeNotIncluded = includedOptions.filter((item) => !tripData.included.includes(item));
   const customExcluded = tripData.excluded;
   return (
     <div className="space-y-6">
@@ -52,7 +53,7 @@ export function Step5Logistics({
         <label className="block font-semibold text-text-[#00b70d] mb-3">
           What's Included
         </label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {includedOptions.map((item) => {
             const icons: Record<string, any> = {
               Accommodation: Hotel,
@@ -61,6 +62,8 @@ export function Step5Logistics({
               Guide: Users,
               Equipment: Backpack,
               Insurance: Check,
+              Entertainment: Zap,
+              Miscellaneous: Package,
             };
             const Icon = icons[item];
             return (
@@ -74,7 +77,7 @@ export function Step5Logistics({
                 }`}
               >
                 <Icon className="size-5" />
-                {item}
+                <span className="break-words">{item}</span>
               </button>
             );
           })}
@@ -93,9 +96,9 @@ export function Step5Logistics({
                   {premadeIncluded.length > 0 && (
                     <ul className="space-y-2">
                       {premadeIncluded.map((item) => (
-                        <li key={item} className="flex items-center gap-2 text-[#00b70d] break-words">
+                        <li key={item} className="flex items-start gap-2 text-[#00b70d] break-words">
                           <Check className="size-5 flex-shrink-0" />
-                          <span>{item}</span>
+                          <span className="break-words min-w-0">{item}</span>
                         </li>
                       ))}
                     </ul>
@@ -106,10 +109,10 @@ export function Step5Logistics({
                   {customItems.length > 0 && (
                     <ul className="space-y-2">
                       {customItems.map((item) => (
-                        <li key={item} className="flex items-center justify-between gap-2 text-[#00b70d] group break-words">
-                          <span className="flex items-center gap-2">
+                        <li key={item} className="flex items-start justify-between gap-2 text-[#00b70d] group break-words">
+                          <span className="flex items-start gap-2 min-w-0 break-words">
                             <Check className="size-5 flex-shrink-0" />
-                            {item}
+                            <span className="break-words min-w-0">{item}</span>
                           </span>
                           <button
                             onClick={() => onRemoveCustomIncluded(item)}
@@ -161,28 +164,15 @@ export function Step5Logistics({
           </label>
           <div className="space-y-3">
             <div className="space-y-3 bg-[#ff5900]/5 p-4 rounded-xl">
-              {premadeNotIncluded.length > 0 || customExcluded.length > 0 ? (
+              {customExcluded.length > 0 ? (
                 <>
-                  {premadeNotIncluded.length > 0 && (
-                    <ul className="space-y-2">
-                      {premadeNotIncluded.map((item) => (
-                        <li key={item} className="flex items-center gap-2 text-[#ff5900] break-words">
-                          <X className="size-5 flex-shrink-0" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {premadeNotIncluded.length > 0 && customExcluded.length > 0 && (
-                    <hr className="border-[#ff5900]/30" />
-                  )}
                   {customExcluded.length > 0 && (
                     <ul className="space-y-2">
                       {customExcluded.map((item) => (
-                        <li key={item} className="flex items-center justify-between gap-2 text-[#ff5900] group break-words">
-                          <span className="flex items-center gap-2">
+                        <li key={item} className="flex items-start justify-between gap-2 text-[#ff5900] group break-words">
+                          <span className="flex items-start gap-2 min-w-0 break-words">
                             <X className="size-5 flex-shrink-0" />
-                            {item}
+                            <span className="break-words min-w-0">{item}</span>
                           </span>
                           <button
                             onClick={() => onRemoveExcluded(item)}
@@ -196,7 +186,7 @@ export function Step5Logistics({
                   )}
                 </>
               ) : (
-                <div className="text-[#9ca3af]">Everything included!</div>
+                <div className="text-[#9ca3af]">Nothing added</div>
               )}
             </div>
             <div className="flex gap-2">
@@ -238,10 +228,10 @@ export function Step5Logistics({
             {tripData.whatToBring.length > 0 ? (
               <ul className="space-y-2">
                 {tripData.whatToBring.map((item) => (
-                  <li key={item} className="flex items-center justify-between gap-2 text-[#00b70d] group break-words">
-                    <span className="flex items-center gap-2">
+                  <li key={item} className="flex items-start justify-between gap-2 text-[#00b70d] group break-words">
+                    <span className="flex items-start gap-2 min-w-0 break-words">
                       <Backpack className="size-5 flex-shrink-0" />
-                      {item}
+                      <span className="break-words min-w-0">{item}</span>
                     </span>
                     <button
                       onClick={() => onRemoveWhatToBring(item)}

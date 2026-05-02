@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsArray,
   IsUrl,
+  ArrayMaxSize,
   MaxLength,
   MinLength,
   Matches,
@@ -11,6 +12,14 @@ import {
 import { UserRole } from '../entities/profiles.entity';
 
 export class ProfileUpdateDTO {
+  @IsOptional()
+  @IsUrl()
+  avatar_url?: string | null;
+
+  @IsOptional()
+  @IsUrl()
+  banner_url?: string | null;
+
   @IsOptional()
   @IsString()
   @MaxLength(512)
@@ -27,7 +36,8 @@ export class ProfileUpdateDTO {
   @MinLength(1)
   @MaxLength(64)
   @Matches(/^[a-z0-9_]+$/, {
-    message: 'Username can only contain lowercase letters, numbers, and underscores',
+    message:
+      'Username can only contain lowercase letters, numbers, or underscores',
   })
   username?: string;
 
@@ -42,6 +52,7 @@ export class ProfileUpdateDTO {
 
   @IsOptional()
   @IsArray()
-  @IsUrl({}, { each: true })
+  @ArrayMaxSize(6)
+  @IsUrl()
   social_links?: string[] | null;
 }

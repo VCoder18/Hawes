@@ -3,6 +3,7 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from 'src/database.types';
@@ -15,52 +16,68 @@ export class FavoritesService {
     private readonly supabaseClient: SupabaseClient<Database>,
   ) {}
 
-  async addFavorite(userId: string, destinationId: string): Promise<Favorite> {
-    // Check if destination exists
-    const { data: destExists, error: destError } = await this.supabaseClient
-      .from('destinations')
-      .select('id')
-      .eq('id', destinationId)
-      .single();
-
-    if (destError || !destExists) {
-      throw new NotFoundException(`Destination with id ${destinationId} not found`);
-    }
-
-    // Check if already favorited
-    const { data: existingFav } = await this.supabaseClient
+  async getUserFavorites(userId: string): Promise<Favorite[]> {
+    const { error, data: favorites } = await this.supabaseClient
       .from('favorite_destinations')
-      .select()
-      .eq('user_id', userId)
-      .eq('destination_id', destinationId)
-      .single();
+      .select('*')
+      .eq('user_id', userId);
 
-    if (existingFav) {
-      return existingFav;
+    if (error || !favorites) {
+      console.error(`Failed to fetch user favorites: ${error}`);
+      throw new InternalServerErrorException('Failed to fetch user favorites');
     }
 
-    // Insert new favorite
-    const { data, error } = await this.supabaseClient
-      .from('favorite_destinations')
-      // @ts-ignore
-      .insert({ user_id: userId, destination_id: destinationId })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Favorites service error:', {
-        userId,
-        destinationId,
-        errorCode: error.code,
-        errorMessage: error.message,
-        errorDetails: error.details,
-      });
-      throw new ConflictException(`Failed to add favorite: ${error.message}`);
-    }
-    return data;
+    return favorites;
   }
 
-  async removeFavorite(userId: string, destinationId: string): Promise<void> {
+  async isFavorited(userId: string, destinationId: string): Promise<boolean> {
+    const { error, data: existingData } = await this.supabaseClient
+      .from('favorite_destinations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('destination_id', destinationId);
+
+    if (error || !existingData) {
+      console.error(`Failed to fetch favorite: ${error}`);
+      throw new InternalServerErrorException('Failed to fetch favorite');
+    }
+
+    return existingData.length > 0;
+  }
+
+  async addFavorite(userId: string, destinationId: string): Promise<Favorite> {
+    const { error: fetchError, data: existingData } = await this.supabaseClient
+      .from('favorite_destinations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('destination_id', destinationId);
+
+    if (fetchError || !existingData) {
+      console.error(`Failed to fetch user favorites: ${fetchError}`);
+      throw new InternalServerErrorException('Failed to fetch user favorites');
+    }
+
+    if (existingData.length > 0) {
+      throw new ConflictException(
+        'You already have this destination in your favorites',
+      );
+    }
+
+    const { error, data: favorite } = await this.supabaseClient
+      .from('favorite_destinations')
+      .insert({ user_id: userId, destination_id: destinationId })
+      .select('*')
+      .single();
+
+    if (error || !favorite) {
+      console.log(`Failed to add favorite: ${error}`);
+      throw new InternalServerErrorException(`Failed to add favorite`);
+    }
+
+    return favorite;
+  }
+
+  async removeFavorite(userId: string, destinationId: string): Promise<string> {
     const { error } = await this.supabaseClient
       .from('favorite_destinations')
       .delete()
@@ -68,30 +85,11 @@ export class FavoritesService {
       .eq('destination_id', destinationId);
 
     if (error) {
-      throw new NotFoundException('Favorite not found');
+      throw new NotFoundException(
+        "You don't have this destination in your favorites",
+      );
     }
-  }
 
-  async getUserFavorites(userId: string): Promise<string[]> {
-    const { data, error } = await this.supabaseClient
-      .from('favorite_destinations')
-      .select('destination_id')
-      .eq('user_id', userId);
-
-    if (error) {
-      return [];
-    }
-    return data.map((fav: any) => fav.destination_id);
-  }
-
-  async isFavorited(userId: string, destinationId: string): Promise<boolean> {
-    const { data } = await this.supabaseClient
-      .from('favorite_destinations')
-      .select('*', { count: 'exact' })
-      .eq('user_id', userId)
-      .eq('destination_id', destinationId)
-      .single();
-
-    return !!data;
+    return destinationId;
   }
 }

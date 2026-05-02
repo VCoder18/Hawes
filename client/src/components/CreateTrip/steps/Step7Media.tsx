@@ -100,7 +100,7 @@ export function Step7Media({
 
       <div>
         <label className="block font-semibold text-text-[#00b70d] mb-2">
-          Additional Images (Optional) - Max 5
+          Additional Images (Optional) - Max 6
         </label>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {tripData.additionalImages.map((fileItem, index) => (
@@ -127,7 +127,7 @@ export function Step7Media({
               </button>
             </div>
           ))}
-          {tripData.additionalImages.length < 5 && (
+          {tripData.additionalImages.length < 6 && (
             <div
               className="border-2 border-dashed border-[#e2e8f0] rounded-lg h-32 flex items-center justify-center hover:border-[#00b70d] transition-colors cursor-pointer"
               onClick={() => additionalImagesInputRef.current?.click()}
@@ -150,7 +150,7 @@ export function Step7Media({
         <label className="block font-semibold text-text-[#00b70d] mb-2">
           Document (Optional)
         </label>
-        <p className="text-sm text-text-[#ff5900] mb-4">Upload one PDF or DOCX file (not stored in database)</p>
+        <p className="text-sm text-text-[#ff5900] mb-4">Upload one PDF or DOCX file (its link will be saved with the trip)</p>
         <div
           className="border-2 border-dashed border-[#e2e8f0] rounded-xl p-8 text-center hover:border-[#00b70d] transition-colors cursor-pointer"
           onClick={() => documentInputRef.current?.click()}

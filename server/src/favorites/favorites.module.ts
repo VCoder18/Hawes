@@ -7,6 +7,5 @@ import { FavoritesService } from './favorites.service';
   imports: [SupabaseModule.injectClient()],
   controllers: [FavoritesController],
   providers: [FavoritesService],
-  exports: [FavoritesService],
 })
 export class FavoritesModule {}

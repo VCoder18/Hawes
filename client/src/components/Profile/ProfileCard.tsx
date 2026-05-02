@@ -5,7 +5,24 @@ import svgPaths from "@/imports/svg_paths";
 import imgImage from "@/assets/images/banner.jpg";
 import catPfp from "@/assets/images/pfp.svg";
 import { useAuth } from "@/contexts/AuthContext";
-import { profileService, type UserProfile } from "@/services/profileService";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/useToast";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+interface UserProfile {
+  id: string;
+  display_name: string;
+  username: string;
+  avatar_url: string | null;
+  banner_url: string | null;
+  bio: string | null;
+  location: string | null;
+  social_links: string[] | null;
+  role: string;
+  created_at: string;
+  updated_at: string;
+}
 
 interface ProfileCardProps {
   viewingUsername?: string;
@@ -14,39 +31,83 @@ interface ProfileCardProps {
 export function ProfileCard({ viewingUsername }: ProfileCardProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [shareMessage, setShareMessage] = useState('');
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadProfile = async () => {
       try {
         let userProfile: UserProfile | null = null;
 
         if (viewingUsername) {
-          // Load profile by username (viewing other user or specific username)
-          userProfile = await profileService.getUserProfileByUsername(viewingUsername);
+          const normalized = viewingUsername.toLowerCase();
+          const response = await fetch(
+            `${API_BASE_URL}/profiles/by-username/${encodeURIComponent(normalized)}?username=${encodeURIComponent(normalized)}&offset=0&limit=1`
+          );
+
+          if (!response.ok) {
+            throw new Error(`Failed to load profile by username: ${response.status}`);
+          }
+
+          const payload = await response.json();
+          userProfile = Array.isArray(payload)
+            ? ((payload[0] as UserProfile | undefined) ?? null)
+            : ((payload as UserProfile | null) ?? null);
         } else if (user) {
-          // Load current user's profile
-          userProfile = await profileService.getCurrentUserProfile();
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+
+          if (!session?.access_token) {
+            if (isMounted) setProfile(null);
+            return;
+          }
+
+          const response = await fetch(`${API_BASE_URL}/profiles`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to load current profile: ${response.status}`);
+          }
+
+          userProfile = (await response.json()) as UserProfile;
         }
 
-        setProfile(userProfile);
+        if (isMounted) {
+          setProfile(userProfile);
+        }
       } catch (error) {
         console.error('Failed to load profile:', error);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    loadProfile();
+    void loadProfile();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user, viewingUsername]);
 
   const handleShare = () => {
     const profileUrl = `${window.location.origin}/profile/${profile?.username}`;
     navigator.clipboard.writeText(profileUrl);
-    alert('Copied to clipboard!');
+    toast({
+      title: "Copied!",
+      description: "Profile URL copied to clipboard",
+      variant: "success",
+    });
   };
 
   const isOwnProfile = profile && user && profile.id === user.id;
@@ -60,6 +121,7 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
   }
 
   const avatarUrl = profile?.avatar_url || catPfp;
+  const bannerUrl = profile?.banner_url || imgImage;
   const displayName = profile?.display_name || 'User';
   const username = profile?.username || 'unknown';
   const bio = profile?.bio || '';
@@ -69,8 +131,8 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
   return (
     <div className="bg-white rounded-xl border border-[#e2e8f0] shadow-sm overflow-hidden mb-8">
       {/* Hero Banner */}
-      <div className="h-40 sm:h-60 md:h-80 overflow-hidden relative">
-        <img src={imgImage} alt="Banner" className="w-full h-full object-cover" />
+      <div className="w-full aspect-[16/5] overflow-hidden relative">
+        <img src={bannerUrl} alt="Banner" className="w-full h-full object-cover object-center" />
       </div>
 
       {/* Profile Info Section */}
@@ -80,7 +142,7 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
           <div className="relative -mt-16 sm:-mt-20">
             <div className="bg-white p-1 rounded-full shadow-lg">
               <div className="size-28 sm:size-36 md:size-40 rounded-full overflow-hidden border-4 border-white">
-                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover object-center" />
               </div>
             </div>
           </div>
@@ -299,7 +361,11 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
                   <button 
                     type="button"
                     onClick={() => {
-                      alert("Verification request sent! Our team will review it.");
+                      toast({
+                        title: "Request sent",
+                        description: "Verification request sent! Our team will review it.",
+                        variant: "success",
+                      });
                       setIsVerificationModalOpen(false);
                     }}
                     className="w-full py-4 bg-[#00b70d] text-white rounded-xl font-bold hover:bg-[#009a0b] transition-all mt-4 shadow-lg"

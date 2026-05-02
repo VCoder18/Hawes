@@ -1,0 +1,40 @@
+# Trip API backend alignment notes (generated)
+
+# Why this file exists
+# The frontend now sends source-API stop shape by default:
+#   type, destination, location, label
+# and retries once with legacy shape only if backend runtime returns legacy validation errors.
+# If runtime and source stay out of sync, keep seeing contradictory stop errors.
+
+# Required backend actions
+
+# 1) Rebuild and restart backend from source to remove stale DTO/runtime mismatch.
+#    Commands (from server folder):
+#      npm run build
+#      npm run start:prod
+#    or use start:dev for source-truth runtime.
+
+# 2) Fix createTrip stop insert trip id source
+#    File: server/src/trips/trips.service.ts
+#    Current: .insert({ ...stop, trip: trip.id })
+#    Change : .insert({ ...stop, trip: createdTrip.id })
+#    Reason : should not rely on client-provided id.
+
+# 3) Preserve JSON image URLs when multipart images are not uploaded
+#    File: server/src/trips/trips.service.ts
+#    Current always writes images: images_urls (can become empty array)
+#    Expected: if images_urls is empty, keep trip.images from request payload.
+
+# 4) Fix getTripById stops query
+#    File: server/src/trips/trips.service.ts
+#    Current: .from('trip_stops').eq('id', tripId)
+#    Change : .from('trip_stops').eq('trip', tripId)
+
+# 5) Improve stop insert diagnostics
+#    File: server/src/trips/trips.service.ts
+#    Log stop index and exact Postgres error details from each failed insert
+#    before throwing BadRequestException('Failed to create trip stops').
+
+# 6) Source/runtime mismatch for media uploads endpoint
+#    Frontend uses POST /trips/uploads but server/src controller currently exposes only POST /trips.
+#    Add/restore the uploads route in source OR remove the frontend /trips/uploads usage and use multipart POST /trips directly.

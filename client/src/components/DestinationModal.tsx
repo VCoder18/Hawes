@@ -1,5 +1,6 @@
 import { X, Heart, Share2, MapPin, Star, Users, Calendar, Route, Sun, Wind, ChevronRight, CloudRain, Tent, UtensilsCrossed, Map, MessageCircle, BarChart3 } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface DestinationModalProps {
   destination: {
@@ -24,6 +25,7 @@ interface DestinationModalProps {
 }
 
 export function DestinationModal({ destination, isSaved, onToggleSave, onClose }: DestinationModalProps) {
+  const navigate = useNavigate();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   // Use images array from database, fall back to single image repeated if not available
@@ -289,7 +291,15 @@ export function DestinationModal({ destination, isSaved, onToggleSave, onClose }
               </button>
               
               {/* Row 2: Create Trip / Community */}
-              <button className="w-full px-6 py-4 bg-[#ff5900] hover:bg-[#e54f00] text-white rounded-xl font-bold transition-colors">
+              <button 
+                onClick={() => {
+                  navigate("/create-trip", { 
+                    state: { selectedDestination: destination } 
+                  });
+                  onClose();
+                }}
+                className="w-full px-6 py-4 bg-[#ff5900] hover:bg-[#e54f00] text-white rounded-xl font-bold transition-colors"
+              >
                 Create Trip
               </button>
               <button className="w-full px-6 py-4 bg-white border-2 border-[#d6d0c4] hover:border-[#00b70d] text-[#0d2805] rounded-xl font-bold transition-colors flex items-center justify-center gap-2">

@@ -1,5 +1,4 @@
-export type Favorite = {
-  user_id: string;
-  destination_id: string;
-  created_at: string | null;
-};
+import { Database } from 'src/database.types';
+
+export type Favorite =
+  Database['public']['Tables']['favorite_destinations']['Row'];

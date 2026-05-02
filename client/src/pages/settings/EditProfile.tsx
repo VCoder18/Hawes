@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { SettingsMenu } from "@/components/EditProfile/SettingsMenu";
-import { ProfileHeaderEdit } from "@/components/EditProfile/ProfileHeaderEdit";
 import { EditProfileForm } from "@/components/EditProfile/EditProfileForm";
 
 export default function EditProfilePage() {
@@ -32,9 +31,6 @@ export default function EditProfilePage() {
         {/* Edit Profile Section */}
         <div className="flex-1">
           <div className="bg-white rounded-xl border border-[#e2e8f0] shadow-sm">
-            {/* Profile Header */}
-            <ProfileHeaderEdit />
-
             {/* Edit Form */}
             <EditProfileForm />
           </div>
