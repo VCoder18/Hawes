@@ -15,6 +15,8 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthCallback } from "@/pages/AuthCallback";
 import Dashbord from "./components/Dashbord";
 import Errorpage from "./components/Errorpage";
+import BusinessOverview from "./components/BusinessOverview";
+import Servicesrating from "./components/Servicesrating";
 
 // TODO:
 // - add Images
@@ -41,12 +43,15 @@ function App() {
       </Route>
       <Route element={<MainLayout displayNavbar={true} displayFooter={false} />}>
         <Route path="/create-trip" element={<ProtectedRoute><CreateTrip /></ProtectedRoute>} />
+      <Route path="/Servicesrating" element={<Servicesrating />} />
       </Route>
       <Route element={<MainLayout displayNavbar={false} displayFooter={false} />}>
         <Route path="/login" element={<LoginForm />} />
         <Route path="/register" element={<SignupForm />} />
+        <Route path="/business" element={<BusinessOverview  />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/dashbord" element={<Dashbord />} />
+        
       </Route>
       <Route path="*" element={<Errorpage />} />
     </Routes>
