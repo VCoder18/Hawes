@@ -35,7 +35,6 @@ export class TripStopDTO {
   @IsOptional()
   @IsString()
   time?: string | null;
-
   @Transform(({ value, obj }) => value ?? obj.stop_type)
   @IsEnum(TripStopType)
   type: TripStopType = TripStopType.Meeting;
@@ -49,7 +48,6 @@ export class TripStopDTO {
   @IsOptional()
   @IsInt()
   stop_order?: number;
-
   @IsOptional()
   @IsEnum(TripStopType)
   stop_type?: TripStopType;

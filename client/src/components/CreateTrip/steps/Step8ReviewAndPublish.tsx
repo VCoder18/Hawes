@@ -32,7 +32,6 @@ export function Step8ReviewAndPublish({
   const maxGrossRevenue = Math.floor(tripData.pricePerPerson * tripData.maxParticipants);
   const platformFee = Math.floor(maxGrossRevenue * 0.1);
   const netRevenue = Math.floor(maxGrossRevenue - platformFee);
-
   return (
     <div className="space-y-6">
       <StepHeader
@@ -134,6 +133,7 @@ export function Step8ReviewAndPublish({
               {allActivities.map((activity) => (
                 <span
                   key={activity}
+                  className="bg-[#ff59001A] text-[#ff5900] px-3 py-1 rounded-full text-sm break-words max-w-full font-medium"
                   className="bg-[#ff59001A] text-[#ff5900] px-3 py-1 rounded-full text-sm break-words max-w-full font-medium"
                 >
                   {activity}

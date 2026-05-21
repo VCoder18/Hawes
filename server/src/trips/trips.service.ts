@@ -78,7 +78,6 @@ export class TripsService {
   ): Promise<string> {
     const ext = file.originalname.split('.').pop();
     const path = `${userId}/${randomUUID()}.${ext}`;
-
     const { error } = await this.supabaseClient.storage
       .from('trips-attachments')
       .upload(path, file.buffer, {
@@ -140,7 +139,6 @@ export class TripsService {
 
     return { ...(trip as Trip), stops: stops as TripStop[] };
   }
-
   async createTrip(
     userId: string,
     tripDTO: TripCreateDTO,
@@ -170,10 +168,10 @@ export class TripsService {
       .select('*')
       .single();
 
-    if (error || !createdTrip) {
+        if (error || !createdTrip) {
       console.error(`Failed to create trip: ${error.message}`);
       throw new BadRequestException('Failed to create trip');
-    }
+        }
 
     const results = await Promise.all(
       stops.map((stop) =>
@@ -196,12 +194,11 @@ export class TripsService {
       throw new BadRequestException('Failed to create trip stops');
     }
 
-    return { 
-      ...(createdTrip as Trip), 
-      stops: results.map((result) => result.data as TripStop) 
+    return {
+      ...(createdTrip as Trip),
+      stops: results.map((result) => result.data as TripStop),
     };
   }
-
   async updateTrip(
     userId: string,
     tripId: string,
@@ -263,7 +260,6 @@ export class TripsService {
 
       updatedStops = results.map((result) => result.data as TripStop);
     }
-
     if (stopIDsToDelete && stopIDsToDelete.length > 0) {
       const results = await Promise.all(
         stopIDsToDelete.map((stopId) =>
@@ -278,7 +274,6 @@ export class TripsService {
         throw new BadRequestException('Failed to update trip stop(s)');
       }
     }
-
     let updatedTrip: Trip;
     if (Object.keys(trip).length > 0) {
       const { error: updateError, data } = await this.supabaseClient

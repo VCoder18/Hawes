@@ -9,7 +9,6 @@ export class TripMediaPipe implements PipeTransform {
     attachment?: Express.Multer.File[];
   } | undefined) {
     const normalizedFiles = files ?? {};
-
     const imagesPipe = new ParseFilePipeBuilder()
       .addFileTypeValidator({
         fileType: /^(image\/jpeg|image\/png|image\/webp)$/,

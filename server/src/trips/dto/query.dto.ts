@@ -184,7 +184,6 @@ export class TripsQueryFilter {
           'Authentication is required for bookmark filtering',
         );
       }
-
       const { error, data } = await this.supabaseClient.rpc(
         'filter_trips_by_bookmark',
         { p_user_id: userId },

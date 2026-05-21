@@ -188,7 +188,6 @@ export type Database = {
           },
         ]
       }
-
       favorite_destinations: {
         Row: {
           created_at: string | null
@@ -291,7 +290,6 @@ export type Database = {
         }
         Relationships: []
       }
-
       trips: {
         Row: {
           activities: string[] | null
@@ -365,58 +363,7 @@ export type Database = {
           updated_at?: string | null
           what_to_bring?: string[] | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "trips_organizer_fkey"
-            columns: ["organizer"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trips_organizer_id_fkey"
-            columns: ["organizer"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      trips_destinations: {
-        Row: {
-          created_at: string
-          destination: string
-          id: number
-          trip: string
-        }
-        Insert: {
-          created_at?: string
-          destination: string
-          id?: number
-          trip: string
-        }
-        Update: {
-          created_at?: string
-          destination?: string
-          id?: number
-          trip?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "trips_destinations_destination_fkey"
-            columns: ["destination"]
-            isOneToOne: false
-            referencedRelation: "destinations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trips_destinations_trip_fkey"
-            columns: ["trip"]
-            isOneToOne: false
-            referencedRelation: "trips"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {

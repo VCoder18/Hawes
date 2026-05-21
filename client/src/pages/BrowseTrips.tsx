@@ -427,6 +427,7 @@ export default function BrowseTrips() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-12 pr-4 py-3 border border-[#e2e8f0] rounded-xl text-[#00b70d] placeholder:text-[#ff5900] focus:outline-none focus:ring-2 focus:ring-[#00b70d] transition-all"
+              className="w-full pl-12 pr-4 py-3 border border-[#e2e8f0] rounded-xl text-[#00b70d] placeholder:text-[#ff5900] focus:outline-none focus:ring-2 focus:ring-[#00b70d] transition-all"
             />
           </div>
 
@@ -461,6 +462,7 @@ export default function BrowseTrips() {
               selectedCategory === "all"
                 ? "bg-[#00b70d] text-white shadow-lg"
                 : "bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]"
+                : "bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]"
             }`}
           >
             <Compass className="size-5" />
@@ -476,6 +478,7 @@ export default function BrowseTrips() {
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all ${
                   selectedCategory === category.id
                     ? "bg-[#00b70d] text-white shadow-lg"
+                    : "bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]"
                     : "bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]"
                 }`}
               >
@@ -553,6 +556,7 @@ export default function BrowseTrips() {
                 selectedDifficulty === diff.toLowerCase()
                   ? "bg-blue-500 text-white"
                   : "bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-blue-500"
+                  : "bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-blue-500"
               }`}
             >
               {diff}
@@ -565,6 +569,8 @@ export default function BrowseTrips() {
       <div className="mb-6">
         <p className="text-[#ff5900]">
           <span className="font-bold text-[#00b70d]">{totalResults}</span> trips found
+  <p className="text-[#ff5900]">
+    <span className="font-bold text-[#00b70d]">{totalResults}</span> trips found
         </p>
       </div>
 

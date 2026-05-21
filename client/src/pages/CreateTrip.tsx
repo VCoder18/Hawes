@@ -31,7 +31,9 @@ import {
 import type { TripData, Destination, MeetingLocation } from "@/imports/types";
 import {
   buildStopsPayload,
+  calculateDistanceKm,
   dataUrlToFile,
+  matchesPopularityLevel,
   parseDestinationCoordinates,
   sortIncludedByOptions,
 } from "@/lib/create-trip-utils";
@@ -876,7 +878,6 @@ export default function CreateTrip() {
         });
       }
 
-
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(errorText || `Failed to create trip (${response.status})`);
@@ -985,6 +986,7 @@ export default function CreateTrip() {
         .map((name) => byName.get(name))
         .filter((destination): destination is Destination => Boolean(destination));
     },
+    [selectedDestinationFullData, allFetchedDestinations, tripData.destinations]
     [selectedDestinationFullData, allFetchedDestinations, tripData.destinations]
   );
   const mergedReviewStops = useMemo(() => {

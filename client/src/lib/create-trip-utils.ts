@@ -70,7 +70,7 @@ export const parseDestinationCoordinates = (destination: any): { lat: number; ln
           }
         }
       } catch {
-        // Resilience
+        // Keep fallback parsing resilient for mixed PostGIS output formats.
       }
     }
 
@@ -137,9 +137,9 @@ export const buildStopsPayload = (
   selectedDestinationPoints: Destination[],
   orderedStopIds: string[] = []
 ): RuntimeStopPayload[] => {
-  const meetingStops = meetingLocations.map((meeting) => {
+  const meetingStops = meetingLocations.map((meeting, index) => {
     if (!Number.isFinite(meeting.lat) || !Number.isFinite(meeting.lng)) {
-      throw new Error(`Meeting stop is missing map coordinates.`);
+      throw new Error(`Meeting stop ${index + 1} is missing map coordinates.`);
     }
 
     const coordinates: [number, number] = [meeting.lng as number, meeting.lat as number];

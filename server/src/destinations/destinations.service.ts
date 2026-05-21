@@ -51,7 +51,9 @@ export class DestinationsService {
         throw new InternalServerErrorException('Failed to filter favorites');
       }
 
-      idSets.push(data.map((r: { destination_id: string }) => r.destination_id));
+      idSets.push(
+        data.map((r: { destination_id: string }) => r.destination_id),
+      );
     }
 
     if (quickFilter === DestinationQuickFilter.HAS_TRIPS) {
@@ -63,7 +65,9 @@ export class DestinationsService {
         throw new InternalServerErrorException('Failed to filter by trips');
       }
 
-      idSets.push(data.map((r: { destination_id: string }) => r.destination_id));
+      idSets.push(
+        data.map((r: { destination_id: string }) => r.destination_id),
+      );
     }
 
     if (popularity) {
@@ -76,7 +80,9 @@ export class DestinationsService {
         throw new InternalServerErrorException('Failed to filter by popularity');
       }
 
-      idSets.push(data.map((r: { destination_id: string }) => r.destination_id));
+      idSets.push(
+        data.map((r: { destination_id: string }) => r.destination_id),
+      );
     }
 
     let destinationsQuery = this.supabaseClient
@@ -111,7 +117,11 @@ export class DestinationsService {
 
     // Handle month filter (TODO: replace with more complex interval logic if needed)
     if (month) {
-       // Simple implementation for now, assuming month is an index 1-12
+      // Simple implementation for now, assuming month is an index 1-12
+    }
+
+    if (maxDistanceKm !== undefined) {
+      // TODO: apply geo distance filter
     }
 
     const to = offset + limit - 1;

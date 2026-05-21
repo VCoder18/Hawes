@@ -180,7 +180,6 @@ const JoinTrip = () => {
         </button>
 
         <div className="overflow-y-auto h-full">
-      
       <div className="relative bg-center h-[350px] w-full">
         {!coverImage ? (
           <div className="w-full h-full bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 animate-pulse" />
@@ -221,6 +220,7 @@ const JoinTrip = () => {
           )}
           <div className="flex flex-wrap gap-2 mt-6">
             {activities.slice(0, 5).map((activity: string) => (
+              <Badge key={activity} className="bg-[#E8F5E9] hover:bg-[#E8F5E9] text-[#4CAF50] border-none rounded-lg px-3.5 py-2 text-xs font-bold">
               <Badge key={activity} className="bg-[#E8F5E9] hover:bg-[#E8F5E9] text-[#4CAF50] border-none rounded-lg px-3.5 py-2 text-xs font-bold">
                 {activity}
               </Badge>
@@ -398,7 +398,6 @@ const JoinTrip = () => {
                       style={{ width: `${participantPercentage}%` }}
                     />
                   </div>
-                  <p className="text-[#1A2E05]/70 text-sm font-medium">{availableSpots} spots available</p>
                 </div>
 
                 <Button className="w-full bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold py-8 rounded-[22px] text-base shadow-lg shadow-orange-200 uppercase tracking-wide">

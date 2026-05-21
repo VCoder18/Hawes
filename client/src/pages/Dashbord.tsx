@@ -282,6 +282,7 @@ const Dashbord = () => {
                 ))}
             </div>
             </main>
+            </main>
         </div>
     </div>
     );
