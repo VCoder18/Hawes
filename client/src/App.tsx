@@ -17,6 +17,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import AuthCallback from "@/pages/AuthCallback";
 import Dashboard from "@/pages/Dashboard";
 import JoinTrip from "@/pages/JoinTrip";
+import JoinTripForm from "@/pages/JoinTripForm";
 import { Toaster } from "@/components/Toaster";
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
               <Route path="/browse" element={<BrowseDestinations />} />
               <Route path="/trips" element={<BrowseTrips />} />
               <Route path="/trips/:id" element={<JoinTrip />} />
+              <Route path="/trips/:id/book" element={<JoinTripForm />} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/profile/:username" element={<Profile />} />
               <Route path="/settings/profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
