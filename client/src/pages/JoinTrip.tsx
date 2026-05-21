@@ -400,7 +400,10 @@ const JoinTrip = () => {
                   </div>
                 </div>
 
-                <Button className="w-full bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold py-8 rounded-[22px] text-base shadow-lg shadow-orange-200 uppercase tracking-wide">
+                <Button 
+                  onClick={() => navigate(`/trips/${id}/book`)}
+                  className="w-full bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold py-8 rounded-[22px] text-base shadow-lg shadow-orange-200 uppercase tracking-wide"
+                >
                   Join This Trip →
                 </Button>
                 

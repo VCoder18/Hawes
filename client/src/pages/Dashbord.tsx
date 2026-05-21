@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { X, LayoutDashboard, Compass, User, Users, Settings, Plus, Search, SlidersHorizontal } from 'lucide-react'; 
-import { Link } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { TripCard } from "@/components/BrowseTrips/TripCard";
 
+import FinanceOverview from '../components/Finances/FinanceOverview';
 const dashboardTrips = [
   {
     id: "1",
@@ -83,6 +84,17 @@ const dashboardTrips = [
 
 const Dashbord = () => {
     const [isOpen, setIsOpen] = useState(false);
+    const { tab } = useParams();
+    const navigate = useNavigate();
+    const activeTab = tab?.toLowerCase() === 'finances' ? 'finances' : 'trips';
+
+    const handleTabChange = (newTab: string) => {
+        if (newTab === 'trips') {
+            navigate('/dashboard');
+        } else {
+            navigate(`/dashboard/${newTab}`);
+        }
+    };
 
     return (
     <div className='flex flex-col md:flex-row gap-6 w-full'>
@@ -93,10 +105,10 @@ const Dashbord = () => {
                     <LayoutDashboard className="w-5 h-5" />   
                     <span className='pl-3'>Home</span>
                 </Link>
-                <Link to="/dashboard" className="px-4 py-3 text-[#00B70D] font-medium flex items-center bg-[#00B70D1A] rounded-xl transition-colors">
+                <button onClick={() => handleTabChange('trips')} className={`px-4 py-3 font-medium flex items-center rounded-xl transition-colors w-full ${activeTab === 'trips' ? 'bg-[#00B70D1A] text-[#00B70D]' : 'text-gray-700 hover:bg-[#00B70D1A] hover:text-[#00B70D]'}`}>
                     <Compass className="w-5 h-5" />   
                     <span className='pl-3'>My Trips</span>
-                </Link>
+                </button>
                 <Link to="/browse" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
                     <Compass className="w-5 h-5" />   
                     <span className='pl-3'>Explore</span>
@@ -113,6 +125,11 @@ const Dashbord = () => {
                  
                 <div className='border-t border-gray-200 my-2'></div>
 
+                <button onClick={() => handleTabChange('finances')} className={`px-4 py-3 font-medium flex items-center rounded-xl transition-colors w-full ${activeTab === 'finances' ? 'bg-[#00B70D1A] text-[#00B70D]' : 'text-gray-700 hover:bg-[#00B70D1A] hover:text-[#00B70D]'}`}>
+                    <SlidersHorizontal className="w-5 h-5" />   
+                    <span className='pl-3'>Finances</span>
+                </button>
+                <div className='border-t border-gray-200 my-2'></div>
                 <Link to="/profile" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
                     <User className="w-5 h-5" />   
                     <span className='pl-3'>Profile</span>
@@ -130,6 +147,11 @@ const Dashbord = () => {
 
         {/* Dashboard Main Content */}
         <div className='flex-1 flex flex-col min-w-0'>
+            {activeTab === 'finances' ? (
+                <div className='w-full pb-8'>
+                    <FinanceOverview />
+                </div>
+            ) : (
             <main className='w-full pb-8'>
                 <h1 className="font-['Merriweather'] font-bold text-3xl md:text-4xl text-[#0d2805] mb-8">Trip History</h1>
 
@@ -283,9 +305,5 @@ const Dashbord = () => {
             </div>
             </main>
             </main>
-        </div>
-    </div>
-    );
-};
 
 export default Dashbord;

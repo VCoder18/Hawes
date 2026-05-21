@@ -17,6 +17,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import AuthCallback from "@/pages/AuthCallback";
 import Dashboard from "@/pages/Dashboard";
 import JoinTrip from "@/pages/JoinTrip";
+import JoinTripForm from "@/pages/JoinTripForm";
 import { Toaster } from "@/components/Toaster";
 import BusinessOverview from "./components/BusinessOverview";
 import Servicesrating from "./components/Servicesrating";
@@ -38,10 +39,12 @@ function App() {
               <Route path="/browse" element={<BrowseDestinations />} />
               <Route path="/trips" element={<BrowseTrips />} />
               <Route path="/trips/:id" element={<JoinTrip />} />
+              <Route path="/trips/:id/book" element={<JoinTripForm />} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/profile/:username" element={<Profile />} />
               <Route path="/settings/profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboard/:tab" element={<Dashboard />} />
             </Route>
             <Route element={<MainLayout displayNavbar={true} displayFooter={false} />}>
               <Route path="/create-trip" element={<ProtectedRoute><CreateTrip /></ProtectedRoute>} />
@@ -52,6 +55,7 @@ function App() {
               <Route path="/register" element={<SignupForm />} />
               <Route path="/business" element={<BusinessOverview />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
+
             </Route>
             <Route path="*" element={<ErrorPageWrapper />} />
           </Routes>
