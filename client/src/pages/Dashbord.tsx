@@ -1,6 +1,6 @@
 import React, {useState} from 'react' ;
 import { X } from 'lucide-react'; 
-import Sidebar from './Sidebar';
+import Sidebar from '../components/Sidebar';
 import { Link } from "react-router-dom";
 
 const Dashbord =() => {

@@ -1,19 +1,23 @@
 import { X, Heart, Share2, MapPin, Star, Users, Calendar, Route, Sun, Wind, ChevronRight, CloudRain, Tent, UtensilsCrossed, Map, MessageCircle, BarChart3 } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface DestinationModalProps {
   destination: {
-    id: number;
+    id: string | number;
     name: string;
     type: string;
     region: string;
+    city?: string;
     image: string;
+    images?: string[];
     rating: number;
     reviews: number;
     peopleVisiting: number;
-    availableEvents: number;
     tripsAvailable: number;
     category: string;
+    description?: string;
+    best_periods?: string[];
   };
   isSaved: boolean;
   onToggleSave: () => void;
@@ -21,10 +25,34 @@ interface DestinationModalProps {
 }
 
 export function DestinationModal({ destination, isSaved, onToggleSave, onClose }: DestinationModalProps) {
+  const navigate = useNavigate();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
-  // Mock additional images - in real app, would come from destination data
-  const images = [destination.image, destination.image, destination.image];
+  // Use images array from database, fall back to single image repeated if not available
+  const images = destination.images && destination.images.length > 0 
+    ? destination.images 
+    : [destination.image, destination.image, destination.image];
+
+  // Convert MM-DD:MM-DD format to readable month names
+  const formatBestPeriod = (period: string): string => {
+    const monthNames = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    ];
+    
+    try {
+      const [startStr, endStr] = period.split(":");
+      const [startMonth, startDay] = startStr.split("-").map(Number);
+      const [endMonth, endDay] = endStr.split("-").map(Number);
+      
+      const start = monthNames[startMonth - 1] || "";
+      const end = monthNames[endMonth - 1] || "";
+      
+      return `${start} ${startDay} - ${end} ${endDay}`;
+    } catch {
+      return period;
+    }
+  };
 
   return (
     <>
@@ -95,30 +123,21 @@ export function DestinationModal({ destination, isSaved, onToggleSave, onClose }
         {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto destination-modal-scrollbar">
           <div className="p-6 space-y-6">
-            {/* Category Tags */}
-            <div className="flex flex-wrap gap-2">
-              <span className="px-4 py-1.5 bg-[#00b70d]/10 border border-[#00b70d]/20 text-[#00b70d] rounded-full text-xs font-bold uppercase tracking-wide">
-                SAHARA
-              </span>
-              <span className="px-4 py-1.5 bg-[#00b70d]/10 border border-[#00b70d]/20 text-[#00b70d] rounded-full text-xs font-bold uppercase tracking-wide">
-                OASIS
-              </span>
-              <span className="px-4 py-1.5 bg-[#00b70d]/10 border border-[#00b70d]/20 text-[#00b70d] rounded-full text-xs font-bold uppercase tracking-wide">
-                ADVENTURE
-              </span>
-              <span className="px-4 py-1.5 bg-[#00b70d]/10 border border-[#00b70d]/20 text-[#00b70d] rounded-full text-xs font-bold uppercase tracking-wide">
-                CULTURE
-              </span>
-            </div>
-
             {/* Title and Location */}
             <div>
               <h2 className="font-['Inter'] font-black text-3xl sm:text-4xl text-[#0d2805] mb-3">
                 {destination.name}
               </h2>
-              <div className="flex items-center gap-2 text-[#6a7282]">
-                <MapPin className="size-5 text-[#ff5900]" />
-                <span className="font-bold text-lg">{destination.region}, Algeria</span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-[#6a7282]">
+                  <MapPin className="size-5 text-[#ff5900]" />
+                  <span className="font-bold text-lg">
+                    {destination.city || destination.region}, Algeria
+                  </span>
+                </div>
+                <span className="px-4 py-1.5 bg-[#00b70d]/10 border border-[#00b70d]/20 text-[#00b70d] rounded-full text-xs font-bold uppercase tracking-wide whitespace-nowrap">
+                  {destination.category}
+                </span>
               </div>
             </div>
 
@@ -157,15 +176,7 @@ export function DestinationModal({ destination, isSaved, onToggleSave, onClose }
                 </p>
               </div>
 
-              <div>
-                <div className="flex items-center gap-1 mb-1">
-                  <Calendar className="size-4 text-[#99a1af]" />
-                  <span className="font-bold text-[#0d2805]">{destination.availableEvents}</span>
-                </div>
-                <p className="text-xs font-semibold text-[#6a7282] uppercase tracking-wider">
-                  Events
-                </p>
-              </div>
+
             </div>
 
             {/* The Experience */}
@@ -174,7 +185,7 @@ export function DestinationModal({ destination, isSaved, onToggleSave, onClose }
                 — The Experience
               </h3>
               <p className="text-[#0d2805] leading-relaxed">
-                Tamanrasset is an oasis city and capital of Tamanrasset Province in southern Algeria, in the Ahaggar Mountains. Known as the gateway to the Sahara, it offers striking landscapes of volcanic rock formations, endless dunes, and traditional Tuareg culture. It's a paradise for adventurers seeking to explore the vastness of the desert and ancient petroglyphs under a star-filled sky.
+                {destination.description || "Discover the unique charm and natural beauty of this remarkable destination. Explore local culture, stunning landscapes, and unforgettable experiences."}
               </p>
             </div>
 
@@ -212,19 +223,24 @@ export function DestinationModal({ destination, isSaved, onToggleSave, onClose }
                   <h3 className="font-bold text-[#6a7282] text-sm uppercase tracking-wider mb-3">
                     Best Period to Visit
                   </h3>
-                  <div className="flex gap-2">
-                    <div className="bg-white border border-[#d6d0c4] rounded-lg px-3 py-2 shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="size-4 text-[#00b70d]" />
-                        <span className="font-bold text-sm text-[#0d2805]">Oct - Nov</span>
+                  <div className="flex flex-wrap gap-2">
+                    {destination.best_periods && destination.best_periods.length > 0 ? (
+                      destination.best_periods.map((period, index) => (
+                        <div key={index} className="bg-white border border-[#d6d0c4] rounded-lg px-3 py-2 shadow-sm">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="size-4 text-[#00b70d]" />
+                            <span className="font-bold text-sm text-[#0d2805]">{formatBestPeriod(period)}</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="bg-white border border-[#d6d0c4] rounded-lg px-3 py-2 shadow-sm">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="size-4 text-[#6a7282]" />
+                          <span className="font-bold text-sm text-[#6a7282]">Year-round</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="bg-white border border-[#d6d0c4] rounded-lg px-3 py-2 shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="size-4 text-[#00b70d]" />
-                        <span className="font-bold text-sm text-[#0d2805]">Feb - Apr</span>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -266,36 +282,25 @@ export function DestinationModal({ destination, isSaved, onToggleSave, onClose }
               </div>
             </div>
 
-            {/* Trending Events */}
-            <div>
-              <h3 className="font-bold text-[#0d2805] text-xl mb-4">
-                Trending Events
-              </h3>
-              <div className="space-y-3">
-                <EventItem 
-                  title="Stargazing Expedition"
-                  time="Tonight, 9:00 PM"
-                  joining={18}
-                />
-                <EventItem 
-                  title="Ahaggar Hiking Tour"
-                  time="Tomorrow, 6:00 AM"
-                  joining={12}
-                />
-              </div>
-            </div>
-
             {/* Action Buttons */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
-              {/* Row 1: Reserve Experience (full width) */}
+              {/* Row 1: Join Trip (full width) */}
               <button className="w-full px-6 py-4 bg-[#00b70d] hover:bg-[#00b70d]-hover text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2 sm:col-span-2">
-                Reserve Experience
+                Join Trip
                 <ChevronRight className="size-5" />
               </button>
               
-              {/* Row 2: Join Event / Community */}
-              <button className="w-full px-6 py-4 bg-[#ff5900] hover:bg-[#e54f00] text-white rounded-xl font-bold transition-colors">
-                Join Event
+              {/* Row 2: Create Trip / Community */}
+              <button 
+                onClick={() => {
+                  navigate("/create-trip", { 
+                    state: { selectedDestination: destination } 
+                  });
+                  onClose();
+                }}
+                className="w-full px-6 py-4 bg-[#ff5900] hover:bg-[#e54f00] text-white rounded-xl font-bold transition-colors"
+              >
+                Create Trip
               </button>
               <button className="w-full px-6 py-4 bg-white border-2 border-[#d6d0c4] hover:border-[#00b70d] text-[#0d2805] rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
                 <MessageCircle className="size-5" />

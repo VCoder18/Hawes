@@ -1,5 +1,6 @@
-import { MapPin, Star, Users, Calendar, Route, Heart } from "lucide-react";
+import { MapPin, Star, Heart, Users, Luggage } from "lucide-react";
 import type { Destination } from "@/imports/types";
+import bannerImg from "@/assets/images/banner.jpg";
 
 interface DestinationCardProps {
   destination: Destination;
@@ -8,17 +9,31 @@ interface DestinationCardProps {
   onClick: () => void;
 }
 
-export function DestinationCard({ destination, isSaved, onToggleSave, onClick }: DestinationCardProps) {
+export function DestinationCard({ 
+  destination, 
+  isSaved, 
+  onToggleSave, 
+  onClick,
+}: DestinationCardProps) {
   return (
-    <div className="bg-white rounded-2xl shadow-lg overflow-hidden group cursor-pointer hover:shadow-2xl transition-all transform hover:-translate-y-1" onClick={onClick}>
+    <div className="bg-white rounded-2xl shadow-lg overflow-hidden group cursor-pointer hover:shadow-xl transition-shadow" onClick={onClick}>
       {/* Image Section */}
-      <div className="relative h-64 overflow-hidden">
+      <div className="relative h-56 overflow-hidden bg-gray-200">
         <img 
           src={destination.image} 
           alt={destination.name} 
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = bannerImg;
+          }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+        
+        {/* Badge */}
+        {destination.type && (
+          <div className="absolute top-3 left-3 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
+            {destination.type.charAt(0).toUpperCase() + destination.type.slice(1)}
+          </div>
+        )}
         
         {/* Save Button */}
         <button
@@ -26,56 +41,42 @@ export function DestinationCard({ destination, isSaved, onToggleSave, onClick }:
             e.stopPropagation();
             onToggleSave();
           }}
-          className={`absolute top-4 right-4 p-2.5 rounded-full backdrop-blur-sm transition-all ${
-            isSaved 
-              ? "bg-[#00b70d] text-white" 
-              : "bg-white/90 text-text-[#ff5900] hover:bg-white"
-          }`}
+          className="absolute top-3 right-3 p-2.5 rounded-full bg-white/90 hover:bg-white transition-all"
         >
-          <Heart className={`size-5 ${isSaved ? "fill-current" : ""}`} />
+          <Heart className={`size-5 ${isSaved ? "fill-red-500 text-red-500" : "text-gray-400"}`} />
         </button>
       </div>
 
       {/* Content Section */}
-      <div className="p-6">
-        <div className="flex items-start justify-between mb-3">
-          <h3 className="font-['Lato'] font-bold text-xl text-text-[#00b70d] flex-1">
-            {destination.name}
-          </h3>
-          <span className="bg-[#00b70d]/10 text-[#00b70d] px-3 py-1 rounded-full text-xs font-medium ml-2 whitespace-nowrap">
-            {destination.type}
-          </span>
+      <div className="p-5">
+        {/* Title */}
+        <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-2">
+          {destination.name}
+        </h3>
+
+        {/* Location */}
+        <div className="flex items-center gap-2 text-gray-600 mb-4">
+          <MapPin className="size-4 text-gray-400" />
+          <span className="text-sm font-medium">{destination.region}</span>
         </div>
 
-        <div className="flex items-center gap-2 text-text-[#ff5900] mb-4">
-          <MapPin className="size-4" />
-          <span className="text-sm">{destination.region}</span>
-        </div>
-
+        {/* Rating */}
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex items-center gap-1">
-            <Star className="size-4 fill-[#ff5900] text-[#ff5900]" />
-            <span className="font-bold text-text-[#00b70d]">{destination.rating}</span>
-          </div>
-          <span className="text-sm text-text-[#ff5900]">({destination.reviews} reviews)</span>
+          <Star className="size-5 fill-orange-500 text-orange-500" />
+          <span className="font-bold text-gray-900">{destination.rating.toFixed(1)}</span>
+          <span className="text-sm text-gray-500">({destination.reviews} reviews)</span>
         </div>
 
-        <div className="flex items-center justify-between pt-4 border-t border-[#e2e8f0]">
-          <div className="flex items-center gap-1.5 text-text-[#ff5900]">
-            <Users className="size-4" />
-            <span className="text-sm">{destination.peopleVisiting.toLocaleString()} visiting</span>
+        {/* Stats */}
+        <div className="space-y-3 pt-3 border-t border-gray-100">
+          <div className="flex items-center gap-3 text-gray-700 text-sm">
+            <Users className="size-4 text-gray-400" />
+            <span>{destination.peopleVisiting.toLocaleString()} visiting</span>
           </div>
-          {destination.availableEvents > 0 && (
-            <div className="flex items-center gap-1.5 text-[#00b70d]">
-              <Calendar className="size-4" />
-              <span className="text-sm font-medium">{destination.availableEvents} {destination.availableEvents === 1 ? 'event' : 'events'}</span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1.5 text-text-[#00b70d] pt-3">
-          <Route className="size-4" />
-          <span className="text-sm font-medium">{destination.tripsAvailable} trips available</span>
+          <div className="flex items-center gap-3 text-gray-700 text-sm">
+            <Luggage className="size-4 text-gray-400" />
+            <span>{destination.tripsAvailable} trips available</span>
+          </div>
         </div>
       </div>
     </div>

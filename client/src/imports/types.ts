@@ -10,18 +10,28 @@ export interface TripData {
   difficulty: string;
   startDate: string;
   endDate: string;
-  meetingLocations: { location: string; time: string }[];
-  itinerary: string;
+  meetingLocations: MeetingLocation[];
+  itinerary: { summary: string; details: string }[];
   activities: string[];
   customActivities: string[];
   included: string[];
-  whatToBring: string;
+  excluded: string[];
+  whatToBring: string[];
   maxParticipants: number;
   minParticipants: number;
   pricePerPerson: number;
   coverImage: string;
   additionalImages: Array<{ data: string; name: string; type: string }>;
   scope: "public" | "private";
+}
+
+export interface MeetingLocation {
+  location: string;
+  time: string;
+  lat?: number;
+  lng?: number;
+  address?: string;
+  placeId?: string;
 }
 
 export interface Filters {
@@ -35,7 +45,7 @@ export interface Filters {
 // BROWSE DESTINATIONS
 
 export interface Destination {
-  id: number;
+  id: string;
   name: string;
   type: string;
   region: string;
@@ -43,18 +53,13 @@ export interface Destination {
   rating: number;
   reviews: number;
   peopleVisiting: number;
-  availableEvents: number;
   tripsAvailable: number;
   category: string;
+  description: string;
   isFavorite: boolean;
-}
-
-export interface Filters {
-  type: string[];
-  services: string[];
-  events: string;
-  distance: string;
-  rating: number;
+  lat: number;
+  lng: number;
+  best_periods: string[]; // "MM-DD:MM-DD" format
 }
 
 export interface Category {
@@ -116,8 +121,7 @@ export interface EditProfileFormData {
   email: string;
   location: string;
   website: string;
-  role: UserRole;
-  socialLinks: Record<string, string>;
+  socialLinks: { [key: string]: string };
   privacySettings: {
     profileVisibility: boolean;
     showActivityStatus: boolean;

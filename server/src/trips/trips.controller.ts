@@ -8,17 +8,20 @@ import {
   UseGuards,
   Body,
   Query,
+  UploadedFile,
+  UseInterceptors,
+  ParseFilePipeBuilder,
+  HttpStatus,
+  UploadedFiles,
 } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { TripsService } from './trips.service';
-import {
-  AuthGuard,
-  Public,
-  type SupabaseJWTPayload,
-} from 'src/auth/auth.guard';
+import { AuthGuard, type SupabaseJWTPayload } from 'src/auth/auth.guard';
 import { TripCreateDTO } from './dto/create.dto';
 import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { TripUpdateDTO } from './dto/update.dto';
-import { QueryDto } from 'src/common/dto/query.dto';
+import { TripsQueryDto } from './dto/query.dto';
+import { TripMediaPipe } from './pipes/trip-media.pipe';
 
 @Controller('trips')
 @UseGuards(AuthGuard)
@@ -26,27 +29,36 @@ export class TripsController {
   constructor(private readonly service: TripsService) {}
 
   @Get()
-  @Public()
-  getTrips(@Query() query: QueryDto) {
-    return this.service.getTrips(query);
+  getTrips(
+    @CurrentUser() user: SupabaseJWTPayload,
+    @Query() query: TripsQueryDto,
+  ) {
+    return this.service.getTrips(user.sub, query);
   }
 
-  @Public()
   @Get(':tripId')
   getTripById(@Param('tripId') tripId: string) {
     return this.service.getTripById(tripId);
   }
 
   @Post()
-  addTrip(
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'images', maxCount: 5 },
+      { name: 'attachment', maxCount: 1 },
+    ]),
+  )
+  createTrip(
     @Body() body: TripCreateDTO,
     @CurrentUser() user: SupabaseJWTPayload,
+    @UploadedFiles(TripMediaPipe)
+    { images, attachment },
   ) {
-    return this.service.addTrip(user.sub, body);
+    return this.service.createTrip(user.sub, body, images, attachment);
   }
 
   @Patch(':tripId')
-  editTrip(
+  updateTrip(
     @Body() body: TripUpdateDTO,
     @CurrentUser() user: SupabaseJWTPayload,
     @Param('tripId') tripId: string,

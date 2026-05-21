@@ -38,7 +38,7 @@ const LoginForm = () => {
   return (
     <div className="w-full h-screen max-w-4xl sm:rounded-2xl overflow-hidden shadow-2xl flex flex-row bg-white">
         
-        <div className="w-full md:w-1/2 bg-[#ffffe8]-subtle p-6 md:p-8 flex flex-col justify-center overflow-y-auto h-full">
+        <div className="w-full md:w-1/2 bg-white p-6 md:p-8 flex flex-col justify-center overflow-y-auto h-full">
          
           <Link to="/">
             <img 
@@ -96,8 +96,8 @@ const LoginForm = () => {
 
           <div className="relative my-4 text-center">
             <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-gray-200"></span></div>
-            <div className="relative flex justify-center text-[10px] uppercase font-bold text-green-700 tracking-widest px-4">
-              <span className="bg-[#ffffe8]-subtle px-2">Or log in with</span>
+            <div className="relative flex justify-center text-[10px] uppercase font-bold text-green-700 tracking-widest z-10">
+              <span className="bg-white px-3">Or log in with</span>
             </div>
           </div>
 

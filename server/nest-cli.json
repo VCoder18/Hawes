@@ -3,6 +3,8 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
+    "tsConfigPath": "tsconfig.json",
     "deleteOutDir": true
-  }
+  },
+  "exclude": ["vitest.config.ts", "vitest.e2e.config.ts", "test"]
 }
