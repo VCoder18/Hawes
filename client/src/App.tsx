@@ -50,6 +50,7 @@ function App() {
               <Route path="/register" element={<SignupForm />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboard/:tab" element={<Dashboard />} />
             </Route>
             <Route path="*" element={<ErrorPageWrapper />} />
           </Routes>
