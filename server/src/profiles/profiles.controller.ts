@@ -2,14 +2,28 @@ import {
   Controller,
   Delete,
   Patch,
+  Post,
   UseGuards,
   Body,
   Get,
+  Param,
+  UploadedFile,
+  UseInterceptors,
+  ParseFilePipeBuilder,
+  HttpStatus,
+  Query,
+  UploadedFiles,
 } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ProfilesService } from './profiles.service';
-import { AuthGuard, type SupabaseJWTPayload } from 'src/auth/auth.guard';
+import {
+  AuthGuard,
+  Public,
+  type SupabaseJWTPayload,
+} from 'src/auth/auth.guard';
 import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { ProfileUpdateDTO } from './dto/update.dto';
+import { ProfilesQueryDto } from './dto/query.dto';
 
 @Controller('profiles')
 @UseGuards(AuthGuard)
@@ -17,20 +31,56 @@ export class ProfilesController {
   constructor(private readonly service: ProfilesService) {}
 
   @Get()
-  getProfile(@CurrentUser() user: SupabaseJWTPayload) {
+  getCurrentUserProfile(@CurrentUser() user: SupabaseJWTPayload) {
     return this.service.getProfile(user.sub);
   }
 
+  @Public()
+  @Get(':id')
+  getProfileById(@Param('id') id: string) {
+    return this.service.getProfile(id);
+  }
+
+  @Public()
+  @Get('by-username/:username')
+  getProfileByUsername(@Query() query: ProfilesQueryDto) {
+    return this.service.getProfileByUsername(query);
+  }
+
   @Patch()
-  editProfile(
-    @Body() body: ProfileUpdateDTO,
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'avatar', maxCount: 1 },
+      { name: 'banner', maxCount: 1 },
+    ]),
+  )
+  updateProfile(
     @CurrentUser() user: SupabaseJWTPayload,
+    @Body() profile: ProfileUpdateDTO,
+    @UploadedFiles(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /^(image\/jpeg|image\/png|image\/webp)$/,
+        })
+        .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
+        .build({
+          fileIsRequired: false,
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        }),
+    )
+    {
+      avatar,
+      banner,
+    }: {
+      avatar: Express.Multer.File | undefined;
+      banner: Express.Multer.File | undefined;
+    },
   ) {
-    return this.service.updateProfile(user.sub, body);
+    return this.service.updateProfile(user.sub, profile, avatar, banner);
   }
 
   @Delete()
-  deleteProfile(@CurrentUser() user: SupabaseJWTPayload) {
+  deleteCurrentUserProfile(@CurrentUser() user: SupabaseJWTPayload) {
     return this.service.deleteProfile(user.sub);
   }
 }

@@ -101,7 +101,7 @@ export abstract class TripsQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  offset?: number = 1;
+  offset?: number = 0;
 
   @IsOptional()
   @Type(() => Number)
@@ -117,7 +117,7 @@ export class TripsQueryFilter {
     private supabaseClient: SupabaseClient<Database>,
   ) {}
 
-  public async apply(tripsQuery, userId: string | null) {
+  public async apply(tripsQuery: any, userId: string | null) {
     const {
       search,
       tripType,
@@ -171,11 +171,11 @@ export class TripsQueryFilter {
       );
 
       if (error || !data) {
-        console.error(`Failed filter with place type: ${error}`);
+        console.error(`Failed filter with place type: ${error?.message}`);
         throw new BadRequestException('Failed to filter by place type');
       }
 
-      idSets.push(data.map((r) => r.trip_id));
+      idSets.push(data.map((r: any) => r.trip_id));
     }
 
     if (quickFilter === QuickFilter.BOOKMARKS) {
@@ -191,11 +191,11 @@ export class TripsQueryFilter {
       );
 
       if (error || !data) {
-        console.error(`Failed to filter by bookmark: ${error}`);
+        console.error(`Failed to filter by bookmark: ${error?.message}`);
         throw new BadRequestException('Failed to filter by bookmark');
       }
 
-      idSets.push(data.map((r) => r.trip_id));
+      idSets.push(data.map((r: any) => r.trip_id));
     }
 
     if (quickFilter && quickFilter !== QuickFilter.BOOKMARKS) {
@@ -205,53 +205,60 @@ export class TripsQueryFilter {
       );
 
       if (error || !data) {
-        console.error(`Failed to filter by user role: ${error}`);
+        console.error(`Failed to filter by user role: ${error?.message}`);
         throw new BadRequestException('Failed to filter by user role');
       }
 
-      idSets.push(data.map((r) => r.trip_id));
+      idSets.push(data.map((r: any) => r.trip_id));
     }
 
     if (participants) {
-      const [min, max] = {
+      const range = {
         [ParticipantsRange.ZERO_TO_FIVE]: [0, 5],
         [ParticipantsRange.FIVE_TO_FIFTEEN]: [5, 15],
         [ParticipantsRange.FIFTEEN_TO_FIFTY]: [15, 50],
         [ParticipantsRange.FIFTY_PLUS]: [50, null],
       }[participants];
 
-      const { error, data } = await this.supabaseClient.rpc(
-        'filter_trips_by_participants_range',
-        { p_min: min, p_max: max },
-      );
+      if (range) {
+        const [min, max] = range;
+        const { error, data } = await this.supabaseClient.rpc(
+          'filter_trips_by_participants_range',
+          { p_min: min, p_max: max },
+        );
 
-      if (error || !data) {
-        console.error(`Failed to filter by participants range: ${error}`);
-        throw new BadRequestException('Failed to filter by participants range');
+        if (error || !data) {
+          console.error(`Failed to filter by participants range: ${error?.message}`);
+          throw new BadRequestException('Failed to filter by participants range');
+        }
+
+        idSets.push(data.map((r: any) => r.trip_id));
       }
-
-      idSets.push(data.map((r) => r.trip_id));
     }
 
     if (destinationsCount) {
-      const [min, max] = {
+      const range = {
         [DestinationsCount.ONE]: [1, 1],
         [DestinationsCount.TWO_PLUS]: [2, null],
         [DestinationsCount.THREE_PLUS]: [3, null],
         [DestinationsCount.FIVE_PLUS]: [5, null],
       }[destinationsCount];
 
-      const { data, error } = await this.supabaseClient.rpc(
-        'filter_trips_by_destinations_count',
-        { p_min: min, p_max: max },
-      );
-
-      if (error)
-        throw new InternalServerErrorException(
-          'Failed to filter by destinations count',
+      if (range) {
+        const [min, max] = range;
+        const { data, error } = await this.supabaseClient.rpc(
+          'filter_trips_by_destinations_count',
+          { p_min: min, p_max: max },
         );
 
-      idSets.push(data.map((r: { trip: string }) => r.trip));
+        if (error || !data) {
+          throw new InternalServerErrorException(
+            'Failed to filter by destinations count',
+          );
+        }
+
+        idSets.push(data.map((r: any) => r.trip || r.trip_id));
+      }
     }
 
     if (idSets.length > 0) {
@@ -264,7 +271,7 @@ export class TripsQueryFilter {
       tripsQuery = tripsQuery.in('id', intersected);
     }
 
-    tripsQuery = tripsQuery.range(offset, offset + limit);
+    tripsQuery = tripsQuery.range(offset, offset + limit - 1);
 
     return tripsQuery;
   }

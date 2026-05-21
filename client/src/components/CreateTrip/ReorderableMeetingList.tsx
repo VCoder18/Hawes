@@ -16,6 +16,7 @@ interface ReorderableMeetingListProps {
   candidatePoint?: MeetingLocation | null;
   showRestoreButton?: boolean;
   lockFirstItem?: boolean;
+  readOnly?: boolean;
 }
 
 export function ReorderableMeetingList({
@@ -27,11 +28,17 @@ export function ReorderableMeetingList({
   candidatePoint,
   showRestoreButton,
   lockFirstItem = true,
+  readOnly = false,
 }: ReorderableMeetingListProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
+    if (readOnly) {
+      e.preventDefault();
+      return;
+    }
+
     // Prevent dragging the first item
     if (lockFirstItem && index === 0) {
       e.preventDefault();
@@ -46,6 +53,10 @@ export function ReorderableMeetingList({
   };
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
+    if (readOnly) {
+      return;
+    }
+
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     setDragOverIndex(index);
@@ -56,6 +67,10 @@ export function ReorderableMeetingList({
   };
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    if (readOnly) {
+      return;
+    }
+
     e.preventDefault();
     setDragOverIndex(null);
 
@@ -110,7 +125,7 @@ export function ReorderableMeetingList({
       {meetingLocations.map((point, index) => (
         <div key={point.stableId}>
           <div
-            draggable={lockFirstItem ? index !== 0 : true}
+            draggable={readOnly ? false : lockFirstItem ? index !== 0 : true}
             onDragStart={(e) => handleDragStart(e, index)}
             onDragOver={(e) => handleDragOver(e, index)}
             onDragLeave={handleDragLeave}
@@ -118,12 +133,12 @@ export function ReorderableMeetingList({
             onDragEnd={handleDragEnd}
             onClick={() => onItemClick?.(point)}
             className={`
-              flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${(lockFirstItem && index === 0) ? "cursor-default" : "cursor-grab active:cursor-grabbing hover:border-[#00b70d]"}
+              flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${readOnly ? (onItemClick ? "cursor-pointer hover:border-[#00b70d]" : "cursor-default") : (lockFirstItem && index === 0) ? "cursor-default" : "cursor-grab active:cursor-grabbing hover:border-[#00b70d]"}
               ${draggedIndex === index ? "opacity-50 bg-[#f0f0f0]" : ""}
               ${dragOverIndex === index && draggedIndex !== index ? "border-[#00b70d] bg-[#f8fdf9]" : "border-[#e2e8f0] bg-white"}
             `}
           >
-            {(lockFirstItem && index === 0) ? (
+            {(readOnly || (lockFirstItem && index === 0)) ? (
               <div className="size-5 shrink-0" />
             ) : (
               <GripVertical className="size-5 text-[#6a7282] shrink-0" />
@@ -149,7 +164,7 @@ export function ReorderableMeetingList({
                 {point.address && <p className="text-xs text-[#6a7282] truncate">{point.address}</p>}
               </div>
             </div>
-            {point.pointType === "meeting" ? (
+            {!readOnly && point.pointType === "meeting" ? (
               <button
                 type="button"
                 onClick={(e) => {

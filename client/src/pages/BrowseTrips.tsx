@@ -93,8 +93,6 @@ export default function BrowseTrips() {
 
   // Load bookmarked trips (mock)
   useEffect(() => {
-    // With mock data, bookmarks are stored in local state
-    // No need to fetch from API
     setSavedTrips(new Set());
   }, []);
 
@@ -223,7 +221,7 @@ export default function BrowseTrips() {
       };
 
       try {
-        const mockAll = getAllTrips(10000, 0).data as TripRow[];
+        const mockAll = (getAllTrips(10000, 0).data || []) as TripRow[];
 
         let apiTrips: TripRow[] = [];
         try {
@@ -236,7 +234,7 @@ export default function BrowseTrips() {
             headers.Authorization = `Bearer ${session.access_token}`;
           }
 
-          const apiLimit = 20; // Server validates max limit=20
+          const apiLimit = 20;
           const maxPages = 50;
           const collected: TripRow[] = [];
 
@@ -246,25 +244,14 @@ export default function BrowseTrips() {
             params.append("offset", String(pageIndex * apiLimit));
 
             const response = await fetch(`${API_BASE_URL}/trips?${params.toString()}`, { headers });
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.warn("Trips API returned non-OK response", {
-                status: response.status,
-                body: errorText,
-                pageIndex,
-              });
-              break;
-            }
+            if (!response.ok) break;
 
             const data = await response.json();
             const parsed = Array.isArray(data) ? data : data?.data;
             const chunk = Array.isArray(parsed) ? (parsed as TripRow[]) : [];
 
             collected.push(...chunk.map(normalizeTrip));
-
-            if (chunk.length < apiLimit) {
-              break;
-            }
+            if (chunk.length < apiLimit) break;
           }
 
           apiTrips = collected;
@@ -272,7 +259,7 @@ export default function BrowseTrips() {
           console.warn("Trips API fetch failed, continuing with mock data", error);
         }
 
-        const mergedById = new globalThis.Map<string, TripRow>();
+        const mergedById = new Map<string, TripRow>();
         [...mockAll.map(normalizeTrip), ...apiTrips].forEach((trip) => {
           if (!trip?.id) return;
           const existing = mergedById.get(trip.id);
@@ -357,7 +344,6 @@ export default function BrowseTrips() {
 
   const handleToggleSave = useCallback(
     (tripId: string) => {
-      // Mock save functionality - just toggle the local state
       setSavedTrips((prev) => {
         const next = new Set(prev);
         if (next.has(tripId)) {
@@ -434,13 +420,13 @@ export default function BrowseTrips() {
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Search Input */}
           <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-text-[#ff5900]" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-[#ff5900]" />
             <input
               type="text"
               placeholder="Search trips..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-[#e2e8f0] rounded-xl text-text-[#00b70d] placeholder:text-text-[#ff5900] focus:outline-none focus:ring-2 focus:ring-[#00b70d] transition-all"
+              className="w-full pl-12 pr-4 py-3 border border-[#e2e8f0] rounded-xl text-[#00b70d] placeholder:text-[#ff5900] focus:outline-none focus:ring-2 focus:ring-[#00b70d] transition-all"
             />
           </div>
 
@@ -474,7 +460,7 @@ export default function BrowseTrips() {
             className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all ${
               selectedCategory === "all"
                 ? "bg-[#00b70d] text-white shadow-lg"
-                : "bg-white text-text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]"
+                : "bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]"
             }`}
           >
             <Compass className="size-5" />
@@ -490,7 +476,7 @@ export default function BrowseTrips() {
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all ${
                   selectedCategory === category.id
                     ? "bg-[#00b70d] text-white shadow-lg"
-                    : "bg-white text-text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]"
+                    : "bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]"
                 }`}
               >
                 {IconComponent && <IconComponent className="size-5" />}
@@ -519,8 +505,6 @@ export default function BrowseTrips() {
 
           <button
             onClick={() => setShowCreatedByMeOnly(!showCreatedByMeOnly)}
-            title="Created by me"
-            aria-label="Filter trips created by me"
             className={`flex items-center justify-center size-10 rounded-full border transition-all ${
               showCreatedByMeOnly
                 ? "bg-[#0d2805] text-white border-[#0d2805] shadow-lg"
@@ -568,7 +552,7 @@ export default function BrowseTrips() {
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
                 selectedDifficulty === diff.toLowerCase()
                   ? "bg-blue-500 text-white"
-                  : "bg-white text-text-[#00b70d] border border-[#e2e8f0] hover:border-blue-500"
+                  : "bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-blue-500"
               }`}
             >
               {diff}
@@ -579,8 +563,8 @@ export default function BrowseTrips() {
 
       {/* Results Count */}
       <div className="mb-6">
-        <p className="text-text-[#ff5900]">
-          <span className="font-bold text-text-[#00b70d]">{totalResults}</span> trips found
+        <p className="text-[#ff5900]">
+          <span className="font-bold text-[#00b70d]">{totalResults}</span> trips found
         </p>
       </div>
 

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export const AuthCallback = () => {
+const AuthCallback = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,3 +23,5 @@ export const AuthCallback = () => {
     </div>
   );
 };
+
+export default AuthCallback;

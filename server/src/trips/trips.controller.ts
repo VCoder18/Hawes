@@ -8,25 +8,20 @@ import {
   UseGuards,
   Body,
   Query,
-  UseInterceptors,
   UploadedFile,
+  UseInterceptors,
+  ParseFilePipeBuilder,
+  HttpStatus,
+  UploadedFiles,
 } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { TripsService } from './trips.service';
-<<<<<<< Updated upstream
-import {
-  AuthGuard,
-  Public,
-  type SupabaseJWTPayload,
-} from 'src/auth/auth.guard';
-=======
 import { AuthGuard, Public, type SupabaseJWTPayload } from 'src/auth/auth.guard';
->>>>>>> Stashed changes
 import { TripCreateDTO } from './dto/create.dto';
 import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { TripUpdateDTO } from './dto/update.dto';
-import { QueryDto } from 'src/common/dto/query.dto';
-import { FilesInterceptor } from '@nestjs/platform-express';
-import { ImageFilesValidationPipe } from 'src/common/pipes/image-validation.pipe';
+import { TripsQueryDto } from './dto/query.dto';
+import { TripMediaPipe } from './pipes/trip-media.pipe';
 
 @Controller('trips')
 @UseGuards(AuthGuard)
@@ -35,19 +30,13 @@ export class TripsController {
 
   @Get()
   @Public()
-<<<<<<< Updated upstream
-  getTrips(@Query() query: QueryDto) {
-    return this.service.getTrips(query);
-=======
   getTrips(
     @CurrentUser() user: SupabaseJWTPayload | undefined,
     @Query() query: TripsQueryDto,
   ) {
     return this.service.getTrips(user?.sub ?? null, query);
->>>>>>> Stashed changes
   }
 
-  @Public()
   @Get(':tripId')
   @Public()
   getTripById(@Param('tripId') tripId: string) {
@@ -55,37 +44,34 @@ export class TripsController {
   }
 
   @Post()
-  @UseInterceptors(FilesInterceptor('images', 5))
-  addTrip(
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'images', maxCount: 6 },
+      { name: 'attachment', maxCount: 1 },
+    ]),
+  )
+  createTrip(
     @Body() body: TripCreateDTO,
     @CurrentUser() user: SupabaseJWTPayload,
-<<<<<<< Updated upstream
-    @UploadedFile(new ImageFilesValidationPipe()) files?: Express.Multer.File[],
-  ) {
-    return this.service.addTrip(user.sub, body, files);
-=======
     @UploadedFiles(TripMediaPipe)
-    files: { images?: unknown[]; attachment?: unknown[] },
+    files: { images?: Express.Multer.File[]; attachment?: Express.Multer.File[] },
   ) {
     const { images, attachment } = files ?? {};
     return this.service.createTrip(
       user.sub,
       body,
-      images as any,
-      (attachment?.[0] as any) ?? undefined,
+      images,
+      attachment?.[0],
     );
->>>>>>> Stashed changes
   }
 
   @Patch(':tripId')
-  @UseInterceptors(FilesInterceptor('images', 5))
-  editTrip(
+  updateTrip(
     @Body() body: TripUpdateDTO,
     @CurrentUser() user: SupabaseJWTPayload,
     @Param('tripId') tripId: string,
-    @UploadedFile(new ImageFilesValidationPipe()) files?: Express.Multer.File[],
   ) {
-    return this.service.updateTrip(user.sub, tripId, body, files);
+    return this.service.updateTrip(user.sub, tripId, body);
   }
 
   @Delete(':tripId')

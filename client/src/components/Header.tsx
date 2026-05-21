@@ -10,68 +10,11 @@ interface HeaderProps {
   setSidebarOpen: (open: boolean) => void;
 }
 
-export default function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
+export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: HeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const navigate = useNavigate();
-<<<<<<< Updated upstream
   const { signOut } = useAuth();
-=======
-  const { user, signOut } = useAuth();
-
-  const handleLogoClick = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadAvatar = async () => {
-      if (!user) {
-        setAvatarUrl(Avatar);
-        return;
-      }
-
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session?.access_token) {
-          if (!isMounted) return;
-          setAvatarUrl(Avatar);
-          return;
-        }
-
-        const response = await fetch(`${API_BASE_URL}/profiles`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        });
-
-        if (!response.ok) {
-          if (!isMounted) return;
-          setAvatarUrl(Avatar);
-          return;
-        }
-
-        const profile = await response.json();
-        if (!isMounted) return;
-        setAvatarUrl(profile?.avatar_url || Avatar);
-      } catch {
-        if (!isMounted) return;
-        setAvatarUrl(Avatar);
-      }
-    };
-
-    void loadAvatar();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user]);
->>>>>>> Stashed changes
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,7 +52,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
               src={logo} 
               alt="Hawes Logo" 
               className="h-10 w-auto cursor-pointer" 
-              onClick={handleLogoClick} 
+              onClick={() => navigate("/")} 
             />
           </div>
 

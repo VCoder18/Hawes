@@ -70,7 +70,7 @@ export const parseDestinationCoordinates = (destination: any): { lat: number; ln
           }
         }
       } catch {
-        // Keep fallback parsing resilient for mixed PostGIS output formats.
+        // Resilience
       }
     }
 
@@ -137,19 +137,15 @@ export const buildStopsPayload = (
   selectedDestinationPoints: Destination[],
   orderedStopIds: string[] = []
 ): RuntimeStopPayload[] => {
-  const isUuid = (value: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value
-    );
-  const meetingStops = meetingLocations.map((meeting, index) => {
+  const meetingStops = meetingLocations.map((meeting) => {
     if (!Number.isFinite(meeting.lat) || !Number.isFinite(meeting.lng)) {
-      throw new Error(`Meeting stop ${index + 1} is missing map coordinates.`);
+      throw new Error(`Meeting stop is missing map coordinates.`);
     }
 
     const coordinates: [number, number] = [meeting.lng as number, meeting.lat as number];
 
     return {
-      stableId: `meeting:${meeting.placeId || `${meeting.location}-${meeting.time}-${meeting.lat ?? "na"}-${meeting.lng ?? "na"}`}`,
+      stableId: `meeting:${meeting.placeId || `${meeting.location}-${meeting.time}-${meeting.lat}-${meeting.lng}`}`,
       type: "meeting" as const,
       location: {
         type: "Point" as const,
@@ -164,12 +160,9 @@ export const buildStopsPayload = (
     .filter((destination) => Number.isFinite(destination.lat) && Number.isFinite(destination.lng))
     .map((destination) => {
       const destinationId = String(destination.id);
-      if (!isUuid(destinationId)) {
-        throw new Error(
-          `Destination "${destination.name}" is not from the database. Please remove it before submitting.`
-        );
-      }
-      const stopType: RuntimeStopPayload["type"] = "destination";
+      const stopType: RuntimeStopPayload["type"] = isUuid(destinationId)
+        ? "destination"
+        : "meeting";
       const coordinates: [number, number] = [destination.lng, destination.lat];
       return {
         stableId: `destination:${destination.id}`,
@@ -180,23 +173,23 @@ export const buildStopsPayload = (
           coordinates,
         },
         label: destination.name || null,
+        time: null,
       };
     });
 
   const allStops = [...meetingStops, ...destinationStops];
 
-  const stopById = new globalThis.Map(allStops.map((stop) => [stop.stableId, stop]));
+  const stopById = new Map(allStops.map((stop) => [stop.stableId, stop]));
   const ordered = orderedStopIds
     .map((id) => stopById.get(id))
     .filter((stop): stop is (typeof allStops)[number] => Boolean(stop));
-  const remaining = allStops.filter((stop) => !ordered.some((orderedStop) => orderedStop.stableId === stop.stableId));
+  
+  const remaining = allStops.filter((stop) => !ordered.some((os) => os.stableId === stop.stableId));
   const finalOrder = [...ordered, ...remaining];
 
   return finalOrder.map((stop, index) => ({
     type: stop.type,
-    ...("destination" in stop && stop.destination
-      ? { destination: stop.destination }
-      : {}),
+    ...(stop.type === "destination" && "destination" in stop ? { destination: stop.destination } : {}),
     location: stop.location,
     label: stop.label,
     index,

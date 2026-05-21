@@ -66,16 +66,16 @@ export const activityOptions = [
   "Hiking", "Camping", "Photography", "Wildlife Watching", "Rock Climbing",
   "Swimming", "Cycling", "Kayaking", "Cultural Tours", "Food Tasting"
 ];
-export const includedOptions = ["Accommodation", "Transport", "Meals", "Guide", "Equipment", "Insurance"];
+export const includedOptions = ["Accommodation", "Transport", "Meals", "Guide", "Equipment", "Insurance", "Entertainment", "Miscellaneous"];
 export const regionOptions = ["All Regions", "Tamanrasset", "Algiers", "Tizi Ouzou", "Oran", "Batna", "Ghardaïa"];
 
-export const itemsPerPage = 4;
+export const itemsPerPage = 6;
 
 // BROWSE DESTINATIONS - Fixed category list
 export const browseDestinationCategories = ["beach", "mountain", "desert", "forest", "historic", "city"];
 
-// TRIP CREATION - Category list (trip type categories, must match database - lowercase)
-export const tripCategories = ["adventure", "cultural", "nature", "historical", "relaxation", "photography"];
+// TRIP CREATION & BROWSE TRIPS - Category list (trip type categories)
+export const tripCategories = ["Adventure", "Cultural", "Nature", "Historical", "Relaxation", "Photography"];
 
 // BROWSE DESTINATIONS - Category to Icon mapping
 export const categoryIconMap: { [key: string]: any } = {

@@ -1,5 +1,6 @@
 import { X, Heart, Share2, MapPin, Star, Users, Calendar, Route, Sun, Wind, ChevronRight, CloudRain, Tent, UtensilsCrossed, Map, MessageCircle, BarChart3 } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface DestinationModalProps {
   destination: {
@@ -24,6 +25,7 @@ interface DestinationModalProps {
 }
 
 export function DestinationModal({ destination, isSaved, onToggleSave, onClose }: DestinationModalProps) {
+  const navigate = useNavigate();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [failedImages, setFailedImages] = useState<Set<number>>(new Set());
   
@@ -304,7 +306,15 @@ export function DestinationModal({ destination, isSaved, onToggleSave, onClose }
               </button>
               
               {/* Row 2: Create Trip / Community */}
-              <button className="w-full px-6 py-4 bg-[#ff5900] hover:bg-[#e54f00] text-white rounded-xl font-bold transition-colors">
+              <button 
+                onClick={() => {
+                  navigate("/create-trip", { 
+                    state: { selectedDestination: destination } 
+                  });
+                  onClose();
+                }}
+                className="w-full px-6 py-4 bg-[#ff5900] hover:bg-[#e54f00] text-white rounded-xl font-bold transition-colors"
+              >
                 Create Trip
               </button>
               <button className="w-full px-6 py-4 bg-white border-2 border-[#d6d0c4] hover:border-[#00b70d] text-[#0d2805] rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
@@ -344,19 +354,5 @@ function ServiceItem({ icon: IconComponent, title }: { icon: any; title: string 
   );
 }
 
-function EventItem({ title, time, joining }: { title: string; time: string; joining: number }) {
-  return (
-    <div className="bg-[rgba(229,225,220,0.5)] border border-[#d6d0c4] rounded-2xl p-4 border-l-4 border-l-[#ff5900] hover:shadow-md transition-shadow cursor-pointer">
-      <div className="space-y-1">
-        <h4 className="font-bold text-[#0d2805]">{title}</h4>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-[#6a7282] font-medium">{time}</span>
-          <span className="bg-[#00b70d]/10 text-[#00b70d] px-2 py-1 rounded-lg text-sm font-bold">
-            {joining} joining
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
+
 

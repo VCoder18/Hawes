@@ -25,6 +25,10 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## API docs
+
+- [Create Trip API](./CREATE_TRIP_API.md)
+
 ## Project setup
 
 ```bash
