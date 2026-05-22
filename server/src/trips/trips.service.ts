@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -10,107 +9,275 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from 'src/database.types';
 import { TripCreateDTO } from './dto/create.dto';
 import { TripUpdateDTO } from './dto/update.dto';
-import { Trip, TripAffiliation } from './entities/trips.entity';
 import {
-  paginatedResponse,
-  PaginatedResponseDto,
-} from 'src/common/dto/paginated-response.dto';
-import { applySupabaseQuery } from 'src/common/utils/query-builder';
-import { QueryDto } from 'src/common/dto/query.dto';
+  Trip,
+  TripAffiliation,
+  TripStop,
+  TripWithStops,
+} from './entities/trips.entity';
+import { randomUUID } from 'crypto';
+import { TripsQueryDto, TripsQueryFilter } from './dto/query.dto';
 
 @Injectable()
 export class TripsService {
-  constructor(
-    @Inject(SupabaseClient)
-    private readonly supabaseClient: SupabaseClient<Database>,
-  ) {}
+  constructor(private readonly supabaseClient: SupabaseClient<Database>) {}
 
-  /// @Return: all trips
-  async getTrips(query: QueryDto): Promise<PaginatedResponseDto<Trip>> {
-    let qb = applySupabaseQuery(this.supabaseClient, 'trips', query, {
-      searchFields: ['title', 'description'],
-      allowedFilters: ['organizer'],
-      allowedSortFields: [
-        'title',
-        'created_at',
-        'start_date',
-        'end_date',
-        'price',
-        'difficulty',
-        'status',
-        'start_date',
-      ],
-      defaultSort: 'start_date',
-    });
+  async uploadImages(
+    userId: string,
+    files: Express.Multer.File[],
+  ): Promise<string[]> {
+    const uploads = files.map(
+      async (file: Express.Multer.File): Promise<string> => {
+        const ext = file.originalname.split('.').pop();
+        const path = `${userId}/${randomUUID()}.${ext}`;
 
-    const { data, error, count } = await qb;
+        const { error } = await this.supabaseClient.storage
+          .from('trips-images')
+          .upload(path, file.buffer, {
+            contentType: file.mimetype,
+            upsert: false,
+          });
 
-    if (error || !data || count === null) {
+        if (error) {
+          console.error(
+            `Failed to upload image "${file.originalname}": ${error.message}`,
+          );
+          throw new InternalServerErrorException(
+            `Failed to upload image "${file.originalname}": ${error.message}`, // TODO: delete any successfully uploaded files in this batch, or retry
+          );
+        }
+
+        const {
+          data: { publicUrl },
+        } = this.supabaseClient.storage.from('trips-images').getPublicUrl(path);
+
+        return publicUrl;
+      },
+    );
+
+    return Promise.all(uploads);
+  }
+
+  async uploadAttachment(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    const ext = file.originalname.split('.').pop();
+    const path = `${userId}/${randomUUID()}.${ext}`;
+
+    const { error } = await this.supabaseClient.storage
+      .from('trips-attachments')
+      .upload(path, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (error) {
       throw new InternalServerErrorException(
-        "Can't fetch trips at the instant",
+        `Failed to upload attachment "${file.originalname}": ${error.message}`, // TODO: delete any successfully uploaded files in this batch, or retry
       );
     }
 
-    return paginatedResponse(data as Trip[], count, query);
+    const {
+      data: { publicUrl },
+    } = this.supabaseClient.storage
+      .from('trips-attachments')
+      .getPublicUrl(path);
+
+    return publicUrl;
+  }
+
+  /// @Return: all trips
+  async getTrips(userId: string, query: TripsQueryDto): Promise<Trip[]> {
+    let tripsQuery = this.supabaseClient.from('trips').select('*');
+
+    const { data: trips, error: fetchTripsError } = await new TripsQueryFilter(
+      query,
+      this.supabaseClient,
+    ).apply(tripsQuery, userId);
+
+    if (fetchTripsError || !trips) {
+      throw new NotFoundException('Failed to fetch trips');
+    }
+
+    return trips;
   }
 
   /// @Return: the trip with the given id
-  async getTripById(tripId: string): Promise<Trip> {
-    const { data: trip, error } = await this.supabaseClient
+  async getTripById(tripId: string): Promise<TripWithStops> {
+    const { data: trip, error: fetchTripError } = await this.supabaseClient
       .from('trips')
       .select('*')
       .eq('id', tripId)
       .single();
-    if (error || !trip) {
+
+    if (fetchTripError || !trip) {
       throw new NotFoundException('Trip not found');
     }
-    return trip;
+
+    const { data: stops, error: fetchStopsError } = await this.supabaseClient
+      .from('trip_stops')
+      .select('*')
+      .eq('id', tripId);
+
+    if (fetchStopsError || !stops) {
+      throw new InternalServerErrorException('Failed to fetch trip stops');
+    }
+
+    return { ...trip, stops };
   }
 
-  /// @Return: the added trip
-  async addTrip(userId: string, trip: TripCreateDTO): Promise<Trip> {
-    const { error, data } = await this.supabaseClient
+  /// @Return: the created trip
+  async createTrip(
+    userId: string,
+    tripDTO: TripCreateDTO,
+    images: Express.Multer.File[] | undefined,
+    attachment: Express.Multer.File | undefined,
+  ): Promise<TripWithStops> {
+    const { stops, ...trip } = tripDTO;
+
+    let images_urls: string[] = [];
+
+    if (images && Array.isArray(images)) {
+      images_urls = await this.uploadImages(userId, images);
+    }
+
+    let attachment_url: string | null = null;
+    if (attachment && Array.isArray(images)) {
+      attachment_url = await this.uploadAttachment(userId, attachment);
+    }
+
+    const { error, data: createdTrip } = await this.supabaseClient
       .from('trips')
       .insert({
         ...trip,
-        images: [], // TODO: file uploads
+        images: images_urls,
+        attachment_url,
         organizer: userId,
       })
-      .select()
+      .select('*')
       .single();
-    if (error || !data) {
+
+    if (error || !createdTrip) {
+      console.error(`Failed to create trip: ${error}`);
       throw new BadRequestException('Failed to create trip');
     }
-    return data;
+
+    const results = await Promise.all(
+      stops.map((stop) =>
+        this.supabaseClient
+          .from('trip_stops')
+          .insert({ ...stop, trip: trip.id })
+          .select('*')
+          .single(),
+      ),
+    );
+
+    if (results.some((result) => result.error || !result.data)) {
+      console.error(
+        `Failed to create trip stops: ${results.map((r) => r.error)}`,
+      );
+      throw new BadRequestException('Failed to create trip stops'); // TODO: fault tolerance
+    }
+
+    return { ...createdTrip, stops: results.map((result) => result.data) };
   }
 
-  /// @Return: the updated trip fields
+  // TODO: get back file uploads bro
+  /// @Return: the updated trip and only updated stops
   async updateTrip(
     userId: string,
-    id: string,
-    trip: TripUpdateDTO,
-  ): Promise<Trip> {
-    const { data: existing, error: fetchError } = await this.supabaseClient
-      .from('trips')
-      .select('id, organizer')
-      .eq('id', id)
-      .single();
-    if (fetchError || !existing) {
+    tripId: string,
+    tripDTO: TripUpdateDTO,
+  ): Promise<TripWithStops> {
+    const { stopIDsToDelete, stopsToCreate, ...trip } = tripDTO;
+
+    if (
+      Object.keys(trip).length === 0 &&
+      (!stopsToCreate || stopsToCreate.length === 0) &&
+      (!stopIDsToDelete || stopIDsToDelete.length === 0)
+    ) {
+      throw new BadRequestException(
+        'You should provide at least a trip property to modify',
+      );
+    }
+
+    const { data: currentTrip, error: tripFetchError } =
+      await this.supabaseClient
+        .from('trips')
+        .select('id, organizer, images, status')
+        .eq('id', tripId)
+        .single();
+
+    if (tripFetchError || !currentTrip) {
       throw new NotFoundException('Trip not found');
     }
-    if (existing.organizer !== userId) {
+
+    if (currentTrip.organizer !== userId) {
       throw new UnauthorizedException();
     }
-    const { data, error } = await this.supabaseClient
-      .from('trips')
-      .update(trip)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error || !data) {
-      throw new BadRequestException('Failed to update trip');
+
+    if (currentTrip.status !== 'draft') {
+      throw new BadRequestException('Only draft trips can be updated');
     }
-    return data;
+
+    // 1) Create new stops
+    let updatedStops: TripStop[] = [];
+    if (stopsToCreate && stopsToCreate.length > 0) {
+      const results = await Promise.all(
+        stopsToCreate.map((stop) =>
+          this.supabaseClient
+            .from('trip_stops')
+            .insert({ ...stop, trip: tripId })
+            .select('*')
+            .single(),
+        ),
+      );
+
+      if (results.some((result) => result.error || !result.data)) {
+        console.error(
+          `Failed to update trip stop(s): ${results.map((r) => r.error)}`,
+        );
+        throw new BadRequestException('Failed to update trip stop(s)'); // TODO: fault tolerance
+      }
+
+      updatedStops = results.map((result) => result.data);
+    }
+
+    // 2) Delete stops
+    if (stopIDsToDelete && stopIDsToDelete.length > 0) {
+      const results = await Promise.all(
+        stopIDsToDelete.map((stopId) =>
+          this.supabaseClient.from('trip_stops').delete().eq('id', stopId),
+        ),
+      );
+
+      if (results.some((result) => result.error)) {
+        console.error(
+          `Failed to delete trip stop(s): ${results.map((r) => r.error)}`,
+        );
+        throw new BadRequestException('Failed to update trip stop(s)'); // TODO: fault tolerance
+      }
+    }
+
+    // 4) Update trip
+    let updatedTrip: Trip;
+    if (Object.keys(trip).length > 0) {
+      const { error: updateError, data } = await this.supabaseClient
+        .from('trips')
+        .update(trip)
+        .eq('id', tripId)
+        .select('*')
+        .single();
+
+      if (updateError || !updatedTrip) {
+        throw new BadRequestException('Failed to update trip');
+      }
+
+      updatedTrip = data;
+    }
+
+    return { ...updatedTrip, stops: updatedStops };
   }
 
   /// @Return: the id of the deleted trip

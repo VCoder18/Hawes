@@ -7,7 +7,22 @@ interface PaginationControlsProps {
 }
 
 export function PaginationControls({ currentPage, totalPages, onPageChange }: PaginationControlsProps) {
-  if (totalPages <= 1) return null;
+  const safeTotalPages = Math.max(1, totalPages);
+
+  // Calculate page range to show (max 5 pages)
+  const maxPagesToShow = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+  let endPage = Math.min(safeTotalPages, startPage + maxPagesToShow - 1);
+  
+  // Adjust startPage if endPage is at the limit
+  if (endPage - startPage + 1 < maxPagesToShow) {
+    startPage = Math.max(1, endPage - maxPagesToShow + 1);
+  }
+
+  const pages = Array.from(
+    { length: endPage - startPage + 1 },
+    (_, i) => startPage + i
+  );
 
   return (
     <div className="flex items-center justify-center gap-2">
@@ -18,7 +33,7 @@ export function PaginationControls({ currentPage, totalPages, onPageChange }: Pa
       >
         <ChevronLeft className="size-5" />
       </button>
-      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+      {pages.map((page) => (
         <button
           key={page}
           onClick={() => onPageChange(page)}
@@ -32,8 +47,8 @@ export function PaginationControls({ currentPage, totalPages, onPageChange }: Pa
         </button>
       ))}
       <button
-        onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-        disabled={currentPage === totalPages}
+        onClick={() => onPageChange(Math.min(safeTotalPages, currentPage + 1))}
+        disabled={currentPage === safeTotalPages}
         className="p-2 border border-[#e2e8f0] rounded-lg hover:bg-bg-[#ff5900] disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <ChevronRight className="size-5" />

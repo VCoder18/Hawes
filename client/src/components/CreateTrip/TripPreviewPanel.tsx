@@ -1,4 +1,6 @@
-import { Users, DollarSign, MapPin, Calendar, Clock } from "lucide-react";
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { TripCard } from "@/components/BrowseTrips/TripCard";
 import type { TripData } from "@/imports/types";
 
 interface TripPreviewPanelProps {
@@ -8,7 +10,95 @@ interface TripPreviewPanelProps {
 }
 
 export function TripPreviewPanel({ tripData, duration, allActivities }: TripPreviewPanelProps) {
-  const previewActivities = allActivities.slice(0, 3);
+  const navigate = useNavigate();
+
+  const previewTripCardData = useMemo(() => {
+    const images = [
+      ...(tripData.coverImage ? [tripData.coverImage] : []),
+      ...tripData.additionalImages.map((image) => image.data),
+    ];
+
+    return {
+      id: "preview-trip",
+      title: tripData.title || "Trip Title",
+      description: tripData.description || null,
+      category: tripData.category || null,
+      difficulty: tripData.difficulty || "moderate",
+      start_date: tripData.startDate || "",
+      end_date: tripData.endDate || "",
+      price: tripData.pricePerPerson || 0,
+      min_participants: tripData.minParticipants || 1,
+      max_participants: tripData.maxParticipants || 1,
+      current_participants: 0,
+      images,
+      stops: tripData.meetingLocations.map((meeting, index) => ({
+        id: `preview-stop-${index}`,
+        trip_id: "preview-trip",
+        stop_type: "meeting",
+        destination_id: null,
+        location:
+          typeof meeting.lat === "number" && typeof meeting.lng === "number"
+            ? { lat: meeting.lat, lng: meeting.lng }
+            : null,
+        label: meeting.location || null,
+        created_at: null,
+        updated_at: null,
+      })),
+    };
+  }, [tripData]);
+
+  const previewJoinTripData = useMemo(
+    () => ({
+      id: "preview-trip",
+      title: tripData.title || "Trip Title",
+      description: tripData.description || "",
+      category: tripData.category || "",
+      difficulty: tripData.difficulty || "",
+      startDate: tripData.startDate || "",
+      endDate: tripData.endDate || "",
+      price: tripData.pricePerPerson || 0,
+      current_participants: 0,
+      max_participants: tripData.maxParticipants || 1,
+      min_participants: tripData.minParticipants || 1,
+      images: [
+        ...(tripData.coverImage ? [tripData.coverImage] : []),
+        ...tripData.additionalImages.map((image) => image.data),
+      ],
+      stops: [
+        ...tripData.meetingLocations.map((meeting, index) => ({
+          id: `preview-meeting-${index}`,
+          trip_id: "preview-trip",
+          stop_type: "meeting",
+          destination_id: null,
+          location:
+            typeof meeting.lat === "number" && typeof meeting.lng === "number"
+              ? { lat: meeting.lat, lng: meeting.lng }
+              : null,
+          label: meeting.location || null,
+          created_at: null,
+          updated_at: null,
+        })),
+        ...tripData.destinations.map((destinationName, index) => ({
+          id: `preview-destination-${index}`,
+          trip_id: "preview-trip",
+          stop_type: "destination",
+          destination_id: null,
+          location: null,
+          label: destinationName,
+          created_at: null,
+          updated_at: null,
+        })),
+      ],
+      itinerary: tripData.itinerary.map((item) =>
+        item.details?.trim() ? `${item.summary.trim()}\n${item.details.trim()}` : item.summary.trim()
+      ),
+      activities: allActivities,
+      included: tripData.included,
+      not_included: tripData.excluded,
+      what_to_bring: tripData.whatToBring,
+    }),
+    [allActivities, tripData]
+  );
 
   return (
     <div className="lg:col-span-1">
@@ -16,162 +106,26 @@ export function TripPreviewPanel({ tripData, duration, allActivities }: TripPrev
         <h3 className="font-['Lato'] font-bold text-xl text-text-[#00b70d] mb-4">
           Trip Preview
         </h3>
+        <p className="text-sm text-[#757575] mb-4">
+          This is the same card used in Browse Trips. Click it to open Join Trip.
+        </p>
 
-        <div className="space-y-4">
-          {tripData.coverImage && (
-            <img
-              src={tripData.coverImage}
-              alt="Cover"
-              className="w-full h-40 object-cover rounded-xl"
-            />
-          )}
+        <TripCard
+          trip={previewTripCardData}
+          onClick={() =>
+            navigate("/trips/preview-trip", {
+              state: { previewTrip: previewJoinTripData, fromCreatePreview: true },
+            })
+          }
+          showBookmark={false}
+        />
 
-          <div>
-            <h4 className="font-bold text-lg text-text-[#00b70d] mb-1">
-              {tripData.title || "Trip Title"}
-            </h4>
-            {tripData.category && (
-              <span className="inline-block bg-[#00b70d]/10 text-[#00b70d] px-3 py-1 rounded-full text-xs font-medium">
-                {tripData.category}
-              </span>
-            )}
-          </div>
+        {duration && (
+          <p className="text-xs text-[#64748b] mt-3">
+            {duration.days} days, {duration.nights} nights
+          </p>
+        )}
 
-          {tripData.destinations.length > 0 && (
-            <div className="flex items-start gap-2">
-              <MapPin className="size-4 text-text-[#ff5900] mt-0.5 shrink-0" />
-              <span className="text-sm text-text-[#ff5900]">
-                {tripData.destinations.join(", ")}
-              </span>
-            </div>
-          )}
-
-          {(tripData.startDate || tripData.endDate) && (
-            <div className="flex items-start gap-2">
-              <Calendar className="size-4 text-text-[#ff5900] mt-0.5 shrink-0" />
-              <div className="text-sm text-text-[#ff5900]">
-                {tripData.startDate && tripData.endDate ? (
-                  <>
-                    {new Date(tripData.startDate).toLocaleDateString()} -{" "}
-                    {new Date(tripData.endDate).toLocaleDateString()}
-                    {duration && (
-                      <div className="text-xs text-[#00b70d] font-semibold mt-0.5">
-                        {duration.days} Days, {duration.nights} Nights
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  "Dates not set"
-                )}
-              </div>
-            </div>
-          )}
-
-          {tripData.meetingLocations.length > 0 && (
-            <div className="border-t border-[#e2e8f0] pt-4">
-              <span className="text-xs text-text-[#ff5900] block mb-2">
-                Meeting Locations
-              </span>
-              <div className="space-y-1">
-                {tripData.meetingLocations.map((meeting, idx) => (
-                  <div key={idx} className="flex items-start gap-2">
-                    <Clock className="size-3 text-text-[#ff5900] mt-0.5 shrink-0" />
-                    <span className="text-xs text-text-[#00b70d]">
-                      {meeting.location} - {meeting.time}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {previewActivities.length > 0 && (
-            <div className="border-t border-[#e2e8f0] pt-4">
-              <span className="text-xs text-text-[#ff5900] block mb-2">Activities</span>
-              <div className="flex flex-wrap gap-1">
-                {previewActivities.map((activity) => (
-                  <span
-                    key={activity}
-                    className="bg-bg-[#ff5900] text-text-[#00b70d] px-2 py-1 rounded text-xs"
-                  >
-                    {activity}
-                  </span>
-                ))}
-                {allActivities.length > 3 && (
-                  <span className="bg-bg-[#ff5900] text-text-[#ff5900] px-2 py-1 rounded text-xs">
-                    +{allActivities.length - 3} more
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-start gap-2 border-t border-[#e2e8f0] pt-4">
-            <Users className="size-4 text-text-[#ff5900] mt-0.5 shrink-0" />
-            <span className="text-sm text-text-[#ff5900]">
-              {tripData.minParticipants} - {tripData.maxParticipants} participants
-            </span>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <DollarSign className="size-4 text-text-[#ff5900] mt-0.5 shrink-0" />
-            <span className="text-sm font-bold text-[#00b70d]">
-              {tripData.pricePerPerson.toLocaleString()} DZD / person
-            </span>
-          </div>
-
-          {tripData.difficulty && (
-            <div className="pt-4 border-t border-[#e2e8f0]">
-              <span className="text-xs text-text-[#ff5900]">Difficulty</span>
-              <p className="font-medium text-text-[#00b70d]">{tripData.difficulty}</p>
-            </div>
-          )}
-
-          {tripData.included.length > 0 && (
-            <div className="pt-4 border-t border-[#e2e8f0]">
-              <span className="text-xs text-text-[#ff5900] block mb-2">Included</span>
-              <div className="flex flex-wrap gap-1">
-                {tripData.included.map((item) => (
-                  <span
-                    key={item}
-                    className="bg-bg-[#ff5900] text-text-[#00b70d] px-2 py-1 rounded text-xs"
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* --- Share Invite Section --- */}
-         <div className="mt-4 pt-4 border-t border-dashed border-[#e2e8f0]">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-text-[#ff5900] block">Invite Friends</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${tripData.scope === 'private' ? 'bg-orange-100 text-orange-600' : 'bg-[#00b70d]/10 text-[#00b70d]'}`}>
-              {tripData.scope}
-            </span>
-          </div>
-          
-          <div className="flex gap-2 p-1.5 bg-gray-50 rounded-lg border border-gray-100 items-center">
-            <input 
-              readOnly 
-              value={`${window.location.origin}/join/${tripData.title ? tripData.title.toLowerCase().replace(/\s+/g, '-') : 'new-adventure'}`} 
-              className="flex-1 px-2 py-1 bg-transparent text-[10px] text-gray-500 outline-none truncate"
-            />
-            <button 
-              type="button"
-              onClick={() => {
-                const link = `${window.location.origin}/join/${tripData.title ? tripData.title.toLowerCase().replace(/\s+/g, '-') : 'new-adventure'}`;
-                navigator.clipboard.writeText(link);
-                alert("Link copied!");
-              }}
-              className="px-3 py-1.5 bg-[#00b70d] text-white rounded-md text-[10px] font-bold hover:bg-[#009a0b] transition-all"
-            >
-              Copy
-            </button>
-          </div>
-         </div>
-        </div>
       </div>
     </div>
   );

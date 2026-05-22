@@ -1,14 +1,20 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { DestinationsService } from './destinations.service';
-import { QueryDto } from 'src/common/dto/query.dto';
+import { AuthGuard, type SupabaseJWTPayload } from 'src/auth/auth.guard';
+import { DestinationsQueryDto } from './dto/query.dto';
+import { CurrentUser } from 'src/auth/decorators/user.decorator';
 
-@Controller('Destinations')
+@Controller('destinations')
+@UseGuards(AuthGuard)
 export class DestinationsController {
   constructor(private readonly service: DestinationsService) {}
 
   @Get()
-  getDestinations(@Query() query: QueryDto) {
-    return this.service.getDestinations(query);
+  getDestinations(
+    @CurrentUser() user: SupabaseJWTPayload,
+    @Query() query: DestinationsQueryDto,
+  ) {
+    return this.service.getDestinations(user.sub, query);
   }
 
   @Get(':tripId')

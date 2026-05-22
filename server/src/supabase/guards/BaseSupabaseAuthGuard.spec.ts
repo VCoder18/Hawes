@@ -1,8 +1,18 @@
-import { afterAll, beforeAll, describe, expect, it, Mock, Mocked, vitest } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  Mock,
+  Mocked,
+  vitest,
+} from 'vitest';
 
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { HttpArgumentsHost } from '@nestjs/common/interfaces';
 import { AuthError, SupabaseClient, User } from '@supabase/supabase-js';
+// @ts-ignore
 import { SupabaseAuthClient } from '@supabase/supabase-js/dist/module/lib/SupabaseAuthClient';
 
 import { BaseSupabaseAuthGuard } from './BaseSupabaseAuthGuard';
@@ -15,7 +25,9 @@ class TestSupabaseAuthGuard extends BaseSupabaseAuthGuard {
     super(supabaseClient);
   }
 
-  protected extractTokenFromRequest(_request: Request): (string | undefined) | Promise<string | undefined> {
+  protected extractTokenFromRequest(
+    _request: Request,
+  ): (string | undefined) | Promise<string | undefined> {
     return this.getToken();
   }
 }
@@ -37,7 +49,10 @@ describe(BaseSupabaseAuthGuard.name, () => {
 
     getTokenMock = vitest.fn();
 
-    testSupabaseAuthGuard = new TestSupabaseAuthGuard(getTokenMock, supabaseClientMock);
+    testSupabaseAuthGuard = new TestSupabaseAuthGuard(
+      getTokenMock,
+      supabaseClientMock,
+    );
   });
 
   describe('canActivate', () => {
@@ -139,7 +154,9 @@ describe(BaseSupabaseAuthGuard.name, () => {
 
       it('should call supabaseClient.auth.getUser()', () => {
         expect(supabaseClientMock.auth.getUser).toHaveBeenCalledTimes(1);
-        expect(supabaseClientMock.auth.getUser).toHaveBeenCalledWith(tokenFixture);
+        expect(supabaseClientMock.auth.getUser).toHaveBeenCalledWith(
+          tokenFixture,
+        );
       });
 
       it('should throw a UnauthorizedException', () => {
@@ -200,7 +217,9 @@ describe(BaseSupabaseAuthGuard.name, () => {
 
       it('should call supabaseClient.auth.getUser()', () => {
         expect(supabaseClientMock.auth.getUser).toHaveBeenCalledTimes(1);
-        expect(supabaseClientMock.auth.getUser).toHaveBeenCalledWith(tokenFixture);
+        expect(supabaseClientMock.auth.getUser).toHaveBeenCalledWith(
+          tokenFixture,
+        );
       });
 
       it('should return true', () => {

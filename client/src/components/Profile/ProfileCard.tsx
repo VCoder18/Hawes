@@ -5,7 +5,24 @@ import svgPaths from "@/imports/svg_paths";
 import imgImage from "@/assets/images/banner.jpg";
 import catPfp from "@/assets/images/pfp.svg";
 import { useAuth } from "@/contexts/AuthContext";
-import { profileService, type UserProfile } from "@/services/profileService";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/useToast";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+interface UserProfile {
+  id: string;
+  display_name: string;
+  username: string;
+  avatar_url: string | null;
+  banner_url: string | null;
+  bio: string | null;
+  location: string | null;
+  social_links: string[] | null;
+  role: string;
+  created_at: string;
+  updated_at: string;
+}
 
 interface ProfileCardProps {
   viewingUsername?: string;
@@ -14,39 +31,83 @@ interface ProfileCardProps {
 export function ProfileCard({ viewingUsername }: ProfileCardProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [shareMessage, setShareMessage] = useState('');
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadProfile = async () => {
       try {
         let userProfile: UserProfile | null = null;
 
         if (viewingUsername) {
-          // Load profile by username (viewing other user or specific username)
-          userProfile = await profileService.getUserProfileByUsername(viewingUsername);
+          const normalized = viewingUsername.toLowerCase();
+          const response = await fetch(
+            `${API_BASE_URL}/profiles/by-username/${encodeURIComponent(normalized)}?username=${encodeURIComponent(normalized)}&offset=0&limit=1`
+          );
+
+          if (!response.ok) {
+            throw new Error(`Failed to load profile by username: ${response.status}`);
+          }
+
+          const payload = await response.json();
+          userProfile = Array.isArray(payload)
+            ? ((payload[0] as UserProfile | undefined) ?? null)
+            : ((payload as UserProfile | null) ?? null);
         } else if (user) {
-          // Load current user's profile
-          userProfile = await profileService.getCurrentUserProfile();
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+
+          if (!session?.access_token) {
+            if (isMounted) setProfile(null);
+            return;
+          }
+
+          const response = await fetch(`${API_BASE_URL}/profiles`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to load current profile: ${response.status}`);
+          }
+
+          userProfile = (await response.json()) as UserProfile;
         }
 
-        setProfile(userProfile);
+        if (isMounted) {
+          setProfile(userProfile);
+        }
       } catch (error) {
         console.error('Failed to load profile:', error);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    loadProfile();
+    void loadProfile();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user, viewingUsername]);
 
   const handleShare = () => {
     const profileUrl = `${window.location.origin}/profile/${profile?.username}`;
     navigator.clipboard.writeText(profileUrl);
-    alert('Copied to clipboard!');
+    toast({
+      title: "Copied!",
+      description: "Profile URL copied to clipboard",
+      variant: "success",
+    });
   };
 
   const isOwnProfile = profile && user && profile.id === user.id;
@@ -60,6 +121,7 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
   }
 
   const avatarUrl = profile?.avatar_url || catPfp;
+  const bannerUrl = profile?.banner_url || imgImage;
   const displayName = profile?.display_name || 'User';
   const username = profile?.username || 'unknown';
   const bio = profile?.bio || '';
@@ -69,8 +131,8 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
   return (
     <div className="bg-white rounded-xl border border-[#e2e8f0] shadow-sm overflow-hidden mb-8">
       {/* Hero Banner */}
-      <div className="h-40 sm:h-60 md:h-80 overflow-hidden relative">
-        <img src={imgImage} alt="Banner" className="w-full h-full object-cover" />
+      <div className="w-full aspect-[16/5] overflow-hidden relative">
+        <img src={bannerUrl} alt="Banner" className="w-full h-full object-cover object-center" />
       </div>
 
       {/* Profile Info Section */}
@@ -80,7 +142,7 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
           <div className="relative -mt-16 sm:-mt-20">
             <div className="bg-white p-1 rounded-full shadow-lg">
               <div className="size-28 sm:size-36 md:size-40 rounded-full overflow-hidden border-4 border-white">
-                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover object-center" />
               </div>
             </div>
           </div>
@@ -105,11 +167,11 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
             <p className="text-base sm:text-lg mb-1">@{username}</p>
             <p className="text-base sm:text-lg text-[#475569] mb-2">{bio}</p>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm mb-3">
-              {location && (
+              {location && location !== 'Unknown' && (
                 <>
-                  <div className="flex items-center gap-1 text-text-[#ff5900]">
+                  <div className={`flex items-center gap-1 ${location === 'Foreign' ? 'text-[#ff5900]' : 'text-text-[#ff5900]'}`}>
                     <svg className="size-3" fill="none" viewBox="0 0 12 15">
-                      <path d={svgPaths.p1a900f00} fill="#64748B" />
+                      <path d={svgPaths.p1a900f00} fill={location === 'Foreign' ? '#ff5900' : '#64748B'} />
                     </svg>
                     <span>{location}</span>
                   </div>
@@ -122,73 +184,87 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
             </div>
 
             {/* Website & Social Links */}
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Website */}
-              <a
-                href="https://example.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm text-text-[#ff5900] hover:text-[#00b70d] transition-colors"
-              >
-                <Globe className="size-4" />
-                <span>website</span>
-              </a>
+            {profile?.social_links && profile.social_links.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Website */}
+                {profile.social_links[0] && (
+                  <a
+                    href={profile.social_links[0]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-[#ff5900] hover:text-[#00b70d] transition-colors"
+                  >
+                    <Globe className="size-4" />
+                    <span>website</span>
+                  </a>
+                )}
 
-              {/* Twitter */}
-              <a
-                href="https://twitter.com/shadow_ultimate"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm text-text-[#ff5900] hover:text-[#1DA1F2] transition-colors"
-              >
-                <Twitter className="size-4" />
-                <span className="hidden sm:inline">Twitter</span>
-              </a>
+                {/* Twitter */}
+                {profile.social_links[1] && (
+                  <a
+                    href={profile.social_links[1]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-[#ff5900] hover:text-[#1DA1F2] transition-colors"
+                  >
+                    <Twitter className="size-4" />
+                    <span className="hidden sm:inline">Twitter</span>
+                  </a>
+                )}
 
-              {/* YouTube */}
-              <a
-                href="https://youtube.com/@shadow"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm text-text-[#ff5900] hover:text-[#FF0000] transition-colors"
-              >
-                <Youtube className="size-4" />
-                <span className="hidden sm:inline">YouTube</span>
-              </a>
+                {/* YouTube */}
+                {profile.social_links[2] && (
+                  <a
+                    href={profile.social_links[2]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-[#ff5900] hover:text-[#FF0000] transition-colors"
+                  >
+                    <Youtube className="size-4" />
+                    <span className="hidden sm:inline">YouTube</span>
+                  </a>
+                )}
 
-              {/* Facebook */}
-              <a
-                href="https://facebook.com/shadow"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm text-text-[#ff5900] hover:text-[#1877F2] transition-colors"
-              >
-                <Facebook className="size-4" />
-                <span className="hidden sm:inline">Facebook</span>
-              </a>
+                {/* Facebook */}
+                {profile.social_links[3] && (
+                  <a
+                    href={profile.social_links[3]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-[#ff5900] hover:text-[#1877F2] transition-colors"
+                  >
+                    <Facebook className="size-4" />
+                    <span className="hidden sm:inline">Facebook</span>
+                  </a>
+                )}
 
-              {/* Instagram */}
-              <a
-                href="https://instagram.com/shadow_ultimate"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm text-text-[#ff5900] hover:text-[#E4405F] transition-colors"
-              >
-                <Instagram className="size-4" />
-                <span className="hidden sm:inline">Instagram</span>
-              </a>
+                {/* Instagram */}
+                {profile.social_links[4] && (
+                  <a
+                    href={profile.social_links[4]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-[#ff5900] hover:text-[#E4405F] transition-colors"
+                  >
+                    <Instagram className="size-4" />
+                    <span className="hidden sm:inline">Instagram</span>
+                  </a>
+                )}
 
-              {/* LinkedIn */}
-              <a
-                href="https://linkedin.com/in/shadow"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm text-text-[#ff5900] hover:text-[#0A66C2] transition-colors"
-              >
-                <Linkedin className="size-4" />
-                <span className="hidden sm:inline">LinkedIn</span>
-              </a>
-            </div>
+                {/* LinkedIn */}
+                {profile.social_links[5] && (
+                  <a
+                    href={profile.social_links[5]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-[#ff5900] hover:text-[#0A66C2] transition-colors"
+                  >
+                    <Linkedin className="size-4" />
+                    <span className="hidden sm:inline">LinkedIn</span>
+                  </a>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}
@@ -285,7 +361,11 @@ export function ProfileCard({ viewingUsername }: ProfileCardProps) {
                   <button 
                     type="button"
                     onClick={() => {
-                      alert("Verification request sent! Our team will review it.");
+                      toast({
+                        title: "Request sent",
+                        description: "Verification request sent! Our team will review it.",
+                        variant: "success",
+                      });
                       setIsVerificationModalOpen(false);
                     }}
                     className="w-full py-4 bg-[#00b70d] text-white rounded-xl font-bold hover:bg-[#009a0b] transition-all mt-4 shadow-lg"

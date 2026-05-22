@@ -5,18 +5,38 @@ import {
   IsEnum,
   IsNumber,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { Database } from 'src/database.types';
 
 export type Trip = Database['public']['Tables']['trips']['Row'];
 
-export type DestinationCategory =
-  Database['public']['Enums']['destination_category'];
+export type TripStop = Database['public']['Tables']['trip_stops']['Row'];
+
+export type TripWithStops = Trip & { stops: TripStop[] };
 
 export enum TripDifficulty {
   Easy = 'easy',
   Moderate = 'moderate',
   Challenging = 'challenging',
   Difficult = 'difficult',
+}
+
+export enum TripCategory {
+  Adventure = 'adventure',
+  Cultural = 'cultural',
+  Nature = 'nature',
+  Historical = 'historical',
+  Relaxation = 'relaxation',
+  Photography = 'photography',
+}
+
+export enum DestinationCategory {
+  Beach = 'beach',
+  Mountain = 'mountain',
+  Desert = 'desert',
+  Forest = 'forest',
+  Historic = 'historic',
+  City = 'city',
 }
 
 export enum TripStatus {
@@ -42,7 +62,13 @@ export class Geography implements GeographyBase {
   @IsEnum(GeographyType)
   public type: GeographyType;
 
+  /*
+   * Multipart form-data submits nested values as strings.
+   * Coerce coordinates to numbers before IsNumber validation so
+   * stops[i].location.coordinates passes for /trips create requests.
+   */
   @IsArray()
+  @Type(() => Number)
   @IsNumber({}, { each: true })
   @ArrayMinSize(2)
   @ArrayMaxSize(2)

@@ -43,6 +43,11 @@ const SignupForm = () => {
       return;
     }
 
+    if (!/^[a-z0-9_]+$/.test(username)) {
+      setLocalError('Username can only contain lowercase letters, numbers, and underscores');
+      return;
+    }
+
     try {
       await signUp(email, password, displayName, username);
       navigate('/profile');
@@ -62,7 +67,7 @@ const SignupForm = () => {
   return (
     <div className="w-full h-screen max-w-4xl sm:rounded-2xl overflow-hidden shadow-2xl flex flex-row bg-white">
         
-        <div className="w-full md:w-1/2 bg-[#ffffe8]-subtle p-6 md:p-8 flex flex-col justify-center overflow-y-auto h-full">
+        <div className="w-full md:w-1/2 bg-white p-6 md:p-8 flex flex-col justify-center overflow-y-auto h-full">
           <Link to="/">
             <img 
               src={logo} 
@@ -151,9 +156,11 @@ const SignupForm = () => {
             </button>
           </form>
 
-          <div className="relative my-4">
+          <div className="relative my-4 text-center">
             <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-gray-200"></span></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="bg-[#ffffe8]-subtle px-2 text-gray-500 font-semibold">Or sign up with</span></div>
+            <div className="relative flex justify-center text-xs uppercase font-semibold text-gray-500 z-10">
+              <span className="bg-white px-3">Or sign up with</span>
+            </div>
           </div>
 
           {/* Boutons Reseaux Sociaux check later */}

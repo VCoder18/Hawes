@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -10,21 +11,14 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Database } from 'src/database.types';
 import {
-  Geography,
   TripDifficulty,
   TripStatus,
+  TripCategory,
 } from '../entities/trips.entity';
+import { TripStopDTO } from './stop.dto';
 
-type TripUpdateShape = Omit<
-  Database['public']['Tables']['trips']['Update'],
-  'id' | 'created_at' | 'updated_at' | 'organizer' | 'meeting_points' | 'images'
-> & {
-  meeting_points?: Geography[];
-};
-
-export class TripUpdateDTO implements TripUpdateShape {
+export class TripUpdateDTO {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -35,6 +29,10 @@ export class TripUpdateDTO implements TripUpdateShape {
   description?: string | null;
 
   @IsOptional()
+  @IsString()
+  attachment_url?: string | null;
+
+  @IsOptional()
   @IsEnum(TripDifficulty)
   difficulty?: TripDifficulty;
 
@@ -43,8 +41,19 @@ export class TripUpdateDTO implements TripUpdateShape {
   end_date?: string;
 
   @IsOptional()
-  @IsString()
-  itinerary?: string | null;
+  @IsArray()
+  @IsString({ each: true })
+  itinerary?: string[] | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  included?: string[] | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 
   @IsOptional()
   @IsInt()
@@ -53,22 +62,29 @@ export class TripUpdateDTO implements TripUpdateShape {
   max_participants?: number | null;
 
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => Geography)
-  meeting_points?: Geography[];
-
-  @IsOptional()
   @IsInt()
   @Min(1)
   @Type(() => Number)
   min_participants?: number | null;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  not_included?: string[] | null;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   price?: number | null;
+
+  @IsOptional()
+  @IsBoolean()
+  returns_to_start?: boolean;
+
+  @IsOptional()
+  @IsEnum(TripCategory)
+  category?: TripCategory;
 
   @IsOptional()
   @IsDateString()
@@ -83,6 +99,18 @@ export class TripUpdateDTO implements TripUpdateShape {
   title?: string;
 
   @IsOptional()
-  @IsString()
-  what_to_bring?: string | null;
+  @IsArray()
+  @IsString({ each: true })
+  what_to_bring?: string[] | null;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TripStopDTO)
+  stopsToCreate?: TripStopDTO[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  stopIDsToDelete?: string[];
 }

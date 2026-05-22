@@ -7,6 +7,11 @@ import { TripsModule } from './trips/trips.module';
 import { AuthModule } from './auth/auth.module';
 import { DestinationsModule } from './destinations/destinations.module';
 import { ProfilesModule } from './profiles/profiles.module';
+import { FavoritesModule } from './favorites/favorites.module';
+import { BookmarksModule } from './bookmarks/bookmarks.module';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -18,12 +23,27 @@ import { ProfilesModule } from './profiles/profiles.module';
         supabaseUrl: ENV.supabase.url,
       }),
     }),
-    TripsModule,
-    DestinationsModule,
-    ProfilesModule,
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 30,
+      },
+    ]),
     AuthModule,
+    TripsModule,
+    ProfilesModule,
+    DestinationsModule,
+    FavoritesModule,
+    BookmarksModule,
+    DashboardModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

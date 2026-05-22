@@ -42,22 +42,25 @@ export class AuthGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) {
-      return true;
-    }
 
     const request = context.switchToHttp().getRequest();
     const token = this.extractTokenFromHeader(request);
-    if (!token) {
-      console.error('Missing JWT');
-      throw new UnauthorizedException();
-    }
 
-    try {
-      const { payload } = await this.verifyProjectJWT(token);
-      request['user'] = payload;
-    } catch (error) {
-      console.error(`Failed to verify JWT: ${error}`);
+    // Try to extract and verify user if token is present (for both public and protected routes)
+    if (token) {
+      try {
+        const { payload } = await this.verifyProjectJWT(token);
+        request['user'] = payload;
+      } catch (error) {
+        console.error(`Failed to verify JWT: ${error}`);
+        // Don't throw - just continue without user for public endpoints
+        if (!isPublic) {
+          throw new UnauthorizedException();
+        }
+      }
+    } else if (!isPublic) {
+      // Only require token for non-public endpoints
+      console.error('Missing JWT');
       throw new UnauthorizedException();
     }
 
