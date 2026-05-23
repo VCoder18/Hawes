@@ -1,8 +1,9 @@
 import React, {useState} from 'react' ;
 import Sidebar from './Sidebar';
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const BusinessOverview = () => {
+    const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [servicesOpen, setServicesOpen] = useState(false);
@@ -42,26 +43,26 @@ const BusinessOverview = () => {
                                </svg>
                               </button>
 
-                        {servicesOpen && (
-                          <div className="ml-8 mt-1 flex flex-col gap-2  pl-4">
-                          <Link to="/business" className="flex items-center gap-3 py-2 text-green-600 bg-[#00B70D14] rounded-xl " >
-                          <img src='src/images/businesss.svg' className='pl-2'></img>  
-                           <span className="text-[16px]">Business</span>
-                          </Link>
-                          <Link to="/clients" className="flex items-center gap-3 py-2 pl-2 text-[#0D2805B2] ">
-                          <img src='src/images/clients.svg'></img> 
-                          <span className="text-[16px]">Clients</span>
-                          </Link>
-                          <Link to="/feedback" className="flex items-center gap-3 py-2 pl-2 text-[#0D2805B2] ">
-                          <img src='src/images/feedback.svg'></img> 
-                          <span className="text-[16px]">Feedback</span>
-                         </Link>
-                          <Link to="/feedback" className="flex items-center gap-3 py-2 pl-2 text-[#0D2805B2] ">
-                          <img src='src/images/finance.svg'></img> 
-                           <span className="text-[16px]">Finances</span>
-                           </Link>
-                         </div>
-                          )}
+{servicesOpen && (
+                           <div className="ml-8 mt-1 flex flex-col gap-2  pl-4">
+                           <button onClick={() => navigate('/business')} className="flex items-center gap-3 py-2 text-green-600 bg-[#00B70D14] rounded-xl ">
+                           <img src='src/images/businesss.svg' className='pl-2'></img>  
+                            <span className="text-[16px]">Business</span>
+                           </button>
+                           <button onClick={() => navigate('/clients')} className="flex items-center gap-3 py-2 pl-2 text-[#0D2805B2] ">
+                           <img src='src/images/clients.svg'></img> 
+                           <span className="text-[16px]">Clients</span>
+                           </button>
+                           <button onClick={() => navigate('/feedback')} className="flex items-center gap-3 py-2 pl-2 text-[#0D2805B2] ">
+                           <img src='src/images/feedback.svg'></img> 
+                           <span className="text-[16px]">Feedback</span>
+                          </button>
+                           <button onClick={() => navigate('/dashboard/finances')} className="flex items-center gap-3 py-2 pl-2 text-[#0D2805B2] ">
+                           <img src='src/images/finance.svg'></img> 
+                            <span className="text-[16px]">Finances</span>
+                           </button>
+                          </div>
+                           )}
                          </div>
                             </nav>
             
@@ -92,31 +93,33 @@ const BusinessOverview = () => {
                             </nav>
                            </div>
                          <div className=' md:col-start-2 md:col-end-5 '>
-                            <div className="flex items-center md:justify-center  ">
-  
-                            <div className="flex items-center bg-white md:border md:border-gray-200 md:rounded-2xl p-1 md:shadow-sm text-left">
-    
-                            <button className="flex items-center flex-shrink-0  space-x-2 md:px-6 px-3 md:py-3 py-2  md:bg-gray-50 rounded-xl md:border md:border-gray-100 md:shadow-sm ">
-                            <img src='src/images/businesss.svg' className='hidden md:block'></img> 
-                            <span className="font-semibold text-green-600">Business</span>
+<div className="flex items-center md:justify-center  ">
+                         
+                             <button className="flex items-center flex-shrink-0  space-x-2 md:px-6 px-3 md:py-3 py-2  md:bg-gray-50 rounded-xl md:border md:border-gray-100 md:shadow-sm "
+                             onClick={() => navigate('/business')}>
+                             <img src='src/images/businesss.svg' className='hidden md:block'></img> 
+                             <span className="font-semibold text-green-600">Business</span>
+                             </button>
+ 
+                             <button className="flex items-center space-x-2 px-6 py-3 text-gray-500 hover:text-gray-700 transition-colors"
+                             onClick={() => navigate('/clients')}>
+                             <img src='src/images/clients.svg' className='hidden md:block'></img> 
+                             <span className="font-semibold">Clients</span>
+                             </button>
+ 
+                            <button className="flex items-center space-x-2 px-6 py-3 text-gray-500 hover:text-gray-700 transition-colors"
+                            onClick={() => navigate('/feedback')}>
+                             <img src='src/images/feedback.svg' className='hidden md:block'></img> 
+                             <span className="font-semibold">Feedback</span>
                             </button>
-
-                            <button className="flex items-center space-x-2 px-6 py-3 text-gray-500 hover:text-gray-700 transition-colors">
-                            <img src='src/images/clients.svg' className='hidden md:block'></img> 
-                            <span className="font-semibold">Clients</span>
+ 
+                            <button className="flex items-center space-x-2 px-6 py-3 text-gray-500 hover:text-gray-700 transition-colors"
+                            onClick={() => navigate('/dashboard/finances')}>
+                             <img src='src/images/finances.svg' className='hidden md:block'></img> 
+                             <span className="font-semibold">Finances</span>
                             </button>
-
-                           <button className="flex items-center space-x-2 px-6 py-3 text-gray-500 hover:text-gray-700 transition-colors">
-                            <img src='src/images/feedback.svg' className='hidden md:block'></img> 
-                           <span className="font-semibold">Feedback</span>
-                           </button>
-
-                           <button className="flex items-center space-x-2 px-6 py-3 text-gray-500 hover:text-gray-700 transition-colors">
-                            <img src='src/images/finances.svg' className='hidden md:block'></img> 
-                           <span className="font-semibold">Finances</span>
-                           </button>
-
-                         </div>
+ 
+                          </div>
                         </div>
 
                         <div className="mb-3 mt-3 md:ml-13 ml-5">
@@ -260,7 +263,6 @@ const BusinessOverview = () => {
             </div>
 
 
-            </div>         
 
     );
 };

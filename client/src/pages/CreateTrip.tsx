@@ -987,7 +987,6 @@ export default function CreateTrip() {
         .filter((destination): destination is Destination => Boolean(destination));
     },
     [selectedDestinationFullData, allFetchedDestinations, tripData.destinations]
-    [selectedDestinationFullData, allFetchedDestinations, tripData.destinations]
   );
   const mergedReviewStops = useMemo(() => {
     const meetingStops = tripData.meetingLocations.map((meeting) => ({

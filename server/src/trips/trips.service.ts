@@ -13,6 +13,8 @@ import {
   Trip,
   TripAffiliation,
   TripStop,
+  TripStopWithService,
+  StopServiceData,
   TripWithStops,
 } from './entities/trips.entity';
 import { randomUUID } from 'crypto';
@@ -126,6 +128,18 @@ export class TripsService {
       throw new NotFoundException('Trip not found');
     }
 
+    // Fetch organizer profile data
+    let organizerProfile = null;
+    if (trip.organizer) {
+      const { data: profile } = await this.supabaseClient
+        .from('profiles')
+        .select('id, display_name, username, avatar_url, location, role')
+        .eq('id', trip.organizer)
+        .single();
+      
+      organizerProfile = profile;
+    }
+
     const { data: stops, error: fetchStopsError } = await this.supabaseClient
       .from('trip_stops')
       .select('*')
@@ -137,7 +151,39 @@ export class TripsService {
       throw new InternalServerErrorException('Failed to fetch trip stops');
     }
 
-    return { ...(trip as Trip), stops: stops as TripStop[] };
+    const rawStops = stops as TripStop[];
+
+    const serviceIds = rawStops
+      .filter((s) => s.type === 'service' && s.service != null)
+      .map((s) => s.service as number);
+
+    const serviceMap = new Map<number, StopServiceData>();
+    if (serviceIds.length > 0) {
+      const uniqueIds = [...new Set(serviceIds)];
+      const { data: services, error: servicesError } = await this.supabaseClient
+        .from('services')
+        .select('id, name, category, procedure, min_cost, max_cost, image, address')
+        .in('id', uniqueIds);
+
+      if (!servicesError && services) {
+        for (const svc of services as StopServiceData[]) {
+          serviceMap.set(svc.id, svc);
+        }
+      }
+    }
+
+    const stopsWithServices: TripStopWithService[] = rawStops.map((s) => ({
+      ...s,
+      service_data: s.type === 'service' && s.service != null
+        ? serviceMap.get(s.service as number) || null
+        : null,
+    }));
+
+    return { 
+      ...(trip as Trip), 
+      organizer_profile: organizerProfile,
+      stops: stopsWithServices,
+    };
   }
   async createTrip(
     userId: string,
@@ -173,19 +219,33 @@ export class TripsService {
       throw new BadRequestException('Failed to create trip');
         }
 
-    const results = await Promise.all(
-      stops.map((stop) =>
-        this.supabaseClient
-          .from('trip_stops')
-          .insert({
-            ...stop,
-            location: this.toGeographyPoint(stop.location),
-            trip: createdTrip.id,
-          })
-          .select('*')
-          .single(),
-      ),
-    );
+     const results = await Promise.all(
+       stops.map((stop) => {
+         // Ensure index is provided, defaulting to 0 if not set
+         const index = stop.index !== undefined && stop.index !== null ? stop.index : 0;
+         
+         // Create a clean object with only the properties that exist in the trip_stops table
+         const tripStopData = {
+           index: index,
+           label: stop.label,
+           location: this.toGeographyPoint(stop.location),
+           service: stop.service, // This would be set separately for service stops
+           time: stop.time,
+           trip: createdTrip.id,
+           type: stop.type,
+           // Handle destination for destination-type stops
+           ...(stop.type === 'destination' && stop.destination !== undefined && stop.destination !== null
+             ? { destination: stop.destination }
+             : {}),
+         };
+         
+         return this.supabaseClient
+           .from('trip_stops')
+           .insert(tripStopData)
+           .select('*')
+           .single();
+       }),
+     );
 
     if (results.some((result) => result.error || !result.data)) {
       console.error(
@@ -196,7 +256,7 @@ export class TripsService {
 
     return {
       ...(createdTrip as Trip),
-      stops: results.map((result) => result.data as TripStop),
+      stops: results.map((result) => result.data as TripStopWithService),
     };
   }
   async updateTrip(
@@ -236,20 +296,34 @@ export class TripsService {
     }
 
     let updatedStops: TripStop[] = [];
-    if (stopsToCreate && stopsToCreate.length > 0) {
-      const results = await Promise.all(
-        stopsToCreate.map((stop) =>
-          this.supabaseClient
-            .from('trip_stops')
-            .insert({
-              ...stop,
-              location: this.toGeographyPoint(stop.location),
-              trip: tripId,
-            })
-            .select('*')
-            .single(),
-        ),
-      );
+     if (stopsToCreate && stopsToCreate.length > 0) {
+       const results = await Promise.all(
+         stopsToCreate.map((stop) => {
+           // Ensure index is provided, defaulting to 0 if not set
+           const index = stop.index !== undefined && stop.index !== null ? stop.index : 0;
+           
+           // Create a clean object with only the properties that exist in the trip_stops table
+           const tripStopData = {
+             index: index,
+             label: stop.label,
+             location: this.toGeographyPoint(stop.location),
+             service: stop.service, // This would be set separately for service stops
+             time: stop.time,
+             trip: tripId,
+             type: stop.type,
+             // Handle destination for destination-type stops
+             ...(stop.type === 'destination' && stop.destination !== undefined && stop.destination !== null
+               ? { destination: stop.destination }
+               : {}),
+           };
+           
+           return this.supabaseClient
+             .from('trip_stops')
+             .insert(tripStopData)
+             .select('*')
+             .single();
+         }),
+       );
 
       if (results.some((result) => result.error || !result.data)) {
         console.error(
@@ -258,7 +332,7 @@ export class TripsService {
         throw new BadRequestException('Failed to update trip stop(s)');
       }
 
-      updatedStops = results.map((result) => result.data as TripStop);
+      updatedStops = results.map((result) => result.data as TripStopWithService);
     }
     if (stopIDsToDelete && stopIDsToDelete.length > 0) {
       const results = await Promise.all(

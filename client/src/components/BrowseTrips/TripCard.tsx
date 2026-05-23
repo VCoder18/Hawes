@@ -1,4 +1,4 @@
-import { MapPin, Users, Calendar, Bookmark, DollarSign, User } from "lucide-react";
+import { MapPin, Calendar, Bookmark, DollarSign } from "lucide-react";
 import { useState } from "react";
 
 interface TripStop {
@@ -117,38 +117,6 @@ export function TripCard({
           />
         )}
 
-        {/* Category Badge */}
-        <div className="absolute top-3 left-3 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
-          {trip.category ? trip.category.charAt(0).toUpperCase() + trip.category.slice(1) : "Trip"}
-        </div>
-
-        <div className="absolute top-3 right-3 flex flex-col items-center gap-2">
-          <div
-            className="size-10 rounded-full bg-white/90 border border-white flex items-center justify-center"
-            title={isMine ? "Created by me" : "Created by another organizer"}
-          >
-            {isMine ? (
-              <User className="size-5 text-[#0d2805]" />
-            ) : (
-              <Users className="size-5 text-[#64748b]" />
-            )}
-          </div>
-
-          {/* Bookmark Button */}
-          {showBookmark && (
-            <button
-              onClick={handleSaveClick}
-              className="p-2.5 rounded-full bg-white/90 hover:bg-white transition-all"
-            >
-              <Bookmark
-                className={`size-5 ${
-                  isSaved ? "fill-current text-[#ff5900]" : "text-gray-400"
-                }`}
-              />
-            </button>
-          )}
-        </div>
-
         {/* Difficulty Badge */}
         {trip.difficulty && (
           <div className="absolute bottom-3 left-3 bg-blue-500 text-white px-2 py-1 rounded text-xs font-medium">
@@ -233,5 +201,5 @@ export function TripCard({
         </div>
       </div>
     </div>
-  );
-}
+    )
+  }

@@ -134,7 +134,6 @@ export function Step8ReviewAndPublish({
                 <span
                   key={activity}
                   className="bg-[#ff59001A] text-[#ff5900] px-3 py-1 rounded-full text-sm break-words max-w-full font-medium"
-                  className="bg-[#ff59001A] text-[#ff5900] px-3 py-1 rounded-full text-sm break-words max-w-full font-medium"
                 >
                   {activity}
                 </span>

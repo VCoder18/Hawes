@@ -1,92 +1,75 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, LayoutDashboard, Compass, User, Users, Settings, Plus, Search, SlidersHorizontal } from 'lucide-react'; 
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { TripCard } from "@/components/BrowseTrips/TripCard";
-
 import FinanceOverview from '../components/Finances/FinanceOverview';
-const dashboardTrips = [
-  {
-    id: "1",
-    title: "Exploring Timgad Ruins",
-    category: "completed",
-    difficulty: "moderate",
-    images: ["src/images/timgadd.png"],
-    start_date: "2026-01-15T00:00:00Z",
-    end_date: "2026-01-22T00:00:00Z",
-    current_participants: 15,
-    max_participants: 20,
-    min_participants: 10,
-    price: 3500,
-    description: "",
-    stops: [{ id: "1", label: "Batna, Algeria", stop_type: "meeting_point", location: {}, destination_id: null, trip_id: "1", created_at: null, updated_at: null }]
-  },
-  {
-    id: "2",
-    title: "Discover Ghardaïa Culture",
-    category: "upcoming",
-    difficulty: "easy",
-    images: ["src/images/ghardaia.png"],
-    start_date: "2026-04-05T00:00:00Z",
-    end_date: "2026-04-12T00:00:00Z",
-    current_participants: 7,
-    max_participants: 15,
-    min_participants: 5,
-    price: 4500,
-    description: "",
-    stops: [{ id: "2", label: "Ghardaïa, Algeria", stop_type: "meeting_point", location: {}, destination_id: null, trip_id: "2", created_at: null, updated_at: null }]
-  },
-  {
-    id: "3",
-    title: "Casbah Algiers",
-    category: "cancelled",
-    difficulty: "moderate",
-    images: ["src/images/algiers.png"],
-    start_date: "2025-10-10T00:00:00Z",
-    end_date: "2025-10-15T00:00:00Z",
-    current_participants: 15,
-    max_participants: 20,
-    min_participants: 10,
-    price: 2000,
-    description: "",
-    stops: [{ id: "3", label: "Algiers", stop_type: "meeting_point", location: {}, destination_id: null, trip_id: "3", created_at: null, updated_at: null }]
-  },
-  {
-    id: "4",
-    title: "Mediterranean",
-    category: "live",
-    difficulty: "moderate",
-    images: ["src/images/oran.png"],
-    start_date: "2026-03-10T00:00:00Z",
-    end_date: "2026-03-20T00:00:00Z",
-    current_participants: 10,
-    max_participants: 15,
-    min_participants: 8,
-    price: 6000,
-    description: "",
-    stops: [{ id: "4", label: "Oran, Algeria", stop_type: "meeting_point", location: {}, destination_id: null, trip_id: "4", created_at: null, updated_at: null }]
-  },
-  {
-    id: "5",
-    title: "Constantine Bridges",
-    category: "draft",
-    difficulty: "hard",
-    images: ["src/images/constantine.png"],
-    start_date: "2026-05-10T00:00:00Z",
-    end_date: "2026-05-15T00:00:00Z",
-    current_participants: 15,
-    max_participants: 25,
-    min_participants: 10,
-    price: 4000,
-    description: "",
-    stops: [{ id: "5", label: "Constantine", stop_type: "meeting_point", location: {}, destination_id: null, trip_id: "5", created_at: null, updated_at: null }]
-  }
-];
+import { useAuth } from '@/contexts/AuthContext';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 const Dashbord = () => {
+    const { user } = useAuth();
+    const [profile, setProfile] = useState<any>(null);
+    const [profileLoading, setProfileLoading] = useState(true);
     const [isOpen, setIsOpen] = useState(false);
     const { tab } = useParams();
     const navigate = useNavigate();
     const activeTab = tab?.toLowerCase() === 'finances' ? 'finances' : 'trips';
+
+    const [trips, setTrips] = useState<any[]>([]);
+    const [tripsLoading, setTripsLoading] = useState(true);
+
+    useEffect(() => {
+      if (!user) return;
+      const fetchProfile = async () => {
+        const { data, error } = await (await import('@/lib/supabase')).supabase
+          .from('profiles')
+          .select('role, display_name, username')
+          .eq('id', user.id)
+          .single();
+        if (!error && data) setProfile(data);
+        setProfileLoading(false);
+      };
+      fetchProfile();
+    }, [user]);
+
+    useEffect(() => {
+      if (!user || profileLoading) return;
+      const fetchTrips = async () => {
+        setTripsLoading(true);
+        try {
+          const { data: { session } } = await (await import('@/lib/supabase')).supabase.auth.getSession();
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+
+          const role = profile?.role;
+
+          if (role === 'services' && activeTab !== 'trips') {
+            setTrips([]);
+            setTripsLoading(false);
+            return;
+          }
+
+          const url = role === 'services'
+            ? `${API_BASE_URL}/dashboard/associated-trips`
+            : `${API_BASE_URL}/dashboard/history`;
+
+          const response = await fetch(url, { headers });
+          if (response.ok) {
+            const data = await response.json();
+            setTrips(Array.isArray(data) ? data : []);
+          }
+        } catch (err) {
+          console.error('Failed to fetch trips:', err);
+        } finally {
+          setTripsLoading(false);
+        }
+      };
+      fetchTrips();
+    }, [user, profile, profileLoading, activeTab]);
+
+    const role = profile?.role;
+    const isService = role === 'services';
 
     const handleTabChange = (newTab: string) => {
         if (newTab === 'trips') {
@@ -98,37 +81,62 @@ const Dashbord = () => {
 
     return (
     <div className='flex flex-col md:flex-row gap-6 w-full'>
-        {/* Local Dashboard Sidebar */}
         <div className='w-full md:w-64 shrink-0'>
             <nav className='flex flex-col gap-2'>
                 <Link to="/" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
                     <LayoutDashboard className="w-5 h-5" />   
                     <span className='pl-3'>Home</span>
                 </Link>
-                <button onClick={() => handleTabChange('trips')} className={`px-4 py-3 font-medium flex items-center rounded-xl transition-colors w-full ${activeTab === 'trips' ? 'bg-[#00B70D1A] text-[#00B70D]' : 'text-gray-700 hover:bg-[#00B70D1A] hover:text-[#00B70D]'}`}>
-                    <Compass className="w-5 h-5" />   
-                    <span className='pl-3'>My Trips</span>
-                </button>
-                <Link to="/browse" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
-                    <Compass className="w-5 h-5" />   
-                    <span className='pl-3'>Explore</span>
-                </Link>
 
-                <div className='border-t border-gray-200 my-2'></div>
-                 
-                <div className="px-2">
-                    <Link to="/create-trip" className='w-full flex items-center justify-center gap-2 border-2 border-[#FF5900] rounded-xl py-3 px-4 hover:bg-[#FF5900] hover:text-white group transition-colors'>
-                        <Plus className="w-5 h-5 text-[#FF5900] group-hover:text-white" />
-                        <span className='text-[#FF5900] group-hover:text-white font-semibold'>Create New Trip</span>
+                {isService ? (
+                  <>
+                    <button onClick={() => handleTabChange('overview')} className={`px-4 py-3 font-medium flex items-center rounded-xl transition-colors w-full ${activeTab === 'overview' ? 'bg-[#00B70D1A] text-[#00B70D]' : 'text-gray-700 hover:bg-[#00B70D1A] hover:text-[#00B70D]'}`}>
+                        <Compass className="w-5 h-5" />   
+                        <span className='pl-3'>Overview</span>
+                    </button>
+                    <button onClick={() => handleTabChange('trips')} className={`px-4 py-3 font-medium flex items-center rounded-xl transition-colors w-full ${activeTab === 'trips' ? 'bg-[#00B70D1A] text-[#00B70D]' : 'text-gray-700 hover:bg-[#00B70D1A] hover:text-[#00B70D]'}`}>
+                        <Compass className="w-5 h-5" />   
+                        <span className='pl-3'>Associated Trips</span>
+                    </button>
+                    <Link to="/browse" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
+                        <Compass className="w-5 h-5" />   
+                        <span className='pl-3'>Explore</span>
                     </Link>
-                </div>
-                 
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => handleTabChange('trips')} className={`px-4 py-3 font-medium flex items-center rounded-xl transition-colors w-full ${activeTab === 'trips' ? 'bg-[#00B70D1A] text-[#00B70D]' : 'text-gray-700 hover:bg-[#00B70D1A] hover:text-[#00B70D]'}`}>
+                        <Compass className="w-5 h-5" />   
+                        <span className='pl-3'>My Trips</span>
+                    </button>
+                    <Link to="/browse" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
+                        <Compass className="w-5 h-5" />   
+                        <span className='pl-3'>Explore</span>
+                    </Link>
+                  </>
+                )}
+
+                {!isService && (
+                  <>
+                    <div className='border-t border-gray-200 my-2'></div>
+                    <div className="px-2">
+                        <Link to="/create-trip" className='w-full flex items-center justify-center gap-2 border-2 border-[#FF5900] rounded-xl py-3 px-4 hover:bg-[#FF5900] hover:text-white group transition-colors'>
+                            <Plus className="w-5 h-5 text-[#FF5900] group-hover:text-white" />
+                            <span className='text-[#FF5900] group-hover:text-white font-semibold'>Create New Trip</span>
+                        </Link>
+                    </div>
+                  </>
+                )}
+                  
                 <div className='border-t border-gray-200 my-2'></div>
 
-                <button onClick={() => handleTabChange('finances')} className={`px-4 py-3 font-medium flex items-center rounded-xl transition-colors w-full ${activeTab === 'finances' ? 'bg-[#00B70D1A] text-[#00B70D]' : 'text-gray-700 hover:bg-[#00B70D1A] hover:text-[#00B70D]'}`}>
-                    <SlidersHorizontal className="w-5 h-5" />   
-                    <span className='pl-3'>Finances</span>
-                </button>
+                {isService && (
+                  <button onClick={() => handleTabChange('finances')} className={`px-4 py-3 font-medium flex items-center rounded-xl transition-colors w-full ${activeTab === 'finances' ? 'bg-[#00B70D1A] text-[#00B70D]' : 'text-gray-700 hover:bg-[#00B70D1A] hover:text-[#00B70D]'}`}>
+                      <SlidersHorizontal className="w-5 h-5" />   
+                      <span className='pl-3'>Finances</span>
+                  </button>
+                )}
+
                 <div className='border-t border-gray-200 my-2'></div>
                 <Link to="/profile" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
                     <User className="w-5 h-5" />   
@@ -145,165 +153,145 @@ const Dashbord = () => {
             </nav>
         </div>
 
-        {/* Dashboard Main Content */}
         <div className='flex-1 flex flex-col min-w-0'>
-            {activeTab === 'finances' ? (
+            {activeTab === 'finances' && isService ? (
                 <div className='w-full pb-8'>
                     <FinanceOverview />
                 </div>
+            ) : activeTab === 'overview' && isService ? (
+              <div className='w-full pb-8'>
+                <BusinessOverviewEmbed />
+              </div>
             ) : (
             <main className='w-full pb-8'>
-                <h1 className="font-['Merriweather'] font-bold text-3xl md:text-4xl text-[#0d2805] mb-8">Trip History</h1>
+                <h1 className="font-['Merriweather'] font-bold text-3xl md:text-4xl text-[#0d2805] mb-8">
+                  {isService ? 'Associated Trips' : 'Trip History'}
+                </h1>
 
-                {/* Search & Filters Bar */}
                 <div className="bg-white rounded-2xl shadow-lg p-4 mb-6">
                     <div className="flex flex-col md:flex-row gap-3">
-                        {/* Search Input */}
                         <div className="flex-1 relative">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 opacity-60 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search destinations..."
+                                placeholder="Search trips..."
                                 className="w-full pl-12 pr-4 py-3 border border-[#e2e8f0] rounded-xl text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00b70d] transition-all"
                             />
-                        </div>
-
-                        {/* Selectors */}
-                        <div className="flex gap-2">
-                            <select className="appearance-none cursor-pointer bg-no-repeat bg-[position:right_1rem_center] bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%230d2805%22%3E%3Cpath%20d%3D%22M5.293%207.293a1%201%200%20011.414%200L10%2010.586l3.293-3.293a1%201%200%20111.414%201.414l-4%204a1%201%200%2001-1.414%200l-4-4a1%201%200%20010-1.414z%22%2F%3E%3C%2Fsvg%3E')] pr-10 pl-5 py-3 bg-[#0D28050D] hover:bg-[#0D28051A] text-[#0d2805] font-semibold rounded-xl border-none outline-none focus:ring-2 focus:ring-[#00b70d] transition-colors shadow-sm">
-                                <option>Role: Any</option>
-                                <option>I Organized</option>
-                                <option>I Joined</option>
-                            </select>
-                            
-                            <select className="appearance-none cursor-pointer bg-no-repeat bg-[position:right_1rem_center] bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%230d2805%22%3E%3Cpath%20d%3D%22M5.293%207.293a1%201%200%20011.414%200L10%2010.586l3.293-3.293a1%201%200%20111.414%201.414l-4%204a1%201%200%2001-1.414%200l-4-4a1%201%200%20010-1.414z%22%2F%3E%3C%2Fsvg%3E')] pr-10 pl-5 py-3 bg-[#0D28050D] hover:bg-[#0D28051A] text-[#0d2805] font-semibold rounded-xl border-none outline-none focus:ring-2 focus:ring-[#00b70d] transition-colors shadow-sm">
-                                <option>All Statuses</option>
-                                <option>Completed</option>
-                                <option>Upcoming</option>
-                                <option>Live</option>
-                                <option>Cancelled</option>
-                                <option>Draft</option>
-                            </select>
                         </div>
                     </div>
                 </div>
 
-                {/* Filter Chips */}
-                <div className="mb-8 rounded-2xl border border-[#e2e8f0] bg-white p-4 shadow-sm">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <button className="px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all bg-[#00b70d] text-white shadow-lg">All</button>
-                        <button className="px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]">Upcoming</button>
-                        <button className="px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]">Ongoing</button>
-                        <button className="px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]">Past</button>
-
-                        <div className="w-px h-6 bg-[#e2e8f0] mx-2 hidden sm:block"></div>
-
-                        <button className="px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all bg-white text-gray-600 border border-[#e2e8f0] hover:border-gray-400">Last Week</button>
-                        <button className="px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all bg-white text-gray-600 border border-[#e2e8f0] hover:border-gray-400">Last Year</button>
-
-                        <div className="ml-auto relative inline-block">
-            <button
-             onClick={() => setIsOpen(!isOpen)}
-             className="md:px-6 px-4 py-2 bg-white text-gray-700 md:rounded-full rounded-2xl hover:bg-[#0D2805CC] transition-colors border border-gray-200"
-             >
-             <SlidersHorizontal className="w-5 h-5" />
-            </button>
-             {isOpen && (
-          <div className="absolute right-1 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800">Filters</h2>
-              <button onClick={() => setIsOpen(false)}>
-                <X className="w-5 h-5 text-gray-400 hover:text-gray-600" />
-              </button>
-            </div>
-
-            <div className="mb-8">
-              <h3 className="font-semibold mb-4">User Role</h3>
-              <div className="space-y-3">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="radio" name="role" className="w-4 h-4 accent-green-600" />
-                  <span>I Organized</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="radio" name="role" className="w-4 h-4 accent-green-600" />
-                  <span>I Joined</span>
-                </label>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-4">Trip Status</h3>
-              <div className="space-y-3">
-                {['Completed', 'Upcoming', 'Ongoing', 'Draft'].map((status) => (
-                  <label key={status} className="flex items-center gap-3 cursor-pointer">
-                    <input  type="radio" name="status"  className="w-4 h-4 accent-green-600" 
-                      defaultChecked={status === 'Completed'}
-                    />
-                    <span>{status}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-                <h3 className="font-semibold mb-4 mt-4">Place</h3>
-                <div className='space-y-3 '>
-                    {['Sahara', 'Mediterranen', 'Beach', 'Mountains', 'City'].map((place) => (
-                        <label key={place} className='flex items-center gap-3 cursor-pointer'>
-                            <input type="radio" name="place"  className="w-4 h-4 accent-green-600" 
-                      defaultChecked={place === 'Completed'}
-                    />
-                    <span>{place}</span>
-                        </label>
-                    ))}
-                </div>
-            </div>
-            <div>
-                <h3 className="font-semibold mb-4 mt-4">Period</h3>
-                <div className='space-y-3 '>
-                    {['Any time', 'Last Week', 'Last Month', 'Last Year'].map((period) => (
-                        <label key={period} className='flex items-center gap-3 cursor-pointer'>
-                            <input type="radio" name="period"  className="w-4 h-4 accent-green-600" 
-                      defaultChecked={period === 'Completed'}
-                    />
-                    <span>{period}</span>
-                        </label>
-                    ))}
-                </div>
-            </div>
-            <div>
-                <h3 className="font-semibold mb-4 mt-4">Agenda</h3>
-                 <div className='flex items-center relative'>
-                    <input
-                       placeholder="jj/mm/aaaa" className='w-full bg-white border border-green-400 py-2 pl-4 rounded-md text-gray-700' />
-                 </div>
-            </div> 
-            <div className='border border-gray-100 mt-5 mb-5'></div>
-            <div className='grid grid-cols-2 gap-4'>
-                <button className='border border-gray-400 rounded-md py-2 px-4 hover:bg-gray-50 transition-colors'>
-                    <span>Reset</span>
-                </button>
-                <button type='submit' className='text-white bg-green-500 rounded-md py-2 px-4 hover:bg-green-600 transition-colors'>
-                 Apply Filters
-                </button>
-            </div>
-             </div>
-              )}
-            </div>
+                {tripsLoading ? (
+                  <div className="text-center py-12 text-gray-500">Loading trips...</div>
+                ) : trips.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    {isService ? 'No associated trips found.' : 'No trip history found.'}
+                  </div>
+                ) : (
+                  <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+                      {trips.map(trip => (
+                          <TripCard key={trip.id} trip={trip} isMine={!isService} />
+                      ))}
+                  </div>
+                )}
+              </main>
+            )}
           </div>
         </div>
-          
-          <div className="mb-6">
-            <p className="text-gray-500">
-               <span className="font-bold text-[#00b70d]">5</span> trips found
-            </p>
-          </div>
+    );
+};
 
-            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
-                {dashboardTrips.map(trip => (
-                    <TripCard key={trip.id} trip={trip as any} isMine={true} />
-                ))}
-            </div>
-            </main>
-            </main>
+function BusinessOverviewEmbed() {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const { supabase } = await import('@/lib/supabase');
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+        const response = await fetch(`${API_BASE_URL}/dashboard/business-stats`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setStats(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch business stats:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  if (loading) return <div className="text-center py-12 text-gray-500">Loading overview...</div>;
+  if (!stats) return <div className="text-center py-12 text-gray-500">Failed to load business data.</div>;
+
+  const formatCurrency = (val: number) =>
+    val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val.toLocaleString();
+
+  return (
+    <div className="w-full pb-8">
+      <h1 className="font-['Merriweather'] font-bold text-3xl md:text-4xl text-[#0d2805] mb-8">Business Overview</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-50">
+          <p className="text-[#42493E] text-xs font-bold uppercase mb-2">Services</p>
+          <h2 className="text-3xl font-bold text-gray-800">{stats.services?.length ?? 0}</h2>
+        </div>
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-50">
+          <p className="text-[#42493E] text-xs font-bold uppercase mb-2">Total Capacity</p>
+          <h2 className="text-3xl font-bold text-gray-800">{stats.capacity?.total ?? 0}</h2>
+          <p className="text-xs text-gray-400 mt-1">{stats.capacity?.current ?? 0} booked</p>
+        </div>
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-50">
+          <p className="text-[#42493E] text-xs font-bold uppercase mb-2">Avg Rating</p>
+          <h2 className="text-3xl font-bold text-gray-800">{stats.avgRating?.toFixed(1) ?? '0.0'}</h2>
+          <p className="text-xs text-gray-400 mt-1">{stats.reviewCount} reviews</p>
+        </div>
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-50">
+          <p className="text-[#42493E] text-xs font-bold uppercase mb-2">Avg Price</p>
+          <h2 className="text-3xl font-bold text-gray-800">{formatCurrency(stats.avgPrice)}</h2>
+          <p className="text-xs text-gray-400 mt-1">DZD per booking</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <div className="bg-gradient-to-br from-[#0A7B20] to-[#0D5514] text-white p-6 rounded-3xl shadow-sm">
+          <p className="text-emerald-100 text-sm font-medium mb-2">Monthly Revenue</p>
+          <h2 className="text-4xl font-bold">{formatCurrency(stats.monthlyRevenue)}</h2>
+          <p className="text-emerald-200 text-xs mt-1">DZD</p>
+        </div>
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 border-l-[6px] border-l-emerald-500">
+          <p className="text-gray-500 text-sm font-medium mb-2">Yearly Revenue</p>
+          <h2 className="text-4xl font-bold">{formatCurrency(stats.yearlyRevenue)}</h2>
+          <p className="text-gray-400 text-xs mt-1">DZD</p>
+        </div>
+      </div>
+
+      {stats.services?.length > 0 && (
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-50">
+          <h3 className="font-bold text-gray-800 mb-4">Your Services</h3>
+          <div className="space-y-3">
+            {stats.services.map((service: any) => (
+              <div key={service.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                <div>
+                  <p className="font-semibold text-gray-800">{service.name}</p>
+                  <p className="text-xs text-gray-400 capitalize">{service.category ?? 'N/A'}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-gray-800">{service.min_cost ?? 0} - {service.max_cost ?? 0} DZD</p>
+                  <p className="text-xs text-gray-400">Limit: {service.client_limit ?? 'N/A'}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default Dashbord;

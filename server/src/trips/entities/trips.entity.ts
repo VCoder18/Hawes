@@ -12,7 +12,34 @@ export type Trip = Database['public']['Tables']['trips']['Row'];
 
 export type TripStop = Database['public']['Tables']['trip_stops']['Row'];
 
-export type TripWithStops = Trip & { stops: TripStop[] };
+export type StopServiceData = {
+  id: number;
+  name: string;
+  category: string | null;
+  procedure: unknown;
+  min_cost: number;
+  max_cost: number;
+  image: string | null;
+  address: string | null;
+};
+
+export type TripStopWithService = TripStop & {
+  service_data?: StopServiceData | null;
+};
+
+export type OrganizerProfile = {
+  id: string;
+  display_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+  location: string | null;
+  role: string | null;
+};
+
+export type TripWithStops = Trip & { 
+  stops: TripStopWithService[];
+  organizer_profile?: OrganizerProfile | null;
+};
 
 export enum TripDifficulty {
   Easy = 'easy',

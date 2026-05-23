@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/BrowseDestinations/EmptyState";
 // Import types and constants
 import type { UserRole } from "@/imports/types";
 import { tripCategories } from "@/imports/constants";
-import { getAllTrips } from "@/lib/mockData";
+
 
 interface TripStop {
   id: string;
@@ -41,6 +41,7 @@ interface TripRow {
   current_participants?: number | null;
   organizer?: string | null;
   stops?: TripStop[];
+  serviceLabels?: string[];
   [key: string]: unknown;
 }
 
@@ -221,55 +222,35 @@ export default function BrowseTrips() {
       };
 
       try {
-        const mockAll = (getAllTrips(10000, 0).data || []) as TripRow[];
-
+        // Remove mock data loading and rely on API data only
         let apiTrips: TripRow[] = [];
         try {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-
+          const { data: { session } } = await supabase.auth.getSession();
           const headers: Record<string, string> = {};
           if (session?.access_token) {
             headers.Authorization = `Bearer ${session.access_token}`;
           }
-
           const apiLimit = 20;
           const maxPages = 50;
           const collected: TripRow[] = [];
-
           for (let pageIndex = 0; pageIndex < maxPages; pageIndex += 1) {
             const params = new URLSearchParams();
             params.append("limit", String(apiLimit));
             params.append("offset", String(pageIndex * apiLimit));
-
             const response = await fetch(`${API_BASE_URL}/trips?${params.toString()}`, { headers });
             if (!response.ok) break;
-
             const data = await response.json();
             const parsed = Array.isArray(data) ? data : data?.data;
             const chunk = Array.isArray(parsed) ? (parsed as TripRow[]) : [];
-
             collected.push(...chunk.map(normalizeTrip));
             if (chunk.length < apiLimit) break;
           }
-
           apiTrips = collected;
         } catch (error) {
-          console.warn("Trips API fetch failed, continuing with mock data", error);
+          console.warn("Trips API fetch failed, no data loaded", error);
         }
-
-        const mergedById = new Map<string, TripRow>();
-        [...mockAll.map(normalizeTrip), ...apiTrips].forEach((trip) => {
-          if (!trip?.id) return;
-          const existing = mergedById.get(trip.id);
-          mergedById.set(trip.id, { ...existing, ...trip });
-        });
-
-        const allMergedTrips = Array.from(mergedById.values());
-        const filteredTrips = applyFilters(allMergedTrips);
+        const filteredTrips = applyFilters(apiTrips);
         const pageItems = filteredTrips.slice(offset, offset + LIMIT);
-
         setTrips((prev) => (isFirstPage ? pageItems : [...prev, ...pageItems]));
         if (isFirstPage) {
           setTotalResults(filteredTrips.length);
@@ -420,14 +401,13 @@ export default function BrowseTrips() {
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Search Input */}
           <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-[#ff5900]" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search trips..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-[#e2e8f0] rounded-xl text-[#00b70d] placeholder:text-[#ff5900] focus:outline-none focus:ring-2 focus:ring-[#00b70d] transition-all"
-              className="w-full pl-12 pr-4 py-3 border border-[#e2e8f0] rounded-xl text-[#00b70d] placeholder:text-[#ff5900] focus:outline-none focus:ring-2 focus:ring-[#00b70d] transition-all"
+              className="w-full pl-12 pr-4 py-3 border border-[#e2e8f0] rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#00b70d] transition-all"
             />
           </div>
 
@@ -462,7 +442,6 @@ export default function BrowseTrips() {
               selectedCategory === "all"
                 ? "bg-[#00b70d] text-white shadow-lg"
                 : "bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]"
-                : "bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]"
             }`}
           >
             <Compass className="size-5" />
@@ -478,7 +457,6 @@ export default function BrowseTrips() {
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-all ${
                   selectedCategory === category.id
                     ? "bg-[#00b70d] text-white shadow-lg"
-                    : "bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]"
                     : "bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-[#00b70d]"
                 }`}
               >
@@ -556,7 +534,6 @@ export default function BrowseTrips() {
                 selectedDifficulty === diff.toLowerCase()
                   ? "bg-blue-500 text-white"
                   : "bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-blue-500"
-                  : "bg-white text-[#00b70d] border border-[#e2e8f0] hover:border-blue-500"
               }`}
             >
               {diff}
@@ -568,9 +545,7 @@ export default function BrowseTrips() {
       {/* Results Count */}
       <div className="mb-6">
         <p className="text-[#ff5900]">
-          <span className="font-bold text-[#00b70d]">{totalResults}</span> trips found
-  <p className="text-[#ff5900]">
-    <span className="font-bold text-[#00b70d]">{totalResults}</span> trips found
+          <span className="font-bold">{totalResults}</span> trips found
         </p>
       </div>
 

@@ -328,13 +328,13 @@ export default function BrowseDestinations() {
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Search Input */}
           <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-text-[#ff5900]" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search destinations..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-[#e2e8f0] rounded-xl text-text-[#00b70d] placeholder:text-text-[#ff5900] focus:outline-none focus:ring-2 focus:ring-[#00b70d] transition-all"
+              className="w-full pl-12 pr-4 py-3 border border-[#e2e8f0] rounded-xl text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00b70d] transition-all"
             />
           </div>
 

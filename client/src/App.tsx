@@ -21,6 +21,9 @@ import JoinTripForm from "@/pages/JoinTripForm";
 import { Toaster } from "@/components/Toaster";
 import BusinessOverview from "./components/BusinessOverview";
 import Servicesrating from "./components/Servicesrating";
+import BrowseServices from "@/pages/BrowseServices";
+import FeedbackReviews from "@/pages/FeedbackReviews";
+import ClientsDashboard from "@/pages/ClientsDashboard";
 
 function App() {
   const { pathname } = useLocation();
@@ -37,6 +40,7 @@ function App() {
             <Route element={<MainLayout displayNavbar={true} displayFooter={true} />}>
               <Route path="/" element={<Profile />} />
               <Route path="/browse" element={<BrowseDestinations />} />
+              <Route path="/services" element={<BrowseServices />} />
               <Route path="/trips" element={<BrowseTrips />} />
               <Route path="/trips/:id" element={<JoinTrip />} />
               <Route path="/trips/:id/book" element={<JoinTripForm />} />
@@ -54,6 +58,8 @@ function App() {
               <Route path="/login" element={<LoginForm />} />
               <Route path="/register" element={<SignupForm />} />
               <Route path="/business" element={<BusinessOverview />} />
+              <Route path="/feedback" element={<FeedbackReviews />} />
+              <Route path="/clients" element={<ClientsDashboard />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
 
             </Route>

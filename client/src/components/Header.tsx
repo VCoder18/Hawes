@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Menu, Search, Bell, MessageSquare, Settings, LogOut, User } from "lucide-react";
+import { LayoutDashboard, Menu, Search, Bell, MessageSquare, Settings, LogOut, User } from "lucide-react";
 import Avatar from "@/assets/images/pfp.svg";
 import logo from "@/assets/images/logo.png";
 import { useAuth } from "@/contexts/AuthContext";
@@ -120,7 +120,7 @@ export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: He
                 placeholder="Search destinations, trips..."
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
-                className="bg-white flex-1 px-2 py-2 text-sm text-text-[#ff5900] outline-none"
+                className="bg-white flex-1 px-2 py-2 text-sm text-gray-900 outline-none"
               />
             </form>
           </div>
@@ -130,7 +130,7 @@ export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: He
             <Link to="/register" className="text-[#334155] text-sm font-medium hover:text-[#00b70d]">Explore</Link>
             <Link to="/trips" className="text-[#334155] text-sm font-medium hover:text-[#00b70d]">Trips</Link>
             <Link to="/browse" className="text-[#334155] text-sm font-medium hover:text-[#00b70d]">Destinations</Link>
-            <Link to="/login" className="text-[#334155] text-sm font-medium hover:text-[#00b70d]">Community</Link>
+            <Link to="/services" className="text-[#334155] text-sm font-medium hover:text-[#00b70d]">Services</Link>
           </nav>
 
           {/* Action Buttons */}
@@ -162,6 +162,16 @@ export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: He
                   
                   {/* Dropdown Content */}
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-[#e2e8f0] py-2 z-20">
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        navigate("/dashboard");
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-[#334155] hover:bg-bg-[#ff5900] transition-colors flex items-center gap-2"
+                    >
+                      <LayoutDashboard className="size-4" strokeWidth={2} />
+                        Dashboard
+                    </button>
                     <button
                       onClick={() => {
                         setDropdownOpen(false);

@@ -26,7 +26,9 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { TripDetailsMap } from "../components/TripDetailsMap";
-import { getTripById } from '@/lib/mockData';
+import { getTripById } from "@/lib/mockData";
+import { supabase } from "@/lib/supabase";
+
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -118,27 +120,34 @@ const JoinTrip = () => {
     trip.coverImage;
   const startsAt = trip.start_date || trip.startDate;
   const endsAt = trip.end_date || trip.endDate;
-  const stops = Array.isArray(trip.stops) ? trip.stops : [];
-  const firstMeetingPoint = stops.find((stop: any) => {
-    const stopType = String(stop?.type || stop?.stop_type || "").toLowerCase();
-    return stopType === "meeting";
-  });
-  const firstMeetingLabel = firstMeetingPoint?.label || "Meeting point TBD";
-  const meetingTime =
-    firstMeetingPoint?.time ||
-    firstMeetingPoint?.hour ||
-    firstMeetingPoint?.meeting_time ||
-    trip?.meeting_time ||
-    "Time TBD";
-  const meetingDateLabel = startsAt
-    ? new Date(startsAt).toLocaleDateString(undefined, {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
-    : "Date TBD";
-  const destinations = stops.map((stop: any) => stop.label || "").filter(Boolean);
+      const stops = Array.isArray(trip.stops) ? trip.stops : [];
+      const firstMeetingPoint = stops.find((stop: any) => {
+        const stopType = String(stop?.type || stop?.stop_type || "").toLowerCase();
+        return stopType === "meeting";
+      });
+      const firstMeetingLabel = firstMeetingPoint?.label || "Meeting point TBD";
+      const meetingTime =
+        firstMeetingPoint?.time ||
+        firstMeetingPoint?.hour ||
+        firstMeetingPoint?.meeting_time ||
+        trip?.meeting_time ||
+        "Time TBD";
+      const meetingDateLabel = startsAt
+        ? new Date(startsAt).toLocaleDateString(undefined, {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })
+        : "Date TBD";
+      const destinations = stops
+        .filter((stop: any) => stop?.destination_id !== null)
+        .map((stop: any) => stop.label || "")
+        .filter(Boolean);
+      const serviceStops = stops.filter((stop: any) => stop?.type === "service");
+      const serviceLabels = serviceStops
+        .map((stop: any) => stop.label || "")
+        .filter(Boolean);
   const itinerary = trip.itinerary || [];
   const activities = trip.activities || [];
   const included = trip.included || [];
@@ -170,14 +179,14 @@ const JoinTrip = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="relative bg-[#FDFCF0] rounded-3xl w-[95vw] h-[95vh] overflow-hidden flex flex-col shadow-2xl">
-        <button
-          onClick={handleClose}
-          className="absolute top-4 right-4 z-10 p-2.5 bg-white rounded-full hover:bg-gray-100 transition-colors shadow-lg"
-        >
-          <X className="w-6 h-6 text-[#1A2E05]" />
-        </button>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={handleClose}>
+        <div className="relative bg-[#FDFCF0] rounded-3xl w-[95vw] h-[95vh] overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={handleClose}
+            className="absolute top-4 right-4 z-10 p-2.5 bg-white rounded-full hover:bg-gray-100 transition-colors shadow-lg"
+          >
+            <X className="w-6 h-6 text-[#1A2E05]" />
+          </button>
 
         <div className="overflow-y-auto h-full">
       <div className="relative bg-center h-[350px] w-full">
@@ -201,10 +210,41 @@ const JoinTrip = () => {
             </Badge>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-2">{trip.title}</h1>
-          <p className="flex items-center gap-1 text-[11px] font-medium text-white/90">
-            <MapPin className="w-4 h-4 text-[#FDFCF0]" /> {firstMeetingLabel} • {meetingDateLabel} • {meetingTime}
-            {destinations.length > 0 && ` • ${destinations.join(", ")}`}
-          </p>
+           <p className="flex items-center gap-1 text-[11px] font-medium text-white/90 mb-4">
+             <MapPin className="w-4 h-4 text-[#FDFCF0]" /> {firstMeetingLabel} • {meetingDateLabel} • {meetingTime}
+             {destinations.length > 0 && ` • ${destinations.join(", ")}`}
+           </p>
+           {serviceLabels.length > 0 && (
+             <p className="flex items-center gap-1 text-[11px] font-medium text-white/90 mb-4">
+               <Bus className="w-4 h-4 text-[#FDFCF0]" /> Services: {serviceLabels.join(", ")}
+             </p>
+           )}
+          
+          {/* Organizer Block in Banner */}
+          {trip.organizer_profile && (
+            <div className="flex items-center gap-3 pt-2 border-t border-white/30">
+              <div
+                className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity mt-2"
+                onClick={() => navigate(`/profile/${trip.organizer_profile?.username || trip.organizer}`)}
+              >
+                <div className="size-10 rounded-full overflow-hidden bg-white/20 flex-shrink-0 border border-white/50">
+                  {trip.organizer_profile?.avatar_url ? (
+                    <img src={trip.organizer_profile.avatar_url} alt={trip.organizer_profile.display_name || "Organizer"} className="size-full object-cover" />
+                  ) : (
+                    <div className="size-full flex items-center justify-center bg-white/30 text-white text-sm font-semibold">
+                      {(trip.organizer_profile?.display_name || "O").charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col leading-tight">
+                  <span className="text-xs text-white/80">Organized by</span>
+                  <span className="text-sm font-semibold text-white hover:text-[#FDFCF0] transition-colors">
+                    {trip.organizer_profile?.display_name || "Trip Organizer"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -220,7 +260,6 @@ const JoinTrip = () => {
           )}
           <div className="flex flex-wrap gap-2 mt-6">
             {activities.slice(0, 5).map((activity: string) => (
-              <Badge key={activity} className="bg-[#E8F5E9] hover:bg-[#E8F5E9] text-[#4CAF50] border-none rounded-lg px-3.5 py-2 text-xs font-bold">
               <Badge key={activity} className="bg-[#E8F5E9] hover:bg-[#E8F5E9] text-[#4CAF50] border-none rounded-lg px-3.5 py-2 text-xs font-bold">
                 {activity}
               </Badge>

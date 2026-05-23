@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -98,96 +98,6 @@ export type Database = {
         }
         Relationships: []
       }
-      trip_participants: {
-        Row: {
-          id: string
-          joined_at: string | null
-          trip_id: string | null
-          user_id: string | null
-        }
-        Insert: {
-          id?: string
-          joined_at?: string | null
-          trip_id?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          id?: string
-          joined_at?: string | null
-          trip_id?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "trip_participants_trip_id_fkey"
-            columns: ["trip_id"]
-            isOneToOne: false
-            referencedRelation: "trips"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trip_participants_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      trip_stops: {
-        Row: {
-          created_at: string | null
-          destination: string | null
-          id: string
-          index: number | null
-          label: string | null
-          location: unknown
-          time: string | null
-          trip: string
-          type: Database["public"]["Enums"]["trip_stop_type"]
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          destination?: string | null
-          id?: string
-          index?: number | null
-          label?: string | null
-          location: unknown
-          time?: string | null
-          trip: string
-          type: Database["public"]["Enums"]["trip_stop_type"]
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          destination?: string | null
-          id?: string
-          index?: number | null
-          label?: string | null
-          location?: unknown
-          time?: string | null
-          trip?: string
-          type?: Database["public"]["Enums"]["trip_stop_type"]
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "trip_stops_destination_fkey"
-            columns: ["destination"]
-            isOneToOne: false
-            referencedRelation: "destinations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trip_stops_trip_fkey"
-            columns: ["trip"]
-            isOneToOne: false
-            referencedRelation: "trips"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       favorite_destinations: {
         Row: {
           created_at: string | null
@@ -214,6 +124,39 @@ export type Database = {
           },
           {
             foreignKeyName: "favorite_destinations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      favorite_services: {
+        Row: {
+          created_at: string | null
+          service_id: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          service_id: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          service_id?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorite_services_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favorite_services_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -266,6 +209,164 @@ export type Database = {
         }
         Relationships: []
       }
+      service_bookings: {
+        Row: {
+          created_at: string
+          form_data: Json | null
+          id: number
+          profile_id: string
+          service_id: number
+        }
+        Insert: {
+          created_at?: string
+          form_data?: Json | null
+          id?: number
+          profile_id: string
+          service_id: number
+        }
+        Update: {
+          created_at?: string
+          form_data?: Json | null
+          id?: number
+          profile_id?: string
+          service_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_bookings_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_bookings_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_reviews: {
+        Row: {
+          author_id: string
+          created_at: string
+          description: string
+          id: number
+          rating: number
+          service_id: number
+        }
+        Insert: {
+          author_id: string
+          created_at?: string
+          description: string
+          id?: number
+          rating?: number
+          service_id: number
+        }
+        Update: {
+          author_id?: string
+          created_at?: string
+          description?: string
+          id?: number
+          rating?: number
+          service_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_review_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_review_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      services: {
+        Row: {
+          additional_stat: string | null
+          address: string | null
+          availability: string[]
+          category: Database["public"]["Enums"]["service_category"] | null
+          client_limit: number | null
+          created_at: string
+          current_revenue: number
+          description: string | null
+          id: number
+          image: string | null
+          images: string[] | null
+          location: unknown
+          max_cost: number
+          min_cost: number
+          monthly_revenue: number
+          name: string
+          owner_id: string | null
+          procedure: Json
+          status: Database["public"]["Enums"]["service_status"]
+          yearly_revenue: number
+        }
+        Insert: {
+          additional_stat?: string | null
+          address?: string | null
+          availability: string[]
+          category?: Database["public"]["Enums"]["service_category"] | null
+          client_limit?: number | null
+          created_at?: string
+          current_revenue: number
+          description?: string | null
+          id?: number
+          image?: string | null
+          images?: string[] | null
+          location: unknown
+          max_cost: number
+          min_cost: number
+          monthly_revenue: number
+          name?: string
+          owner_id?: string | null
+          procedure: Json
+          status?: Database["public"]["Enums"]["service_status"]
+          yearly_revenue: number
+        }
+        Update: {
+          additional_stat?: string | null
+          address?: string | null
+          availability?: string[]
+          category?: Database["public"]["Enums"]["service_category"] | null
+          client_limit?: number | null
+          created_at?: string
+          current_revenue?: number
+          description?: string | null
+          id?: number
+          image?: string | null
+          images?: string[] | null
+          location?: unknown
+          max_cost?: number
+          min_cost?: number
+          monthly_revenue?: number
+          name?: string
+          owner_id?: string | null
+          procedure?: Json
+          status?: Database["public"]["Enums"]["service_status"]
+          yearly_revenue?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "services_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       spatial_ref_sys: {
         Row: {
           auth_name: string | null
@@ -289,6 +390,106 @@ export type Database = {
           srtext?: string | null
         }
         Relationships: []
+      }
+      trip_participants: {
+        Row: {
+          id: string
+          joined_at: string | null
+          trip_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          joined_at?: string | null
+          trip_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          joined_at?: string | null
+          trip_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_participants_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trip_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trip_stops: {
+        Row: {
+          created_at: string | null
+          destination: string | null
+          id: string
+          index: number
+          label: string | null
+          location: unknown
+          service: number | null
+          time: string | null
+          trip: string
+          type: Database["public"]["Enums"]["trip_stop_type"]
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          destination?: string | null
+          id?: string
+          index: number
+          label?: string | null
+          location: unknown
+          service?: number | null
+          time?: string | null
+          trip: string
+          type: Database["public"]["Enums"]["trip_stop_type"]
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          destination?: string | null
+          id?: string
+          index?: number
+          label?: string | null
+          location?: unknown
+          service?: number | null
+          time?: string | null
+          trip?: string
+          type?: Database["public"]["Enums"]["trip_stop_type"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_stops_destination_fkey"
+            columns: ["destination"]
+            isOneToOne: false
+            referencedRelation: "destinations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trip_stops_service_fkey"
+            columns: ["service"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trip_stops_trip_fkey"
+            columns: ["trip"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       trips: {
         Row: {
@@ -363,7 +564,58 @@ export type Database = {
           updated_at?: string | null
           what_to_bring?: string[] | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "trips_organizer_fkey"
+            columns: ["organizer"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trips_organizer_id_fkey"
+            columns: ["organizer"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trips_destinations: {
+        Row: {
+          created_at: string
+          destination: string
+          id: number
+          trip: string
+        }
+        Insert: {
+          created_at?: string
+          destination: string
+          id?: number
+          trip: string
+        }
+        Update: {
+          created_at?: string
+          destination?: string
+          id?: number
+          trip?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trips_destinations_destination_fkey"
+            columns: ["destination"]
+            isOneToOne: false
+            referencedRelation: "destinations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trips_destinations_trip_fkey"
+            columns: ["trip"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -1362,6 +1614,12 @@ export type Database = {
         | "forest"
         | "historic"
         | "city"
+      service_category:
+        | "restauration"
+        | "accommodation"
+        | "transportation"
+        | "guides"
+      service_status: "Available" | "Unavailable"
       trip_category:
         | "adventure"
         | "cultural"
@@ -1371,7 +1629,7 @@ export type Database = {
         | "photography"
       trip_difficulty: "easy" | "moderate" | "challenging" | "difficult"
       trip_status: "draft" | "published" | "completed" | "cancelled" | "live"
-      trip_stop_type: "meeting" | "destination"
+      trip_stop_type: "meeting" | "destination" | "service"
       user_role: "traveler" | "organization" | "agency" | "services"
     }
     CompositeTypes: {
@@ -1516,6 +1774,13 @@ export const Constants = {
         "historic",
         "city",
       ],
+      service_category: [
+        "restauration",
+        "accommodation",
+        "transportation",
+        "guides",
+      ],
+      service_status: ["Available", "Unavailable"],
       trip_category: [
         "adventure",
         "cultural",
@@ -1526,7 +1791,7 @@ export const Constants = {
       ],
       trip_difficulty: ["easy", "moderate", "challenging", "difficult"],
       trip_status: ["draft", "published", "completed", "cancelled", "live"],
-      trip_stop_type: ["meeting", "destination"],
+      trip_stop_type: ["meeting", "destination", "service"],
       user_role: ["traveler", "organization", "agency", "services"],
     },
   },

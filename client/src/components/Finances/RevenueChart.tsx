@@ -1,31 +1,53 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
-const monthlyData = [
-  { name: '2', revenue: 150 }, { name: '4', revenue: 180 }, 
-  { name: '6', revenue: 230 }, { name: '8', revenue: 240 },
-  { name: '10', revenue: 235 }, { name: '12', revenue: 220 },
-  { name: '14', revenue: 215 }, { name: '16', revenue: 220 },
-  { name: '18', revenue: 240 }, { name: '20', revenue: 290 },
-  { name: '22', revenue: 320 }, { name: '24', revenue: 350 },
-  { name: '26', revenue: 390 }, { name: '28', revenue: 420 },
-  { name: '30', revenue: 440 }
-];
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-const yearlyData = [
-  { name: 'Jan', revenue: 200 }, { name: 'Feb', revenue: 250 },
-  { name: 'Mar', revenue: 280 }, { name: 'Apr', revenue: 260 },
-  { name: 'May', revenue: 300 }, { name: 'Jun', revenue: 340 },
-  { name: 'Jul', revenue: 380 }, { name: 'Aug', revenue: 400 },
-  { name: 'Sep', revenue: 450 }, { name: 'Oct', revenue: 420 },
-  { name: 'Nov', revenue: 480 }, { name: 'Dec', revenue: 510 }
-];
-
-const RevenueChart: React.FC = () => {
+const RevenueChart = () => {
   const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
+  const [chartData, setChartData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchChart = async () => {
+      try {
+        const { supabase } = await import('@/lib/supabase');
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+        const response = await fetch(`${API_BASE_URL}/dashboard/revenue-chart`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setChartData(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch revenue chart:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchChart();
+  }, []);
+
+  if (loading) {
+    return <div className="bg-white p-8 rounded-3xl shadow-sm border border-emerald-400">
+      <div className="text-center py-12 text-gray-500">Loading chart...</div>
+    </div>;
+  }
+
+  const monthlyData = chartData?.months?.map((m: any) => ({
+    name: m.month,
+    revenue: Math.round(m.revenue / 1000),
+  })) ?? [];
+
+  const yearlyData = chartData?.years?.map((y: any) => ({
+    name: y.year,
+    revenue: Math.round(y.revenue / 1000),
+  })) ?? [];
 
   const data = viewMode === 'monthly' ? monthlyData : yearlyData;
-  const activeColor = viewMode === 'monthly' ? '#f97316' : '#10b981'; // Orange for monthly, Green for yearly
+  const activeColor = viewMode === 'monthly' ? '#f97316' : '#10b981';
 
   return (
     <div className="bg-white p-8 rounded-3xl shadow-sm border border-emerald-400">
@@ -47,7 +69,7 @@ const RevenueChart: React.FC = () => {
             className={`flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-full transition-colors ${viewMode === 'yearly' ? 'text-gray-600 bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-            YEARLY AVG
+            YEARLY
           </button>
         </div>
       </div>
@@ -62,7 +84,7 @@ const RevenueChart: React.FC = () => {
               </linearGradient>
             </defs>
             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#9ca3af'}} dy={10} />
-            <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#9ca3af'}} dx={-10} tickFormatter={(val) => val === 0 ? '0' : `${val}k`} />
+            <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#9ca3af'}} dx={-10} tickFormatter={(val: number) => val === 0 ? '0' : `${val}k`} />
             <Tooltip />
             <Area type="monotone" dataKey="revenue" stroke={activeColor} fill="url(#colorRev)" strokeWidth={3} />
           </AreaChart>

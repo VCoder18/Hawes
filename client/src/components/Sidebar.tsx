@@ -55,7 +55,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
               <input
                 type="text"
                 placeholder="Search destinations, trips..."
-                className="bg-white flex-1 px-2 py-2 text-sm text-text-[#ff5900] outline-none"
+                className="bg-white flex-1 px-2 py-2 text-sm text-gray-900 outline-none"
               />
             </div>
           </div>
@@ -84,11 +84,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
               Destinations
             </Link>
             <Link
-              to="/login"
+              to="/services"
               className="px-4 py-3 text-[#334155] font-medium hover:bg-bg-[#ff5900] rounded-lg transition-colors block"
               onClick={() => setSidebarOpen(false)}
             >
-              Community
+              Services
             </Link>
           </nav>
         </div>

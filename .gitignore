@@ -54,6 +54,11 @@ tmp/
 # pnpm-lock.yaml
 
 # =====================
+# Generated docs / diagrams
+# =====================
+*.txt
+
+# =====================
 # MY STUFF
 # =====================
 queries/

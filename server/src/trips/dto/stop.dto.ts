@@ -44,6 +44,12 @@ export class TripStopDTO {
   @IsString() // Using string instead of UUID as some destinations might have slug/string IDs in certain contexts, or be handled as string
   destination?: string | null;
 
+  // Service ID for service-type stops
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  service?: number | null;
+
   // Acceptance of old keys for compatibility during transition
   @IsOptional()
   @IsInt()

@@ -9,6 +9,7 @@ import { DestinationsModule } from './destinations/destinations.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { BookmarksModule } from './bookmarks/bookmarks.module';
+import { ServiceFavoritesModule } from './service-favorites/service-favorites.module';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { DashboardModule } from './dashboard/dashboard.module';
@@ -35,6 +36,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     DestinationsModule,
     FavoritesModule,
     BookmarksModule,
+    ServiceFavoritesModule,
     DashboardModule,
   ],
   controllers: [AppController],
