@@ -8,8 +8,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Star } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 const LoginForm = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { signIn, signInWithGoogle, isLoading, error } = useAuth();
   const [email, setEmail] = useState('');
@@ -44,14 +46,14 @@ const LoginForm = () => {
             <img 
               src={logo} 
               alt="Hawes Logo" 
-              className="w-40 mb-6 hover:opacity-80 transition-opacity cursor-pointer" 
+              className="w-40 h-auto object-contain mb-6 hover:opacity-80 transition-opacity cursor-pointer" 
             />
           </Link>
 
           {/* Titres */}
-          <h2 className="text-3xl font-serif font-bold text-gray-950 mb-1">Welcome Back</h2>
+          <h2 className="text-3xl font-serif font-bold text-gray-950 mb-1">{t('auth.welcomeBack')}</h2>
           <p className="text-gray-600 text-sm mb-6 leading-relaxed">
-            Please enter your details to log in to your account
+            {t('auth.loginSubtitle')}
           </p>
 
           <form className="space-y-3" onSubmit={handleSubmit}>
@@ -62,7 +64,7 @@ const LoginForm = () => {
             )}
             
             <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-800 mb-1.5 tracking-widest">Username / Email Address</label>
+              <label className="block text-[11px] uppercase font-bold text-gray-800 mb-1.5 tracking-widest">{t('auth.usernameOrEmail')}</label>
               <input 
                 type="email" 
                 placeholder="name@company.com"
@@ -74,7 +76,7 @@ const LoginForm = () => {
             </div>
 
             <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-800 mb-1.5 tracking-widest">Password</label>
+              <label className="block text-[11px] uppercase font-bold text-gray-800 mb-1.5 tracking-widest">{t('auth.password')}</label>
               <input 
                 type="password" 
                 placeholder="********"
@@ -90,14 +92,14 @@ const LoginForm = () => {
               disabled={isLoading}
               className="w-full bg-black hover:!bg-[#E64A19] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-lg shadow-lg transition active:scale-95 mt-4 text-sm tracking-wide focus:!outline-none "
             >
-              {isLoading ? 'Logging in...' : 'Log In'}
+              {isLoading ? 'Logging in...' : t('auth.logIn')}
             </button>
           </form>
 
           <div className="relative my-4 text-center">
             <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-gray-200"></span></div>
             <div className="relative flex justify-center text-[10px] uppercase font-bold text-green-700 tracking-widest z-10">
-              <span className="bg-white px-3">Or log in with</span>
+              <span className="bg-white px-3">{t('auth.orLogInWith')}</span>
             </div>
           </div>
 
@@ -128,7 +130,7 @@ const LoginForm = () => {
           </div>
 
           <p className="text-center text-xs text-gray-600 mt-4">
-            Don't have an account? <Link to="/register" className="text-green-600 font-bold hover:underline">Sign up</Link>
+            {t('auth.noAccount')} <Link to="/register" className="text-green-600 font-bold hover:underline">{t('auth.signUp')}</Link>
           </p>
         </div>
 
@@ -136,7 +138,7 @@ const LoginForm = () => {
         <div className="hidden md:block md:w-1/2 relative">
           <img 
             src={image}
-            alt="Traveler" 
+            alt={t('auth.traveler')} 
             className="h-full w-full object-cover"
           />
           {/* Overlay */}
@@ -160,7 +162,7 @@ const LoginForm = () => {
                </div>
               <div>
                 <p className="font-bold text-sm tracking-wide">Meow</p>
-                <p className="text-xs opacity-80">Traveler</p>
+                <p className="text-xs opacity-80">{t('auth.traveler')}</p>
               </div>
             </div>
           </div>

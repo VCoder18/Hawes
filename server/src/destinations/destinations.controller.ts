@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { DestinationsService } from './destinations.service';
-import { AuthGuard, type SupabaseJWTPayload } from 'src/auth/auth.guard';
+import { AuthGuard, Public, type SupabaseJWTPayload } from 'src/auth/auth.guard';
 import { DestinationsQueryDto } from './dto/query.dto';
 import { CurrentUser } from 'src/auth/decorators/user.decorator';
 
@@ -20,5 +20,25 @@ export class DestinationsController {
   @Get(':tripId')
   getDestinationById(@Param('tripId') tripId: string) {
     return this.service.getDestinationById(tripId);
+  }
+
+  @Get(':id/nearby-wilayas')
+  getNearbyWilayas(
+    @Param('id') id: string,
+    @Query('maxRadius') maxRadius?: string,
+  ) {
+    return this.service.getNearbyWilayas(
+      id,
+      maxRadius ? parseInt(maxRadius, 10) : 500,
+    );
+  }
+
+  @Get(':id/trips')
+  @Public()
+  getDestinationTrips(
+    @Param('id') id: string,
+    @CurrentUser() user: SupabaseJWTPayload | undefined,
+  ) {
+    return this.service.getDestinationTrips(id, user?.sub ?? null);
   }
 }

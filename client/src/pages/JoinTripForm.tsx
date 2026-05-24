@@ -131,13 +131,22 @@ const JoinTripForm = () => {
         console.error('User not authenticated');
         return;
       }
+      
+      // Get invite code from URL params if present
+      const urlParams = new URLSearchParams(window.location.search);
+      const inviteCode = urlParams.get('invite');
+      
       const response = await fetch(`${API_BASE_URL}/trips/join/${id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ ...formData, serviceForm }),
+        body: JSON.stringify({ 
+          ...formData, 
+          serviceForm,
+          invite_code: inviteCode // Include invite code if present
+        }),
       });
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
@@ -166,6 +175,20 @@ const JoinTripForm = () => {
   };
 
   const renderProcedureField = (serviceId: number, field: ProcedureField) => {
+    // Normalize common field keys/labels to avoid rendering duplicates
+    const COMMON_FIELD_KEYS = new Set([
+      'email', 'emailaddress', 'email_address', 'e-mail',
+      'phone', 'phonenumber', 'phone_number', 'tel', 'telephone',
+      'fullname', 'full_name', 'name'
+    ]);
+    const norm = (s?: string) => (s || '').toString().toLowerCase().replace(/\s|_|-|\./g, '');
+    const keyNorm = norm(field.k) || '';
+    const labelNorm = norm(field.l) || '';
+
+    // If this procedure field is a common input (email/phone/name), skip it
+    if (COMMON_FIELD_KEYS.has(keyNorm) || COMMON_FIELD_KEYS.has(labelNorm) || /email|phone|tel|name/i.test(field.l)) {
+      return null;
+    }
     const value = serviceForm[serviceId]?.[field.k] || (field.t === 'checkbox' ? [] : '');
 
     switch (field.t) {

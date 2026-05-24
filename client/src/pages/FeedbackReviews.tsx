@@ -1,10 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
+interface Review {
+  id: string;
+  rating: number;
+  description: string;
+  created_at: string;
+  service_id: string;
+  author: { display_name: string; username: string; avatar_url: string | null }[];
+  service: { name: string; category: string }[];
+}
+
 const FeedbackReviews = () => {
-  const [reviews, setReviews] = useState([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchReviews = async () => {
@@ -55,11 +65,11 @@ const FeedbackReviews = () => {
 
         if (reviewsError) throw reviewsError;
         
-        setReviews(reviewsData || []);
+        setReviews((reviewsData as Review[]) || []);
         setLoading(false);
       } catch (err) {
         console.error('Error fetching feedback reviews:', err);
-        setError(err.message || 'Failed to load reviews');
+        setError(err instanceof Error ? err.message : 'Failed to load reviews');
         setLoading(false);
       }
     };
@@ -101,31 +111,34 @@ const FeedbackReviews = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            {reviews.map((review) => (
+            {reviews.map((review) => {
+              const author = Array.isArray(review.author) ? review.author[0] : review.author;
+              const service = Array.isArray(review.service) ? review.service[0] : review.service;
+              return (
               <div key={review.id} className="bg-white rounded-xl border border-gray-100 shadow-sm">
                 <div className="p-6">
                   <div className="flex items-start space-x-4">
                     <div className="flex-shrink-0">
-                      {review.author?.avatar_url ? (
+                      {author?.avatar_url ? (
                         <img 
-                          src={review.author.avatar_url} 
-                          alt={`${review.author.display_name}'s avatar`} 
+                          src={author.avatar_url} 
+                          alt={`${author.display_name}'s avatar`} 
                           className="w-12 h-12 rounded-full border-2 border-gray-200"
                         />
                       ) : (
                         <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
-                          <span className="text-gray-500 font-medium">{review.author?.username?.slice(0, 2).toUpperCase() ?? '?'}</span>
+                          <span className="text-gray-500 font-medium">{author?.username?.slice(0, 2).toUpperCase() ?? '?'}</span>
                         </div>
                       )}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex-1">
-                          <h3 className="font-semibold text-[#1a2e05]">{review.author?.display_name || 'Anonymous'}</h3>
+                          <h3 className="font-semibold text-[#1a2e05]">{author?.display_name || 'Anonymous'}</h3>
                           <p className="text-xs text-gray-500">
                             Reviewed {new Date(review.created_at).toLocaleDateString()} • 
-                            <span className="text-[#00B70D] font-medium">{review.service?.name}</span> 
-                            (<span className="text-gray-400">{review.service?.category}</span>)
+                            <span className="text-[#00B70D] font-medium">{service?.name}</span> 
+                            (<span className="text-gray-400">{service?.category}</span>)
                           </p>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -147,7 +160,8 @@ const FeedbackReviews = () => {
                   Review ID: #{review.id} • Service ID: #{review.service_id}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

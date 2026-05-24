@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { LayoutDashboard, Menu, Search, Bell, MessageSquare, Settings, LogOut, User } from "lucide-react";
+import { LayoutDashboard, Menu, Search, MessageSquare, Settings, LogOut, User, Languages } from "lucide-react";
 import Avatar from "@/assets/images/pfp.svg";
 import logo from "@/assets/images/logo.png";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import NotificationDropdown from "@/components/NotificationDropdown";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -14,6 +17,7 @@ interface HeaderProps {
 }
 
 export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: HeaderProps) {
+  const { t } = useTranslation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string>(Avatar);
@@ -69,11 +73,25 @@ export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: He
     };
   }, [user]);
 
+  const toggleLanguage = () => {
+    const nextLang = i18n.language === 'en' ? 'fr' : 'en';
+    i18n.changeLanguage(nextLang);
+    localStorage.setItem('i18nextLng', nextLang);
+  };
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchValue.trim()) {
       navigate(`/browse?search=${encodeURIComponent(searchValue)}`);
       setSearchValue("");
+    }
+  };
+
+  const handleAuthNav = (path: string) => {
+    if (!user) {
+      navigate("/login");
+    } else {
+      navigate(path);
     }
   };
 
@@ -104,20 +122,20 @@ export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: He
             <img 
               src={logo} 
               alt="Hawes Logo" 
-              className="h-10 w-auto cursor-pointer" 
+              className="h-10 w-auto object-contain cursor-pointer" 
               onClick={() => navigate("/")} 
             />
           </div>
 
           {/* Search Bar - Desktop Only */}
           <div className="hidden lg:flex flex-1 max-w-xs lg:mx-6">
-            <form onSubmit={handleSearchSubmit} className="flex w-full rounded-lg overflow-hidden">
+            <form onSubmit={handleSearchSubmit} className="flex w-full rounded-lg overflow-hidden border border-[#d6d0c4] shadow-sm">
               <div className="bg-white px-4 py-2 flex items-center">
                 <Search className="size-[15px]" />
               </div>
               <input
                 type="text"
-                placeholder="Search destinations, trips..."
+                placeholder={t('header.searchPlaceholder')}
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
                 className="bg-white flex-1 px-2 py-2 text-sm text-gray-900 outline-none"
@@ -127,17 +145,22 @@ export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: He
 
           {/* Navigation - Desktop Only */}
           <nav className="hidden lg:flex items-center gap-6 xl:gap-8 lg:mr-6">
-            <Link to="/register" className="text-[#334155] text-sm font-medium hover:text-[#00b70d]">Explore</Link>
-            <Link to="/trips" className="text-[#334155] text-sm font-medium hover:text-[#00b70d]">Trips</Link>
-            <Link to="/browse" className="text-[#334155] text-sm font-medium hover:text-[#00b70d]">Destinations</Link>
-            <Link to="/services" className="text-[#334155] text-sm font-medium hover:text-[#00b70d]">Services</Link>
+            <button onClick={() => handleAuthNav("/register")} className="text-[#334155] text-sm font-medium hover:text-[#00b70d] transition-colors cursor-pointer">{t('nav.explore')}</button>
+            <button onClick={() => handleAuthNav("/trips")} className="text-[#334155] text-sm font-medium hover:text-[#00b70d] transition-colors cursor-pointer">{t('nav.trips')}</button>
+            <button onClick={() => handleAuthNav("/browse")} className="text-[#334155] text-sm font-medium hover:text-[#00b70d] transition-colors cursor-pointer">{t('nav.destinations')}</button>
+            <button onClick={() => handleAuthNav("/services")} className="text-[#334155] text-sm font-medium hover:text-[#00b70d] transition-colors cursor-pointer">{t('nav.services')}</button>
           </nav>
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <button className="bg-[#00b70d] p-2 sm:p-2.5 rounded-lg hover:bg-[#00b70d]-hover transition-colors">
-              <Bell className="size-4" stroke="white" />
+            <button
+              onClick={toggleLanguage}
+              className="bg-white border border-[#e2e8f0] p-2 sm:p-2.5 rounded-lg hover:bg-gray-50 transition-colors"
+              title={i18n.language === 'en' ? 'Français' : 'English'}
+            >
+              <Languages className="size-4" stroke="#334155" />
             </button>
+            <NotificationDropdown />
             <button className="bg-[#00b70d] p-2 sm:p-2.5 rounded-lg hover:bg-[#00b70d]-hover transition-colors">
               <MessageSquare className="size-4" stroke="white" />
             </button>
@@ -148,7 +171,7 @@ export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: He
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="size-8 sm:size-10 rounded-full overflow-hidden border-2 border-[rgba(19,127,236,0.2)] hover:border-[#00b70d] transition-colors"
               >
-                <img src={avatarUrl} alt="Profile" className="size-full object-cover object-center" />
+                <img src={avatarUrl} alt={t('header.profile')} className="size-full object-cover object-center" />
               </button>
 
               {/* Dropdown Menu */}
@@ -170,7 +193,7 @@ export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: He
                       className="w-full px-4 py-2 text-left text-sm text-[#334155] hover:bg-bg-[#ff5900] transition-colors flex items-center gap-2"
                     >
                       <LayoutDashboard className="size-4" strokeWidth={2} />
-                        Dashboard
+                        {t('header.dashboard')}
                     </button>
                     <button
                       onClick={() => {
@@ -180,7 +203,7 @@ export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: He
                       className="w-full px-4 py-2 text-left text-sm text-[#334155] hover:bg-bg-[#ff5900] transition-colors flex items-center gap-2"
                     >
                       <User className="size-4" strokeWidth={2} />
-                      Profile
+                      {t('header.profile')}
                     </button>
                     <button
                       onClick={() => {
@@ -190,14 +213,14 @@ export default function Header({ sidebarOpen: _sidebarOpen, setSidebarOpen }: He
                       className="w-full px-4 py-2 text-left text-sm text-[#334155] hover:bg-bg-[#ff5900] transition-colors flex items-center gap-2"
                     >
                       <Settings className="size-4" strokeWidth={2} />
-                      Settings
+                      {t('header.settings')}
                     </button>
                     <button
                       onClick={handleLogout}
                       className="w-full px-4 py-2 text-left text-sm text-[#334155] hover:bg-bg-[#ff5900] transition-colors flex items-center gap-2"
                     >
                       <LogOut className="size-4" strokeWidth={2} />
-                      Logout
+                      {t('header.logout')}
                     </button>
                   </div>
                 </>

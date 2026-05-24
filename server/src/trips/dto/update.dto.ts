@@ -15,6 +15,7 @@ import {
   TripDifficulty,
   TripStatus,
   TripCategory,
+  TripVisibility,
 } from '../entities/trips.entity';
 import { TripStopDTO } from './stop.dto';
 
@@ -93,6 +94,10 @@ export class TripUpdateDTO {
   @IsOptional()
   @IsEnum(TripStatus)
   status?: TripStatus;
+
+  @IsOptional()
+  @IsEnum(TripVisibility)
+  visibility?: TripVisibility;
 
   @IsOptional()
   @IsString()

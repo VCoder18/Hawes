@@ -2,6 +2,17 @@ import type { LucideIcon } from 'lucide-react';
 
 // CREATE TRIP
 
+export interface SelectedService {
+  id: number;
+  name: string;
+  category: string | null;
+  min_cost: number;
+  max_cost: number;
+  image: string | null;
+  address: string | null;
+  location: { lat: number; lng: number } | null;
+}
+
 export interface TripData {
   destinations: string[];
   title: string;
@@ -17,6 +28,7 @@ export interface TripData {
   included: string[];
   excluded: string[];
   whatToBring: string[];
+  selectedServices: SelectedService[];
   maxParticipants: number;
   minParticipants: number;
   pricePerPerson: number;
@@ -57,8 +69,9 @@ export interface Destination {
   category: string;
   description: string;
   isFavorite: boolean;
-  lat: number;
-  lng: number;
+  lat?: number;
+  lng?: number;
+  location?: unknown;
   best_periods: string[]; // "MM-DD:MM-DD" format
 }
 

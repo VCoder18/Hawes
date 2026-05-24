@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Search, Compass, Plus, SlidersHorizontal, User, Heart, Mountain, Leaf, Camera, Users, Backpack, Factory, BookOpen, Coffee, type LucideIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useNavigate, useLocation } from "react-router-dom";

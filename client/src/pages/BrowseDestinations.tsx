@@ -142,8 +142,6 @@ export default function BrowseDestinations() {
           }
           
           const transformed = fetchedDestinations.map((dbDest: any) => {
-            const [longitude, latitude] = dbDest.location?.coordinates || [0, 0];
-            
             return {
               id: dbDest.id,
               name: dbDest.name,
@@ -157,8 +155,7 @@ export default function BrowseDestinations() {
               category: dbDest.category,
               description: dbDest.description || "",
               isFavorite: false,
-              lat: latitude,
-              lng: longitude,
+              location: dbDest.location,
               best_periods: dbDest.best_periods || [],
             };
           });

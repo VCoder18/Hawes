@@ -13,7 +13,8 @@ import {
   Zap,
   Package,
 } from "lucide-react";
-import type { TripData } from "@/imports/types";
+import type { TripData, SelectedService } from "@/imports/types";
+import { ServicePickerModal } from "@/components/CreateTrip/ServicePickerModal";
 
 interface Step5Props {
   tripData: TripData;
@@ -24,6 +25,9 @@ interface Step5Props {
   onRemoveCustomIncluded: (item: string) => void;
   onAddExcluded: (item: string) => void;
   onRemoveExcluded: (item: string) => void;
+  allServices: any[];
+  serviceLoading: boolean;
+  onToggleService: (service: any) => void;
 }
 
 export function Step5Logistics({
@@ -35,13 +39,27 @@ export function Step5Logistics({
   onRemoveCustomIncluded,
   onAddExcluded,
   onRemoveExcluded,
+  allServices,
+  serviceLoading,
+  onToggleService,
 }: Step5Props) {
   const [newCustomItem, setNewCustomItem] = useState("");
   const [newNotIncludedItem, setNewNotIncludedItem] = useState("");
   const [newWhatToBringItem, setNewWhatToBringItem] = useState("");
+  const [showServicePicker, setShowServicePicker] = useState(false);
+  const [pickerCategory, setPickerCategory] = useState<string | undefined>(undefined);
   const customItems = tripData.included.filter((item) => !includedOptions.includes(item));
   const premadeIncluded = tripData.included.filter((item) => includedOptions.includes(item));
   const customExcluded = tripData.excluded;
+  const selectedServiceIds = new Set(tripData.selectedServices.map((s) => s.id));
+
+  const serviceCategoryMap: Record<string, string> = {
+    Accommodation: "accommodation",
+    Transport: "transportation",
+    Meals: "restauration",
+    Guide: "guides",
+  };
+
   return (
     <div className="space-y-6">
       <StepHeader
@@ -66,14 +84,24 @@ export function Step5Logistics({
               Miscellaneous: Package,
             };
             const Icon = icons[item];
+            const category = serviceCategoryMap[item];
             return (
               <button
                 key={item}
-                onClick={() => onToggleIncluded(item)}
+                onClick={() => {
+                  if (category) {
+                    setPickerCategory(category);
+                    setShowServicePicker(true);
+                  } else {
+                    onToggleIncluded(item);
+                  }
+                }}
                 className={`px-4 py-3 rounded-xl font-medium transition-all flex items-center gap-2 ${
-                  tripData.included.includes(item)
-                    ? "bg-[#00b70d] text-white"
-                    : "bg-bg-[#ff5900] text-text-[#00b70d] hover:bg-[#e2e8f0]"
+                  category && tripData.selectedServices.some((s) => s.category === category)
+                    ? "bg-[#00b70d] text-white shadow-lg"
+                    : !category && tripData.included.includes(item)
+                      ? "bg-[#00b70d] text-white shadow-lg"
+                      : "bg-white text-[#0d2805] border border-[#e2e8f0] hover:border-[#00b70d]"
                 }`}
               >
                 <Icon className="size-5" />
@@ -274,6 +302,61 @@ export function Step5Logistics({
           </div>
         </div>
       </div>
+
+      {/* Trip Services */}
+      {tripData.selectedServices.length > 0 && (
+        <div>
+          <label className="block font-semibold text-text-[#00b70d] mb-3">
+            Selected Services
+          </label>
+          <div className="bg-[#00b70d]/5 p-4 rounded-xl space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {tripData.selectedServices.map((service) => (
+                <div
+                  key={service.id}
+                  className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-[#e2e8f0]"
+                >
+                  <span className="text-sm font-medium text-[#0d2805]">{service.name}</span>
+                  <button
+                    onClick={() => onToggleService(allServices.find((s) => s.id === service.id) || service)}
+                    className="p-0.5 text-[#ff5900] hover:bg-[#ff5900]/10 rounded transition-colors"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-[#00b70d]/20 pt-3">
+              <p className="text-sm font-semibold text-[#0d2805]">Price Range Calculator</p>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-lg font-bold text-[#ff5900]">
+                  {tripData.selectedServices.reduce((sum, s) => sum + s.min_cost, 0).toLocaleString()} DZD
+                </span>
+                <span className="text-[#6a7282]">–</span>
+                <span className="text-lg font-bold text-[#ff5900]">
+                  {tripData.selectedServices.reduce((sum, s) => sum + s.max_cost, 0).toLocaleString()} DZD
+                </span>
+                <span className="text-xs text-[#6a7282]">total</span>
+              </div>
+              <p className="text-xs text-[#6a7282] mt-1">
+                Based on {tripData.selectedServices.length} service{tripData.selectedServices.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ServicePickerModal
+        open={showServicePicker}
+        onClose={() => {
+          setShowServicePicker(false);
+          setPickerCategory(undefined);
+        }}
+        services={allServices}
+        selectedIds={selectedServiceIds}
+        onToggle={onToggleService}
+        initialCategory={pickerCategory}
+      />
     </div>
   );
 }

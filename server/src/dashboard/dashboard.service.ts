@@ -47,6 +47,29 @@ export class DashboardService {
       throw new InternalServerErrorException('Failed to fetch user trips');
     }
 
+    // Attach participant counts to each trip
+    const tripIds = trips.map((t) => t.id);
+    if (tripIds.length > 0) {
+      const countsResults = await Promise.all(
+        tripIds.map((tid) =>
+          this.supabaseClient
+            .from('trip_participants')
+            .select('*', { count: 'exact', head: true })
+            .eq('trip_id', tid)
+        ),
+      );
+
+      const countsMap = new Map<string, number>();
+      countsResults.forEach((r, idx) => {
+        countsMap.set(String(tripIds[idx]), r?.count ?? 0);
+      });
+
+      return trips.map((trip) => ({
+        ...trip,
+        current_participants: countsMap.get(String(trip.id)) ?? 0,
+      }));
+    }
+
     return trips;
   }
 
@@ -65,6 +88,29 @@ export class DashboardService {
       throw new InternalServerErrorException(
         'Failed to fetch user participated trips',
       );
+    }
+
+    // Attach participant counts where possible (useful if these trips are shown in dashboard)
+    const tripIds = trips.map((t) => t.id);
+    if (tripIds.length > 0) {
+      const countsResults = await Promise.all(
+        tripIds.map((tid) =>
+          this.supabaseClient
+            .from('trip_participants')
+            .select('*', { count: 'exact', head: true })
+            .eq('trip_id', tid)
+        ),
+      );
+
+      const countsMap = new Map<string, number>();
+      countsResults.forEach((r, idx) => {
+        countsMap.set(String(tripIds[idx]), r?.count ?? 0);
+      });
+
+      return trips.map((trip) => ({
+        ...trip,
+        current_participants: countsMap.get(String(trip.id)) ?? 0,
+      }));
     }
 
     return trips;
@@ -194,7 +240,121 @@ export class DashboardService {
       );
     }
 
+    // Attach participant counts
+    const tripIdsRes = trips.map((t) => t.id);
+    if (tripIdsRes.length > 0) {
+      const countsResults = await Promise.all(
+        tripIdsRes.map((tid) =>
+          this.supabaseClient
+            .from('trip_participants')
+            .select('*', { count: 'exact', head: true })
+            .eq('trip_id', tid)
+        ),
+      );
+
+      const countsMap = new Map<string, number>();
+      countsResults.forEach((r, idx) => {
+        countsMap.set(String(tripIdsRes[idx]), r?.count ?? 0);
+      });
+
+      return trips.map((trip) => ({
+        ...trip,
+        current_participants: countsMap.get(String(trip.id)) ?? 0,
+      }));
+    }
+
     return trips;
+  }
+
+  async getClientsForOrganizer(userId: string) {
+    // Match trips by organizer id and legacy organizer username values.
+    const { data: profile } = await this.supabaseClient
+      .from('profiles')
+      .select('username')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const username = profile?.username ?? null;
+
+    let tripsQuery = this.supabaseClient
+      .from('trips')
+      .select('id');
+
+    if (username) {
+      tripsQuery = tripsQuery.or(`organizer.eq.${userId},organizer.eq.${username}`);
+    } else {
+      tripsQuery = tripsQuery.eq('organizer', userId);
+    }
+
+    const { data: myTrips, error: myTripsError } = await tripsQuery;
+
+    if (myTripsError) {
+      throw new InternalServerErrorException('Failed to fetch organizer trips');
+    }
+
+    const tripIds = (myTrips ?? []).map((t) => t.id);
+    if (tripIds.length === 0) return [];
+
+    // Fetch participants for those trips in one query
+    const { data: participants, error: participantsError } = await this.supabaseClient
+      .from('trip_participants')
+      .select('id, joined_at, user_id, profile:user_id(id, display_name, username, avatar_url, email), trip:trip_id(id, title, start_date, end_date, price, organizer)')
+      .in('trip_id', tripIds);
+
+    if (participantsError) {
+      throw new InternalServerErrorException('Failed to fetch trip participants');
+    }
+
+    // Return flat list of participant records; client will group/display as needed
+    return participants ?? [];
+  }
+
+  // Debug helper: returns diagnostic info for organizer client lookup
+  async getClientsForOrganizerDebug(userId: string) {
+    let username: string | null = null;
+    try {
+      const { data: profile } = await this.supabaseClient
+        .from('profiles')
+        .select('username')
+        .eq('id', userId)
+        .single();
+      username = profile?.username ?? null;
+    } catch (e) {
+      username = null;
+    }
+
+    let tripsQuery = this.supabaseClient
+      .from('trips')
+      .select('id, title, organizer');
+    if (username) {
+      tripsQuery = tripsQuery.or(`organizer.eq.${userId},organizer.eq.${username}`);
+    } else {
+      tripsQuery = tripsQuery.eq('organizer', userId);
+    }
+
+    const { data: myTrips, error: myTripsError } = await tripsQuery;
+    const tripIds = (myTrips ?? []).map((t) => t.id);
+
+    const { data: participants, error: participantsError } = await this.supabaseClient
+      .from('trip_participants')
+      .select(`
+        id,
+        joined_at,
+        user_id,
+        profile:user_id (id, display_name, username, avatar_url, email),
+        trip:trip_id (id, title, organizer)
+      `)
+      .in('trip_id', tripIds);
+
+    return {
+      userId,
+      username,
+      tripIds,
+      tripsFound: myTrips ?? [],
+      participants: participants ?? [],
+      myTripsError: myTripsError ?? null,
+      participantsError: participantsError ?? null,
+    };
   }
 
   async getRevenueChart(userId: string): Promise<RevenueChartData> {

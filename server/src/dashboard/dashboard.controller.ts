@@ -54,6 +54,16 @@ export class DashboardController {
     return this.dashboardService.getRevenueChart(user.sub);
   }
 
+  @Get('clients')
+  getClients(@CurrentUser() user: SupabaseJWTPayload) {
+    return this.dashboardService.getClientsForOrganizer(user.sub);
+  }
+
+  @Get('clients/debug')
+  getClientsDebug(@CurrentUser() user: SupabaseJWTPayload) {
+    return this.dashboardService.getClientsForOrganizerDebug(user.sub);
+  }
+
   @Patch('services/:id/limit')
   updateServiceLimit(
     @Param('id', ParseIntPipe) id: number,

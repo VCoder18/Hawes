@@ -300,6 +300,7 @@ export type Database = {
           created_at: string
           current_revenue: number
           description: string | null
+          details_informations: string[]
           id: number
           image: string | null
           images: string[] | null
@@ -310,6 +311,7 @@ export type Database = {
           name: string
           owner_id: string | null
           procedure: Json
+          procedure_info: string[]
           status: Database["public"]["Enums"]["service_status"]
           yearly_revenue: number
         }
@@ -322,6 +324,7 @@ export type Database = {
           created_at?: string
           current_revenue: number
           description?: string | null
+          details_informations?: string[]
           id?: number
           image?: string | null
           images?: string[] | null
@@ -332,6 +335,7 @@ export type Database = {
           name?: string
           owner_id?: string | null
           procedure: Json
+          procedure_info?: string[]
           status?: Database["public"]["Enums"]["service_status"]
           yearly_revenue: number
         }
@@ -344,6 +348,7 @@ export type Database = {
           created_at?: string
           current_revenue?: number
           description?: string | null
+          details_informations?: string[]
           id?: number
           image?: string | null
           images?: string[] | null
@@ -354,6 +359,7 @@ export type Database = {
           name?: string
           owner_id?: string | null
           procedure?: Json
+          procedure_info?: string[]
           status?: Database["public"]["Enums"]["service_status"]
           yearly_revenue?: number
         }
@@ -491,56 +497,60 @@ export type Database = {
           },
         ]
       }
-      trips: {
-        Row: {
-          activities: string[] | null
-          attachment_url: string | null
-          category: Database["public"]["Enums"]["trip_category"]
-          created_at: string | null
-          description: string | null
-          difficulty: Database["public"]["Enums"]["trip_difficulty"]
-          end_date: string
-          id: string
-          images: string[]
-          included: string[] | null
-          itinerary: string[] | null
-          max_participants: number | null
-          min_participants: number | null
-          not_included: string[] | null
-          organizer: string
-          price: number | null
-          returns_to_start: boolean | null
-          start_date: string
-          status: Database["public"]["Enums"]["trip_status"]
-          title: string
-          updated_at: string | null
-          what_to_bring: string[] | null
-        }
-        Insert: {
-          activities?: string[] | null
-          attachment_url?: string | null
-          category: Database["public"]["Enums"]["trip_category"]
-          created_at?: string | null
-          description?: string | null
-          difficulty: Database["public"]["Enums"]["trip_difficulty"]
-          end_date: string
-          id?: string
-          images: string[]
-          included?: string[] | null
-          itinerary?: string[] | null
-          max_participants?: number | null
-          min_participants?: number | null
-          not_included?: string[] | null
-          organizer: string
-          price?: number | null
-          returns_to_start?: boolean | null
-          start_date: string
-          status?: Database["public"]["Enums"]["trip_status"]
-          title: string
-          updated_at?: string | null
-          what_to_bring?: string[] | null
-        }
-        Update: {
+       trips: {
+         Row: {
+           activities: string[] | null
+           attachment_url: string | null
+           category: Database["public"]["Enums"]["trip_category"]
+           created_at: string | null
+           description: string | null
+           difficulty: Database["public"]["Enums"]["trip_difficulty"]
+           end_date: string
+           id: string
+           images: string[]
+           included: string[] | null
+           itinerary: string[] | null
+           max_participants: number | null
+           min_participants: number | null
+           not_included: string[] | null
+           organizer: string
+           price: number | null
+           returns_to_start: boolean | null
+           start_date: string
+           status: Database["public"]["Enums"]["trip_status"]
+           title: string
+           updated_at: string | null
+           what_to_bring: string[] | null
+           visibility: Database["public"]["Enums"]["trip_visibility"] | null
+           invite_code: string | null
+         }
+         Insert: {
+           activities?: string[] | null
+           attachment_url?: string | null
+           category: Database["public"]["Enums"]["trip_category"]
+           created_at?: string | null
+           description?: string | null
+           difficulty: Database["public"]["Enums"]["trip_difficulty"]
+           end_date: string
+           id?: string
+           images: string[]
+           included?: string[] | null
+           itinerary?: string[] | null
+           max_participants?: number | null
+           min_participants?: number | null
+           not_included?: string[] | null
+           organizer: string
+           price?: number | null
+           returns_to_start?: boolean | null
+           start_date: string
+           status?: Database["public"]["Enums"]["trip_status"]
+           title: string
+           updated_at?: string | null
+           what_to_bring?: string[] | null
+           visibility?: Database["public"]["Enums"]["trip_visibility"]
+           invite_code?: string
+         }
+         Update: {
           activities?: string[] | null
           attachment_url?: string | null
           category?: Database["public"]["Enums"]["trip_category"]
@@ -613,6 +623,47 @@ export type Database = {
             columns: ["trip"]
             isOneToOne: false
             referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string | null
+          data: string | null
+          id: string
+          is_read: boolean | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string | null
+          data?: string | null
+          id?: string
+          is_read?: boolean | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string | null
+          data?: string | null
+          id?: string
+          is_read?: boolean | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1627,10 +1678,11 @@ export type Database = {
         | "historical"
         | "relaxation"
         | "photography"
-      trip_difficulty: "easy" | "moderate" | "challenging" | "difficult"
-      trip_status: "draft" | "published" | "completed" | "cancelled" | "live"
-      trip_stop_type: "meeting" | "destination" | "service"
-      user_role: "traveler" | "organization" | "agency" | "services"
+       trip_difficulty: "easy" | "moderate" | "challenging" | "difficult"
+       trip_status: "draft" | "published" | "completed" | "cancelled" | "live"
+       trip_visibility: "public" | "private"
+       trip_stop_type: "meeting" | "destination" | "service"
+       user_role: "traveler" | "organization" | "agency" | "services"
     }
     CompositeTypes: {
       geometry_dump: {

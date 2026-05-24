@@ -3,7 +3,7 @@ import { MapPin, X, GripVertical, Plus } from "lucide-react";
 import type { MeetingLocation } from "@/imports/types";
 
 export interface SchedulePoint extends MeetingLocation {
-  pointType: "meeting" | "destination";
+  pointType: "meeting" | "destination" | "service";
   stableId: string;
 }
 
@@ -145,7 +145,7 @@ export function ReorderableMeetingList({
             )}
             <MapPin
               className={`size-4 shrink-0 ${
-                point.pointType === "destination" ? "text-[#ff5900]" : "text-[#00b70d]"
+                point.pointType === "destination" ? "text-[#ff5900]" : point.pointType === "service" ? "text-[#0a84ff]" : "text-[#00b70d]"
               }`}
             />
             <div className="flex-1 min-w-0">
@@ -156,15 +156,17 @@ export function ReorderableMeetingList({
                   className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${
                     point.pointType === "destination"
                       ? "bg-[#fff1e8] text-[#ff5900]"
-                      : "bg-[#e9fbe9] text-[#0d2805]"
+                      : point.pointType === "service"
+                        ? "bg-[#e8f0fe] text-[#0a84ff]"
+                        : "bg-[#e9fbe9] text-[#0d2805]"
                   }`}
                 >
-                  {point.pointType === "destination" ? "Destination" : "Meeting"}
+                  {point.pointType === "destination" ? "Destination" : point.pointType === "service" ? "Service" : index === 0 ? "Meeting Point" : "Stop"}
                 </span>
                 {point.address && <p className="text-xs text-[#6a7282] truncate">{point.address}</p>}
               </div>
             </div>
-            {!readOnly && point.pointType === "meeting" ? (
+            {!readOnly && point.pointType === "meeting" && index !== 0 ? (
               <button
                 type="button"
                 onClick={(e) => {

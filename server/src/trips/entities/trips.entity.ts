@@ -8,7 +8,10 @@ import {
 import { Type } from 'class-transformer';
 import { Database } from 'src/database.types';
 
-export type Trip = Database['public']['Tables']['trips']['Row'];
+export type Trip = Database['public']['Tables']['trips']['Row'] & {
+  visibility?: TripVisibility;
+  invite_code?: string;
+};
 
 export type TripStop = Database['public']['Tables']['trip_stops']['Row'];
 
@@ -41,6 +44,10 @@ export type TripWithStops = Trip & {
   organizer_profile?: OrganizerProfile | null;
 };
 
+export type TripWithMeetingPoint = Trip & {
+  meeting_point: string | null;
+};
+
 export enum TripDifficulty {
   Easy = 'easy',
   Moderate = 'moderate',
@@ -71,6 +78,11 @@ export enum TripStatus {
   Published = 'published',
   Completed = 'completed',
   Cancelled = 'cancelled',
+}
+
+export enum TripVisibility {
+  Public = 'public',
+  Private = 'private',
 }
 
 export enum GeographyType {

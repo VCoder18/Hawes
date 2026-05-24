@@ -40,6 +40,10 @@ const JoinTrip = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedItinerary, setExpandedItinerary] = useState<Set<number>>(new Set([0]));
+  const [isParticipant, setIsParticipant] = useState(false);
+  const [participationLoading, setParticipationLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [serviceCategoryModal, setServiceCategoryModal] = useState<{ category: string; label: string; services: any[] } | null>(null);
 
   useEffect(() => {
     const loadTrip = async () => {
@@ -58,8 +62,15 @@ const JoinTrip = () => {
         return;
       }
 
+      // Get invite code from URL params (set by InviteRedirect) or location state
+      const urlParams = new URLSearchParams(window.location.search);
+      const inviteCode = urlParams.get('invite') || (location.state as any)?.inviteCode || '';
+
       try {
-        const response = await fetch(`${API_BASE_URL}/trips/${id}`);
+        const apiUrl = inviteCode
+          ? `${API_BASE_URL}/trips/${id}?invite=${inviteCode}`
+          : `${API_BASE_URL}/trips/${id}`;
+        const response = await fetch(apiUrl);
         if (response.ok) {
           const data = await response.json();
           setTrip(data);
@@ -81,9 +92,107 @@ const JoinTrip = () => {
 
       setLoading(false);
     };
-
-    void loadTrip();
+    loadTrip();
   }, [id, location.state]);
+
+  // Check participation status
+  useEffect(() => {
+    const checkParticipation = async () => {
+      if (!id) return;
+      setParticipationLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+        const res = await fetch(`${API_BASE_URL}/trips/participation/${id}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setIsParticipant(!!data);
+        }
+      } catch {
+        // Ignore errors
+      } finally {
+        setParticipationLoading(false);
+      }
+    };
+    checkParticipation();
+  }, [id]);
+
+  const handleJoinClick = async () => {
+    if (!id) return;
+    setActionLoading(true);
+    try {
+      // If the trip has service stops that define procedure fields, navigate
+      // to the booking form so the user can fill required inputs (email, phone, etc.)
+      const hasProcedures = (trip?.stops || []).some((s: any) => {
+        const t = String(s?.type || s?.stop_type || '').toLowerCase();
+        const svc = s.service_data || s.serviceData || s;
+        return t === 'service' && Array.isArray(svc?.procedure) && svc.procedure.length > 0;
+      });
+      if (hasProcedures) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const inviteCode = urlParams.get('invite') || (location.state as any)?.inviteCode || '';
+        navigate(`/trips/${id}/book${inviteCode ? `?invite=${inviteCode}` : ''}`, {
+          state: { previewTrip: trip, inviteCode },
+        });
+        setActionLoading(false);
+        return;
+      }
+      const urlParams = new URLSearchParams(window.location.search);
+      const inviteCode = urlParams.get('invite') || undefined;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        alert('Please sign in to join this trip');
+        return;
+      }
+      const res = await fetch(`${API_BASE_URL}/trips/join/${id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ invite_code: inviteCode }),
+      });
+      if (res.ok) {
+        setIsParticipant(true);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.message || 'Failed to join trip');
+      }
+    } catch {
+      alert('Failed to join trip');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleLeaveClick = async () => {
+    if (!id) return;
+    setActionLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch(`${API_BASE_URL}/trips/leave`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ trip_id: id }),
+      });
+      if (res.ok) {
+        setIsParticipant(false);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.message || 'Failed to leave trip');
+      }
+    } catch {
+      alert('Failed to leave trip');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const handleClose = () => {
     navigate(-1);
@@ -144,10 +253,34 @@ const JoinTrip = () => {
         .filter((stop: any) => stop?.destination_id !== null)
         .map((stop: any) => stop.label || "")
         .filter(Boolean);
-      const serviceStops = stops.filter((stop: any) => stop?.type === "service");
+      const serviceStops = stops.filter((stop: any) => {
+        const t = String(stop?.type || stop?.stop_type || "").toLowerCase();
+        return t === "service";
+      });
       const serviceLabels = serviceStops
         .map((stop: any) => stop.label || "")
         .filter(Boolean);
+
+  // Group services by category for the What's Included section
+  const serviceCategoryConfig: Record<string, { label: string; icon: React.ElementType }> = {
+    accommodation: { label: "Accommodation", icon: Home },
+    restauration: { label: "Meals", icon: Utensils },
+    guides: { label: "Guide", icon: User },
+    transportation: { label: "Transport", icon: Bus },
+  };
+  const servicesByCategory: Record<string, { category: string; label: string; services: any[] }> = {};
+  for (const stop of serviceStops) {
+    const svcData = stop.service_data || stop.serviceData || stop;
+    const cat = String(svcData.category || stop.category || 'other').toLowerCase().trim();
+    if (!servicesByCategory[cat]) {
+      const label = serviceCategoryConfig[cat]?.label || cat.charAt(0).toUpperCase() + cat.slice(1);
+      servicesByCategory[cat] = { category: cat, label, services: [] };
+    }
+    servicesByCategory[cat].services.push(svcData);
+  }
+  const availableCategories = Object.values(servicesByCategory);
+  console.log('[JoinTrip] stops:', stops.length, 'serviceStops:', serviceStops.length, 'availableCategories:', availableCategories.length, availableCategories);
+
   const itinerary = trip.itinerary || [];
   const activities = trip.activities || [];
   const included = trip.included || [];
@@ -328,22 +461,26 @@ const JoinTrip = () => {
         <section>
           <h2 className="text-xl font-bold mb-6">What's Included & Excluded</h2>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-            {[
-              {icon: Home, label: "Accommodation"}, {icon: Utensils, label: "Meals"}, 
-              {icon: Tent, label: "Equipment"}, {icon: Users, label: "Entertainment"},
-              {icon: Puzzle, label: "Miscellaneous"}, {icon: User, label: "Guide"},
-              {icon: Shield, label: "Insurance"}, {icon: Bus, label: "Transport"}
-            ].map((item, i) => {
-              const IconComponent = item.icon;
-              return (
-                <div key={i} className="bg-white border border-gray-100 p-3 rounded-2xl flex items-center gap-3 shadow-sm">
-                  <span className="text-lg bg-[#F1F8E9] p-1.5 rounded-xl"><IconComponent className="w-5 h-5 text-gray-700" /></span>
-                  <span className="text-[11px] font-bold text-gray-700">{item.label}</span>
-                </div>
-              );
-            })}
-          </div>
+          {availableCategories.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+              {availableCategories.map((cat) => {
+                const IconComponent = serviceCategoryConfig[cat.category]?.icon || Puzzle;
+                return (
+                  <button
+                    key={cat.category}
+                    onClick={() => setServiceCategoryModal(cat)}
+                    className="bg-white border border-gray-100 p-3 rounded-2xl flex items-center gap-3 shadow-sm hover:shadow-md hover:border-[#4CAF50]/40 transition-all duration-200 cursor-pointer text-left"
+                  >
+                    <span className="text-lg bg-[#F1F8E9] p-1.5 rounded-xl"><IconComponent className="w-5 h-5 text-gray-700" /></span>
+                    <div>
+                      <span className="text-[11px] font-bold text-gray-700 block">{cat.label}</span>
+                      <span className="text-[9px] text-gray-400 font-medium">{cat.services.length} service{cat.services.length > 1 ? 's' : ''}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-white border border-[#E8F5E9] rounded-[30px] p-6 shadow-sm">
@@ -354,6 +491,22 @@ const JoinTrip = () => {
                 </div>
                 <ChevronUp className="w-5 h-5 text-gray-300" />
               </div>
+              {availableCategories.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {availableCategories.flatMap(cat => 
+                    cat.services.map((svc, i) => (
+                      <button
+                        key={`${cat.category}-${i}`}
+                        onClick={() => setServiceCategoryModal(cat)}
+                        className="bg-[#E8F5E9] text-[#4CAF50] hover:bg-[#D7EBD8] border border-[#B8EBB8] rounded-xl px-3 py-1.5 text-[11px] font-bold flex items-center gap-1.5 transition-colors shadow-sm text-left"
+                      >
+                        <Check className="w-3 h-3 shrink-0" />
+                        <span>{cat.label}: {svc.name}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
               <ul className="space-y-4">
                 {included.map((item: string, i: number) => (
                   <li key={i} className="flex gap-2 text-[11px] leading-relaxed">
@@ -439,12 +592,25 @@ const JoinTrip = () => {
                   </div>
                 </div>
 
-                <Button 
-                  onClick={() => navigate(`/trips/${id}/book`)}
-                  className="w-full bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold py-8 rounded-[22px] text-base shadow-lg shadow-orange-200 uppercase tracking-wide"
-                >
-                  Join This Trip →
-                </Button>
+                {participationLoading ? (
+                  <div className="w-full h-[60px] bg-gray-100 rounded-[22px] animate-pulse" />
+                ) : isParticipant ? (
+                  <Button
+                    onClick={handleLeaveClick}
+                    disabled={actionLoading}
+                    className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-8 rounded-[22px] text-base shadow-lg shadow-red-200 uppercase tracking-wide disabled:opacity-50"
+                  >
+                    {actionLoading ? 'Leaving...' : 'Leave Trip'}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleJoinClick}
+                    disabled={actionLoading}
+                    className="w-full bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold py-8 rounded-[22px] text-base shadow-lg shadow-orange-200 uppercase tracking-wide disabled:opacity-50"
+                  >
+                    {actionLoading ? 'Joining...' : 'Join This Trip →'}
+                  </Button>
+                )}
                 
                 <div className="flex justify-center gap-8 text-[10px] font-bold text-gray-400">
                    <span className="flex items-center gap-1 cursor-pointer hover:text-green-600"><ShieldCheck className="w-4 h-4" /> Secure Booking</span>
@@ -457,6 +623,43 @@ const JoinTrip = () => {
       </div>
       </div>
       </div>
+      {/* Service Category Modal */}
+      {serviceCategoryModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]" onClick={() => setServiceCategoryModal(null)}>
+          <div className="relative bg-[#FDFCF0] rounded-3xl w-full max-w-lg max-h-[70vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-[#FDFCF0] z-10 flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
+              <div>
+                <h3 className="text-lg font-bold text-[#1A2E05]">{serviceCategoryModal.label}</h3>
+                <p className="text-xs text-gray-400 font-medium">{serviceCategoryModal.services.length} service{serviceCategoryModal.services.length > 1 ? 's' : ''}</p>
+              </div>
+              <button onClick={() => setServiceCategoryModal(null)} className="p-2 bg-white rounded-full hover:bg-gray-100 transition-colors shadow-sm">
+                <X className="w-4 h-4 text-[#1A2E05]" />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-6 space-y-3">
+              {serviceCategoryModal.services.map((svc: any, i: number) => (
+                <div key={svc.id ?? i} className="flex items-start gap-4 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                  {svc.image && (
+                    <img src={svc.image} alt={svc.name} className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm text-[#1A2E05] truncate">{svc.name}</p>
+                    {svc.address && <p className="text-[11px] text-gray-400 mt-0.5 truncate">{svc.address}</p>}
+                    {svc.min_cost != null && (
+                      <p className="text-xs font-bold text-[#4CAF50] mt-1.5">
+                        {svc.min_cost} DA{svc.max_cost && svc.max_cost !== svc.min_cost ? ` - ${svc.max_cost} DA` : ''}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {serviceCategoryModal.services.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-8">No services available in this category.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

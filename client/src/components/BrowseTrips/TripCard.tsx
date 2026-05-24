@@ -4,6 +4,7 @@ import { useState } from "react";
 interface TripStop {
   id: string;
   trip_id: string;
+  type?: string;
   stop_type: string;
   destination_id: string | null;
   location: unknown;
@@ -27,6 +28,7 @@ interface TripCardTrip {
   max_participants: number | null;
   min_participants: number | null;
   current_participants?: number | null;
+  meeting_point?: string | null;
   stops?: TripStop[];
   [key: string]: unknown;
 }
@@ -38,6 +40,9 @@ interface TripCardProps {
   onToggleSave?: () => void;
   onClick?: () => void;
   showBookmark?: boolean;
+  participantStatus?: 'none' | 'participant' | 'loading' | 'organizer';
+  onJoin?: () => void;
+  onLeave?: () => void;
 }
 
 export function TripCard({
@@ -47,6 +52,9 @@ export function TripCard({
   onToggleSave,
   onClick,
   showBookmark = true,
+  participantStatus,
+  onJoin,
+  onLeave,
 }: TripCardProps) {
   const [imgError, setImgError] = useState(false);
 
@@ -82,9 +90,11 @@ export function TripCard({
     return `DZD ${singlePrice}`;
   };
 
-  // Get first meeting location from stops (if available)
-  const firstStop = trip.stops?.[0];
-  const meetingPoint = firstStop?.label || "Meeting point TBA";
+   // Get first meeting location from trip.meeting_point (server) or stops (fallback)
+   const meetingLabelFromStops = (trip.stops || []).find(
+     (s) => String(s?.type || s?.stop_type || "").toLowerCase() === "meeting"
+   )?.label ?? null;
+   const meetingPoint = trip.meeting_point ?? meetingLabelFromStops ?? null;
 
   // Participants tracking
   const currentParticipants = trip.current_participants || 0;
@@ -131,15 +141,17 @@ export function TripCard({
           {trip.title || "Untitled Trip"}
         </h3>
 
-        {/* Starting Point */}
-        <div className="flex items-start gap-2 mb-2">
-          <MapPin className="size-4 text-green-500 flex-shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-gray-700 break-words">
-              {meetingPoint}
-            </p>
+        {/* Show starting point only if meeting point is available */}
+        {meetingPoint && (
+          <div className="flex items-start gap-2 mb-2">
+            <MapPin className="size-4 text-green-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-gray-700 break-words">
+                {meetingPoint}
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Dates Row */}
         <div className="flex items-center gap-2 mb-3 text-xs text-gray-600">
@@ -158,7 +170,7 @@ export function TripCard({
         </div>
 
         {/* Participants Progress Bar */}
-        <div className="pt-3 border-t border-gray-100">
+        <div className="pt-5 border-t border-gray-100">
           <h4 className="text-xs font-semibold text-gray-700 mb-2">Participants</h4>
           <div className="mb-2">
             <div className="relative pt-4">
@@ -199,6 +211,28 @@ export function TripCard({
             </div>
           </div>
         </div>
+
+        {participantStatus && (
+          <div className="mt-3">
+            {participantStatus === 'loading' ? (
+              <div className="h-9 bg-gray-100 rounded-xl animate-pulse" />
+            ) : participantStatus === 'participant' && onLeave ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); onLeave(); }}
+                className="w-full py-2 bg-red-50 hover:bg-red-100 text-red-600 font-semibold rounded-xl text-sm transition-colors border border-red-200"
+              >
+                Leave Trip
+              </button>
+            ) : participantStatus === 'none' && onJoin ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); onJoin(); }}
+                className="w-full py-2 bg-[#00b70d] hover:bg-[#00a00a] text-white font-semibold rounded-xl text-sm transition-colors"
+              >
+                Join Trip
+              </button>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
     )

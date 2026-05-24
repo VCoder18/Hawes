@@ -68,7 +68,7 @@ export function DestinationCard({
         </div>
 
         {/* Stats */}
-        <div className="space-y-3 pt-3 border-t border-gray-100">
+        <div className="space-y-3 pt-5 border-t border-gray-100">
           <div className="flex items-center gap-3 text-gray-700 text-sm">
             <Users className="size-4 text-gray-400" />
             <span>{destination.peopleVisiting.toLocaleString()} visiting</span>

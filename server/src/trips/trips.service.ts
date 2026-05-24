@@ -16,13 +16,19 @@ import {
   TripStopWithService,
   StopServiceData,
   TripWithStops,
+  TripWithMeetingPoint,
+  TripVisibility,
 } from './entities/trips.entity';
 import { randomUUID } from 'crypto';
 import { TripsQueryDto, TripsQueryFilter } from './dto/query.dto';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Injectable()
 export class TripsService {
-  constructor(private readonly supabaseClient: SupabaseClient<Database>) {}
+  constructor(
+    private readonly supabaseClient: SupabaseClient<Database>,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   private toGeographyPoint(location: {
     type: string;
@@ -102,89 +108,152 @@ export class TripsService {
     return publicUrl;
   }
 
-  async getTrips(userId: string | null, query: TripsQueryDto): Promise<Trip[]> {
-    let tripsQuery = this.supabaseClient.from('trips').select('*');
+    async getTrips(userId: string | null, query: TripsQueryDto): Promise<TripWithMeetingPoint[]> {
+        let tripsQuery = this.supabaseClient.from('trips').select('*');
 
-    const { data: trips, error: fetchTripsError } = await new TripsQueryFilter(
-      query,
-      this.supabaseClient,
-    ).apply(tripsQuery, userId);
-
-    if (fetchTripsError || !trips) {
-      throw new NotFoundException('Failed to fetch trips');
-    }
-
-    return trips as Trip[];
-  }
-
-  async getTripById(tripId: string): Promise<TripWithStops> {
-    const { data: trip, error: fetchTripError } = await this.supabaseClient
-      .from('trips')
-      .select('*')
-      .eq('id', tripId)
-      .single();
-
-    if (fetchTripError || !trip) {
-      throw new NotFoundException('Trip not found');
-    }
-
-    // Fetch organizer profile data
-    let organizerProfile = null;
-    if (trip.organizer) {
-      const { data: profile } = await this.supabaseClient
-        .from('profiles')
-        .select('id, display_name, username, avatar_url, location, role')
-        .eq('id', trip.organizer)
-        .single();
-      
-      organizerProfile = profile;
-    }
-
-    const { data: stops, error: fetchStopsError } = await this.supabaseClient
-      .from('trip_stops')
-      .select('*')
-      .eq('trip', tripId)
-      .order('index', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: true });
-
-    if (fetchStopsError || !stops) {
-      throw new InternalServerErrorException('Failed to fetch trip stops');
-    }
-
-    const rawStops = stops as TripStop[];
-
-    const serviceIds = rawStops
-      .filter((s) => s.type === 'service' && s.service != null)
-      .map((s) => s.service as number);
-
-    const serviceMap = new Map<number, StopServiceData>();
-    if (serviceIds.length > 0) {
-      const uniqueIds = [...new Set(serviceIds)];
-      const { data: services, error: servicesError } = await this.supabaseClient
-        .from('services')
-        .select('id, name, category, procedure, min_cost, max_cost, image, address')
-        .in('id', uniqueIds);
-
-      if (!servicesError && services) {
-        for (const svc of services as StopServiceData[]) {
-          serviceMap.set(svc.id, svc);
+        // Filter trips by visibility: public trips are visible to everyone,
+        // private trips are only visible to their organizer
+        if (userId) {
+            // User is logged in: show public trips OR private trips where they are the organizer
+            tripsQuery = tripsQuery.or(`visibility.eq.public,organizer.eq.${userId}`);
+        } else {
+            // User is not logged in: only show public trips
+            tripsQuery = tripsQuery.eq('visibility', 'public');
         }
-      }
+
+        const { data: trips, error: fetchTripsError } = await new TripsQueryFilter(
+            query,
+            this.supabaseClient,
+        ).apply(tripsQuery, userId);
+
+        if (fetchTripsError || !trips) {
+            throw new NotFoundException('Failed to fetch trips');
+        }
+
+        // Attach first meeting stop label to each trip for card display
+        const tripIds = trips.map((t) => t.id);
+        const { data: meetingStops } = await this.supabaseClient
+            .from('trip_stops')
+            .select('trip, label')
+            .in('trip', tripIds)
+            .eq('type', 'meeting')
+            .order('index');
+
+        const meetingMap = new Map<string, string | null>();
+        if (meetingStops) {
+            for (const stop of meetingStops) {
+                if (!meetingMap.has(stop.trip)) {
+                    meetingMap.set(stop.trip, stop.label ?? null);
+                }
+            }
+        }
+
+        // Fetch participant counts for each trip in parallel
+        const countsResults = await Promise.all(
+          tripIds.map((tid) =>
+            this.supabaseClient
+              .from('trip_participants')
+              .select('*', { count: 'exact', head: true })
+              .eq('trip_id', tid)
+          )
+        );
+
+        const countsMap = new Map<string, number>();
+        countsResults.forEach((r, idx) => {
+          const cnt = r?.count ?? 0;
+          countsMap.set(String(tripIds[idx]), cnt as number);
+        });
+
+        return trips.map((trip) => ({
+          ...trip,
+          meeting_point: meetingMap.get(trip.id) ?? null,
+          current_participants: countsMap.get(String(trip.id)) ?? 0,
+        })) as TripWithMeetingPoint[];
     }
 
-    const stopsWithServices: TripStopWithService[] = rawStops.map((s) => ({
-      ...s,
-      service_data: s.type === 'service' && s.service != null
-        ? serviceMap.get(s.service as number) || null
-        : null,
-    }));
+    async getTripById(tripId: string, userId: string | null = null, inviteCode?: string): Promise<TripWithStops> {
+        const { data: trip, error: fetchTripError } = await this.supabaseClient
+            .from('trips')
+            .select('*')
+            .eq('id', tripId)
+            .single();
 
-    return { 
-      ...(trip as Trip), 
-      organizer_profile: organizerProfile,
-      stops: stopsWithServices,
-    };
-  }
+        if (fetchTripError || !trip) {
+            throw new NotFoundException('Trip not found');
+        }
+
+        // Check access permissions for private trips
+        if (trip.visibility === 'private' && trip.organizer !== userId) {
+            // User is not the organizer and trip is private
+            // Allow access if they have a valid invite code
+            if (!inviteCode || inviteCode !== trip.invite_code) {
+                throw new NotFoundException('Trip not found');
+            }
+        }
+
+        // Fetch organizer profile data
+        let organizerProfile = null;
+        if (trip.organizer) {
+            const { data: profile } = await this.supabaseClient
+                .from('profiles')
+                .select('id, display_name, username, avatar_url, location, role')
+                .eq('id', trip.organizer)
+                .single();
+            
+            organizerProfile = profile;
+        }
+
+        const { data: stops, error: fetchStopsError } = await this.supabaseClient
+            .from('trip_stops')
+            .select('*')
+            .eq('trip', tripId)
+            .order('index', { ascending: true, nullsFirst: false })
+            .order('created_at', { ascending: true });
+
+        if (fetchStopsError || !stops) {
+            throw new InternalServerErrorException('Failed to fetch trip stops');
+        }
+
+        const rawStops = stops as TripStop[];
+
+        const serviceIds = rawStops
+            .filter((s) => s.type === 'service' && s.service != null)
+            .map((s) => s.service as number);
+
+        const serviceMap = new Map<number, StopServiceData>();
+        if (serviceIds.length > 0) {
+            const uniqueIds = [...new Set(serviceIds)];
+            const { data: services, error: servicesError } = await this.supabaseClient
+                .from('services')
+                .select('id, name, category, procedure, min_cost, max_cost, image, address')
+                .in('id', uniqueIds);
+
+            if (!servicesError && services) {
+                for (const svc of services as StopServiceData[]) {
+                    serviceMap.set(svc.id, svc);
+                }
+            }
+        }
+
+        const stopsWithServices: TripStopWithService[] = rawStops.map((s) => ({
+            ...s,
+            service_data: s.type === 'service' && s.service != null
+                ? serviceMap.get(s.service as number) || null
+                : null,
+        }));
+
+        const { count: participantCount } = await this.supabaseClient
+            .from('trip_participants')
+            .select('*', { count: 'exact', head: true })
+            .eq('trip_id', tripId);
+
+        return { 
+            ...(trip as unknown as Record<string, unknown>),
+            organizer_profile: organizerProfile,
+            stops: stopsWithServices,
+            current_participants: participantCount ?? 0,
+        } as TripWithStops;
+    }
   async createTrip(
     userId: string,
     tripDTO: TripCreateDTO,
@@ -255,9 +324,9 @@ export class TripsService {
     }
 
     return {
-      ...(createdTrip as Trip),
+      ...(createdTrip as unknown as Record<string, unknown>),
       stops: results.map((result) => result.data as TripStopWithService),
-    };
+    } as TripWithStops;
   }
   async updateTrip(
     userId: string,
@@ -371,7 +440,7 @@ export class TripsService {
       updatedTrip = data as Trip;
     }
 
-    return { ...updatedTrip, stops: updatedStops };
+    return { ...(updatedTrip as unknown as Record<string, unknown>), stops: updatedStops } as TripWithStops;
   }
 
   async deleteTrip(userId: string, id: string): Promise<string> {
@@ -401,79 +470,213 @@ export class TripsService {
     return id;
   }
 
-  async joinTrip(userId: string, tripId: string): Promise<TripAffiliation> {
-    const { data: affiliations } = await this.supabaseClient
-      .from('trip_participants')
-      .select('*')
-      .eq('trip_id', tripId);
+    async checkParticipation(userId: string, tripId: string): Promise<TripAffiliation | null> {
+        const { data, error } = await this.supabaseClient
+            .from('trip_participants')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('trip_id', tripId)
+            .maybeSingle();
 
-    if (affiliations) {
-      if (affiliations.some((p) => p.user_id === userId)) {
-        throw new BadRequestException(
-          'You are already participating in the trip',
-        );
-      }
+        if (error) {
+            throw new BadRequestException('Failed to check participation');
+        }
 
-      const { error, data: trip } = await this.supabaseClient
-        .from('trips')
-        .select('id, max_participants')
-        .eq('id', tripId)
-        .single();
-
-      if (error || !trip) {
-        throw new BadRequestException('Trip not found');
-      }
-
-      if (
-        trip.max_participants &&
-        trip.max_participants <= affiliations.length
-      ) {
-        throw new BadRequestException('Trip is full');
-      }
+        return data as TripAffiliation | null;
     }
 
-    const { error, data } = await this.supabaseClient
-      .from('trip_participants')
-      .insert({
-        user_id: userId,
+    async joinTrip(userId: string, tripId: string, inviteCode?: string): Promise<TripAffiliation> {
+        // First, get the trip to check if it's private and validate invite code if needed
+        const { data: trip, error: tripError } = await this.supabaseClient
+            .from('trips')
+            .select('id, visibility, invite_code, max_participants')
+            .eq('id', tripId)
+            .single();
+
+        if (tripError || !trip) {
+            throw new BadRequestException('Trip not found');
+        }
+
+        // If trip is private, validate invite code
+        if (trip.visibility === 'private') {
+            if (!inviteCode) {
+                throw new BadRequestException('Invite code is required to join this private trip');
+            }
+            
+            if (inviteCode !== trip.invite_code) {
+                throw new BadRequestException('Invalid invite code');
+            }
+        }
+
+        const { data: affiliations } = await this.supabaseClient
+            .from('trip_participants')
+            .select('*')
+            .eq('trip_id', tripId);
+
+        if (affiliations) {
+            if (affiliations.some((p) => p.user_id === userId)) {
+                throw new BadRequestException(
+                    'You are already participating in the trip',
+                );
+            }
+
+            if (
+                trip.max_participants &&
+                trip.max_participants <= affiliations.length
+            ) {
+                throw new BadRequestException('Trip is full');
+            }
+        }
+
+        const { error, data } = await this.supabaseClient
+            .from('trip_participants')
+            .insert({
+                user_id: userId,
+                trip_id: tripId,
+            })
+            .select('*')
+            .single();
+
+        if (error || !data) {
+            console.error(error);
+            throw new BadRequestException('Failed to join trip');
+        }
+
+        return data as TripAffiliation;
+    }
+
+    async leaveTripByTripId(userId: string, tripId: string): Promise<string> {
+        const { data: affiliation, error: fetchError } = await this.supabaseClient
+            .from('trip_participants')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('trip_id', tripId)
+            .maybeSingle();
+
+        if (fetchError || !affiliation) {
+            throw new BadRequestException('You are not a participant of this trip');
+        }
+
+        const { error } = await this.supabaseClient
+            .from('trip_participants')
+            .delete()
+            .eq('id', affiliation.id);
+
+        if (error) {
+            console.error(error);
+            throw new BadRequestException('Failed to leave the trip.');
+        }
+
+        return affiliation.id;
+    }
+
+    async leaveTrip(userId: string, affiliationId: string): Promise<string> {
+        const { error: fetchError, data: affiliation } = await this.supabaseClient
+            .from('trip_participants')
+            .select('*')
+            .eq('id', affiliationId)
+            .single();
+
+        if (fetchError || !affiliation) {
+            throw new BadRequestException('Affiliation to the trip not found');
+        }
+
+        if (affiliation.user_id !== userId) {
+            throw new UnauthorizedException('You are not affiliated to this trip');
+        }
+
+        const { error } = await this.supabaseClient
+            .from('trip_participants')
+            .delete()
+            .eq('id', affiliationId);
+
+        if (error) {
+            console.error(error);
+            throw new BadRequestException('Failed to leave the trip.');
+        }
+
+        return affiliationId;
+    }
+
+  async sendTripInvite(userId: string, tripId: string, recipientId: string): Promise<{ success: boolean }> {
+    // Verify the trip exists and user is the organizer
+    const { data: trip, error: tripError } = await this.supabaseClient
+      .from('trips')
+      .select('organizer, visibility, title, invite_code')
+      .eq('id', tripId)
+      .single();
+
+    if (tripError || !trip) {
+      throw new NotFoundException('Trip not found');
+    }
+
+    if (trip.organizer !== userId) {
+      throw new UnauthorizedException('Only the trip organizer can send invites');
+    }
+
+    if (trip.visibility !== 'private') {
+      throw new BadRequestException('Invites can only be sent for private trips');
+    }
+
+    // Get the organizer's profile for the notification
+    const { data: organizerProfile } = await this.supabaseClient
+      .from('profiles')
+      .select('display_name, username')
+      .eq('id', userId)
+      .single();
+
+    // Get the recipient's profile to verify they exist
+    const { data: recipientProfile } = await this.supabaseClient
+      .from('profiles')
+      .select('id')
+      .eq('id', recipientId)
+      .single();
+
+    if (!recipientProfile) {
+      throw new BadRequestException('Recipient user not found');
+    }
+
+    const senderName = organizerProfile?.display_name || organizerProfile?.username || 'Someone';
+
+    // Create notification for the recipient
+    await this.notificationsService.createNotification(
+      recipientId,
+      'trip_invite',
+      `Trip Invite: ${trip.title}`,
+      `${senderName} invited you to join their trip "${trip.title}"`,
+      {
         trip_id: tripId,
-      })
-      .select('*')
-      .single();
+        invite_code: trip.invite_code,
+        sender_id: userId,
+        sender_name: senderName,
+      },
+    );
 
-    if (error || !data) {
-      console.error(error);
-      throw new BadRequestException('Failed to join trip');
-    }
-
-    return data as TripAffiliation;
+    return { success: true };
   }
 
-  async leaveTrip(userId: string, affiliationId: string): Promise<string> {
-    const { error: fetchError, data: affiliation } = await this.supabaseClient
-      .from('trip_participants')
-      .select('*')
-      .eq('id', affiliationId)
-      .single();
+    async getInviteCode(tripId: string, userId: string): Promise<{ invite_code: string; invite_link: string }> {
+        // Verify that the user is the organizer of the trip
+        const { data: trip, error: tripError } = await this.supabaseClient
+            .from('trips')
+            .select('organizer, visibility, invite_code')
+            .eq('id', tripId)
+            .single();
 
-    if (fetchError || !affiliation) {
-      throw new BadRequestException('Affiliation to the trip not found');
+        if (tripError || !trip) {
+            throw new NotFoundException('Trip not found');
+        }
+
+        if (trip.organizer !== userId) {
+            throw new UnauthorizedException('Only the trip organizer can get the invite code');
+        }
+
+        // Generate the invite link (frontend URL)
+        const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/invite/${trip.invite_code}`;
+
+        return {
+            invite_code: trip.invite_code,
+            invite_link: inviteLink,
+        };
     }
-
-    if (affiliation.user_id !== userId) {
-      throw new UnauthorizedException('You are not affiliated to this trip');
-    }
-
-    const { error } = await this.supabaseClient
-      .from('trip_participants')
-      .delete()
-      .eq('id', affiliationId);
-
-    if (error) {
-      console.error(error);
-      throw new BadRequestException('Failed to leave the trip.');
-    }
-
-    return affiliationId;
-  }
 }

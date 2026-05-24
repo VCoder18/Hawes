@@ -1,4 +1,4 @@
-import type { Destination, MeetingLocation } from "@/imports/types";
+import type { Destination, MeetingLocation, SelectedService } from "@/imports/types";
 
 export type MediaDraft = { data: string; name: string; type: string };
 
@@ -8,8 +8,9 @@ export type StopLocationPayload = {
 };
 
 export type RuntimeStopPayload = {
-  type: "meeting" | "destination";
+  type: "meeting" | "destination" | "service";
   destination?: string;
+  service?: number;
   location: StopLocationPayload;
   label: string | null;
   index?: number;
@@ -135,7 +136,8 @@ export const calculateDistanceKm = (
 export const buildStopsPayload = (
   meetingLocations: MeetingLocation[],
   selectedDestinationPoints: Destination[],
-  orderedStopIds: string[] = []
+  orderedStopIds: string[] = [],
+  selectedServices: SelectedService[] = [],
 ): RuntimeStopPayload[] => {
   const meetingStops = meetingLocations.map((meeting, index) => {
     if (!Number.isFinite(meeting.lat) || !Number.isFinite(meeting.lng)) {
@@ -163,7 +165,7 @@ export const buildStopsPayload = (
       const stopType: RuntimeStopPayload["type"] = isUuid(destinationId)
         ? "destination"
         : "meeting";
-      const coordinates: [number, number] = [destination.lng, destination.lat];
+      const coordinates: [number, number] = [destination.lng!, destination.lat!];
       return {
         stableId: `destination:${destination.id}`,
         type: stopType,
@@ -177,7 +179,30 @@ export const buildStopsPayload = (
       };
     });
 
-  const allStops = [...meetingStops, ...destinationStops];
+  const serviceStops: Array<{
+    stableId: string;
+    type: "service";
+    service: number;
+    location: StopLocationPayload;
+    label: string | null;
+    time: null;
+  }> = selectedServices.map((service) => {
+    const lng = service.location?.lng || 0;
+    const lat = service.location?.lat || 0;
+    return {
+      stableId: `service:${service.id}`,
+      type: "service" as const,
+      service: service.id,
+      location: {
+        type: "Point" as const,
+        coordinates: [lng, lat],
+      },
+      label: service.name || null,
+      time: null,
+    };
+  });
+
+  const allStops = [...meetingStops, ...destinationStops, ...serviceStops];
 
   const stopById = new Map(allStops.map((stop) => [stop.stableId, stop]));
   const ordered = orderedStopIds
@@ -190,6 +215,7 @@ export const buildStopsPayload = (
   return finalOrder.map((stop, index) => ({
     type: stop.type,
     ...(stop.type === "destination" && "destination" in stop ? { destination: stop.destination } : {}),
+    ...(stop.type === "service" && "service" in stop ? { service: stop.service } : {}),
     location: stop.location,
     label: stop.label,
     index,

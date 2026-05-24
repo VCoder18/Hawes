@@ -1,11 +1,45 @@
 import { useState, useEffect } from 'react';
-import { X, LayoutDashboard, Compass, User, Users, Settings, Plus, Search, SlidersHorizontal } from 'lucide-react'; 
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Search, CheckCheck } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
 import { TripCard } from "@/components/BrowseTrips/TripCard";
-import FinanceOverview from '../components/Finances/FinanceOverview';
+import { ClientsTab } from '../components/Clients/ClientsTab';
+import { DashboardSidebar } from '../components/DashboardSidebar';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+function timeAgo(dateStr: string): string {
+  const now = Date.now();
+  const date = new Date(dateStr).getTime();
+  const diffMs = now - date;
+  const seconds = Math.floor(diffMs / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
+interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  data: Record<string, unknown> | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+const tabMap: Record<string, string> = {
+  clients: 'clients',
+  overview: 'overview',
+  notifications: 'notifications',
+  feedback: 'feedback',
+};
 
 const Dashbord = () => {
     const { user } = useAuth();
@@ -14,10 +48,11 @@ const Dashbord = () => {
     const [isOpen, setIsOpen] = useState(false);
     const { tab } = useParams();
     const navigate = useNavigate();
-    const activeTab = tab?.toLowerCase() === 'finances' ? 'finances' : 'trips';
+    const activeTab = tabMap[tab?.toLowerCase() ?? ''] || 'trips';
 
     const [trips, setTrips] = useState<any[]>([]);
     const [tripsLoading, setTripsLoading] = useState(true);
+    const [leaveLoading, setLeaveLoading] = useState<string | null>(null);
 
     useEffect(() => {
       if (!user) return;
@@ -68,8 +103,36 @@ const Dashbord = () => {
       fetchTrips();
     }, [user, profile, profileLoading, activeTab]);
 
+    const { t } = useTranslation();
     const role = profile?.role;
     const isService = role === 'services';
+
+    const handleLeaveTrip = async (tripId: string) => {
+      setLeaveLoading(tripId);
+      try {
+        const { supabase } = await import('@/lib/supabase');
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+        const res = await fetch(`${API_BASE_URL}/trips/leave`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ trip_id: tripId }),
+        });
+        if (res.ok) {
+          setTrips((prev) => prev.filter((t) => t.id !== tripId));
+        } else {
+          const err = await res.json().catch(() => ({}));
+          alert(err.message || 'Failed to leave trip');
+        }
+      } catch {
+        alert('Failed to leave trip');
+      } finally {
+        setLeaveLoading(null);
+      }
+    };
 
     const handleTabChange = (newTab: string) => {
         if (newTab === 'trips') {
@@ -80,84 +143,13 @@ const Dashbord = () => {
     };
 
     return (
-    <div className='flex flex-col md:flex-row gap-6 w-full'>
-        <div className='w-full md:w-64 shrink-0'>
-            <nav className='flex flex-col gap-2'>
-                <Link to="/" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
-                    <LayoutDashboard className="w-5 h-5" />   
-                    <span className='pl-3'>Home</span>
-                </Link>
-
-                {isService ? (
-                  <>
-                    <button onClick={() => handleTabChange('overview')} className={`px-4 py-3 font-medium flex items-center rounded-xl transition-colors w-full ${activeTab === 'overview' ? 'bg-[#00B70D1A] text-[#00B70D]' : 'text-gray-700 hover:bg-[#00B70D1A] hover:text-[#00B70D]'}`}>
-                        <Compass className="w-5 h-5" />   
-                        <span className='pl-3'>Overview</span>
-                    </button>
-                    <button onClick={() => handleTabChange('trips')} className={`px-4 py-3 font-medium flex items-center rounded-xl transition-colors w-full ${activeTab === 'trips' ? 'bg-[#00B70D1A] text-[#00B70D]' : 'text-gray-700 hover:bg-[#00B70D1A] hover:text-[#00B70D]'}`}>
-                        <Compass className="w-5 h-5" />   
-                        <span className='pl-3'>Associated Trips</span>
-                    </button>
-                    <Link to="/browse" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
-                        <Compass className="w-5 h-5" />   
-                        <span className='pl-3'>Explore</span>
-                    </Link>
-                  </>
-                ) : (
-                  <>
-                    <button onClick={() => handleTabChange('trips')} className={`px-4 py-3 font-medium flex items-center rounded-xl transition-colors w-full ${activeTab === 'trips' ? 'bg-[#00B70D1A] text-[#00B70D]' : 'text-gray-700 hover:bg-[#00B70D1A] hover:text-[#00B70D]'}`}>
-                        <Compass className="w-5 h-5" />   
-                        <span className='pl-3'>My Trips</span>
-                    </button>
-                    <Link to="/browse" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
-                        <Compass className="w-5 h-5" />   
-                        <span className='pl-3'>Explore</span>
-                    </Link>
-                  </>
-                )}
-
-                {!isService && (
-                  <>
-                    <div className='border-t border-gray-200 my-2'></div>
-                    <div className="px-2">
-                        <Link to="/create-trip" className='w-full flex items-center justify-center gap-2 border-2 border-[#FF5900] rounded-xl py-3 px-4 hover:bg-[#FF5900] hover:text-white group transition-colors'>
-                            <Plus className="w-5 h-5 text-[#FF5900] group-hover:text-white" />
-                            <span className='text-[#FF5900] group-hover:text-white font-semibold'>Create New Trip</span>
-                        </Link>
-                    </div>
-                  </>
-                )}
-                  
-                <div className='border-t border-gray-200 my-2'></div>
-
-                {isService && (
-                  <button onClick={() => handleTabChange('finances')} className={`px-4 py-3 font-medium flex items-center rounded-xl transition-colors w-full ${activeTab === 'finances' ? 'bg-[#00B70D1A] text-[#00B70D]' : 'text-gray-700 hover:bg-[#00B70D1A] hover:text-[#00B70D]'}`}>
-                      <SlidersHorizontal className="w-5 h-5" />   
-                      <span className='pl-3'>Finances</span>
-                  </button>
-                )}
-
-                <div className='border-t border-gray-200 my-2'></div>
-                <Link to="/profile" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
-                    <User className="w-5 h-5" />   
-                    <span className='pl-3'>Profile</span>
-                </Link>
-                <Link to="/community" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
-                    <Users className="w-5 h-5" />   
-                    <span className='pl-3'>Community</span>
-                </Link>
-                <Link to="/settings/profile" className="px-4 py-3 text-gray-700 font-medium flex items-center hover:bg-[#00B70D1A] hover:text-[#00B70D] rounded-xl transition-colors">
-                    <Settings className="w-5 h-5" />   
-                    <span className='pl-3'>Settings</span>
-                </Link>
-            </nav>
-        </div>
-
-        <div className='flex-1 flex flex-col min-w-0'>
-            {activeTab === 'finances' && isService ? (
-                <div className='w-full pb-8'>
-                    <FinanceOverview />
-                </div>
+        <div className='flex flex-col min-w-0'>
+            {activeTab === 'notifications' ? (
+              <NotificationsTab />
+            ) : activeTab === 'clients' ? (
+              <div className='w-full pb-8'>
+                <ClientsTab />
+              </div>
             ) : activeTab === 'overview' && isService ? (
               <div className='w-full pb-8'>
                 <BusinessOverviewEmbed />
@@ -165,7 +157,7 @@ const Dashbord = () => {
             ) : (
             <main className='w-full pb-8'>
                 <h1 className="font-['Merriweather'] font-bold text-3xl md:text-4xl text-[#0d2805] mb-8">
-                  {isService ? 'Associated Trips' : 'Trip History'}
+                  {isService ? t('dashboard.associatedTrips') : t('dashboard.tripHistory')}
                 </h1>
 
                 <div className="bg-white rounded-2xl shadow-lg p-4 mb-6">
@@ -174,32 +166,168 @@ const Dashbord = () => {
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 opacity-60 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search trips..."
+                                placeholder={t('dashboard.searchTrips')}
                                 className="w-full pl-12 pr-4 py-3 border border-[#e2e8f0] rounded-xl text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00b70d] transition-all"
                             />
                         </div>
                     </div>
                 </div>
 
-                {tripsLoading ? (
-                  <div className="text-center py-12 text-gray-500">Loading trips...</div>
-                ) : trips.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    {isService ? 'No associated trips found.' : 'No trip history found.'}
-                  </div>
-                ) : (
-                  <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
-                      {trips.map(trip => (
-                          <TripCard key={trip.id} trip={trip} isMine={!isService} />
-                      ))}
-                  </div>
-                )}
+                 {tripsLoading ? (
+                    <div className="text-center py-12 text-gray-500">{t('common.loading')}</div>
+                 ) : trips.length === 0 ? (
+                   <div className="text-center py-12 text-gray-500">
+                      {isService ? t('dashboard.noAssociatedTrips') : t('dashboard.noTripsFound')}
+                   </div>
+                 ) : (
+                   <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+                        {trips.map(trip => {
+                          const isOwnTrip = String(trip.organizer || '') === String(user?.id || '');
+                          const participantStatus = isService ? undefined : isOwnTrip ? 'organizer' as const : 'participant' as const;
+                          return (
+                            <div key={trip.id} className="relative">
+                                <TripCard
+                                  trip={trip}
+                                  isMine={isOwnTrip}
+                                  participantStatus={leaveLoading === trip.id ? 'loading' : participantStatus}
+                                  onLeave={() => handleLeaveTrip(trip.id)}
+                                />
+                                {isOwnTrip && trip.visibility === 'private' && (
+                                  <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm p-4 space-x-3">
+                                    <span className="text-xs font-medium text-[#00b70d]">{t('dashboard.privateTrip')}</span>
+                                    <button 
+                                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                                        navigator.clipboard.writeText(`${window.location.origin}/invite/${trip.invite_code}`).then(() => {
+                                          const originalText = e.currentTarget.innerHTML;
+                                          e.currentTarget.innerHTML = `<span className="text-xs font-medium text-[#00b70d]">${t('dashboard.linkCopied')}</span>`;
+                                          setTimeout(() => {
+                                            e.currentTarget.innerHTML = originalText;
+                                          }, 2000);
+                                        });
+                                      }}
+                                      className="flex-1 px-3 py-1.5 text-xs font-medium bg-[#00b70d]/10 text-[#00b70d] rounded hover:bg-[#00b70d]/20 transition-colors"
+                                    >
+                                      {t('dashboard.copyInviteLink')}
+                                    </button>
+                                  </div>
+                                )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                 )}
               </main>
-            )}
+              )}
+             </div>
+     );
+ };
+
+function NotificationsTab() {
+  const { t } = useTranslation();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const getToken = async () => {
+    const { supabase } = await import('@/lib/supabase');
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token;
+  };
+
+  const fetchAll = async () => {
+    const token = await getToken();
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/notifications?limit=50`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setNotifications(await res.json());
+    } catch {} finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchAll(); }, []);
+
+  const handleClick = async (n: Notification) => {
+    if (!n.is_read) {
+      const token = await getToken();
+      if (token) {
+        await fetch(`${API_BASE_URL}/notifications/${n.id}`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setNotifications((prev) =>
+          prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)),
+        );
+      }
+    }
+    if (n.type === 'trip_invite' && n.data) {
+      const inviteCode = (n.data as Record<string, unknown>).invite_code as string;
+      const tripId = (n.data as Record<string, unknown>).trip_id as string;
+      if (inviteCode && tripId) {
+        window.location.href = `/trips/${tripId}?invite=${inviteCode}`;
+      }
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    const token = await getToken();
+    if (!token) return;
+    await fetch(`${API_BASE_URL}/notifications/read-all`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setNotifications((prev) => prev.map((x) => ({ ...x, is_read: true })));
+  };
+
+  if (loading) return <div className="text-center py-12 text-gray-500">{t('dashboard.loadingNotifications')}</div>;
+
+  return (
+    <main className="w-full pb-8">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="font-['Merriweather'] font-bold text-3xl md:text-4xl text-[#0d2805]">
+          {t('dashboard.notifications')}
+        </h1>
+        {notifications.some((n) => !n.is_read) && (
+          <button
+            onClick={handleMarkAllRead}
+            className="text-sm text-[#00b70d] hover:underline flex items-center gap-1"
+          >
+            <CheckCheck className="size-4" />
+            {t('dashboard.markAllRead')}
+          </button>
+        )}
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+        {notifications.length === 0 ? (
+          <div className="px-6 py-12 text-center text-sm text-gray-400">
+            {t('dashboard.noNotifications')}
           </div>
-        </div>
-    );
-};
+        ) : (
+          notifications.map((n) => (
+            <button
+              key={n.id}
+              onClick={() => handleClick(n)}
+              className="w-full text-left px-6 py-4 hover:bg-gray-50 transition-colors border-b border-[#e2e8f0] last:border-b-0 flex items-start gap-3"
+            >
+              {!n.is_read && (
+                <span className="mt-1.5 size-2.5 bg-[#00b70d] rounded-full flex-shrink-0" />
+              )}
+              <div className={`flex-1 min-w-0 ${n.is_read ? "ml-[18px]" : ""}`}>
+                <p className="text-sm font-semibold text-[#334155]">{n.title}</p>
+                {n.body && (
+                  <p className="text-sm text-gray-500 mt-0.5">{n.body}</p>
+                )}
+                <p className="text-xs text-gray-400 mt-1">{timeAgo(n.created_at)}</p>
+              </div>
+            </button>
+          ))
+        )}
+      </div>
+    </main>
+  );
+}
 
 function BusinessOverviewEmbed() {
   const [stats, setStats] = useState<any>(null);

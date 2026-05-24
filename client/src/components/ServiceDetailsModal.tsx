@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { Heart, Share2, X, MapPin, Star, Tent, Utensils, ShieldCheck, Users, Globe, Award, Leaf, Building2, Bus, ChevronDown, Calendar, Clock, Download, Plus, Minus, Info, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Heart, Share2, X, MapPin, Star, Tent, Utensils, ShieldCheck, Users, Globe, Award, Leaf, Building2, Bus, ChevronDown, Calendar, Clock, Download, Plus, Minus, Info, ChevronLeft, ChevronRight, MessageSquareText } from 'lucide-react';
 import Map, { Marker, Source, Layer, type MapRef } from "react-map-gl/maplibre";
 import maplibregl from "maplibre-gl";
 import type { StyleSpecification } from "maplibre-gl";
@@ -7,6 +8,8 @@ import { parseDestinationCoordinates } from "@/lib/create-trip-utils";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { supabase } from "@/lib/supabase";
 import { useServiceFavorites } from "@/hooks/useServiceFavorites";
+
+const SEPARATOR = '\u001F';
 
 interface ServiceDetailsModalProps {
   isOpen: boolean;
@@ -25,6 +28,8 @@ interface ServiceDetailsModalProps {
     status: string;
     availability: string[];
     additional_stat: string | null;
+    details_informations?: string[];
+    procedure_info?: string[];
   };
 }
 
@@ -124,6 +129,7 @@ const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({ isOpen, onClo
   const modalContentRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapRef | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showAllReviews, setShowAllReviews] = useState(false);
   const [reviewRating, setReviewRating] = useState<number>(0);
   const [reviewText, setReviewText] = useState<string>('');
   const [reviewLoading, setReviewLoading] = useState<boolean>(false);
@@ -131,147 +137,109 @@ const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({ isOpen, onClo
   const [reviewSuccess, setReviewSuccess] = useState<boolean>(false);
   const [reviews, setReviews] = useState<Array<any>>([]);
   const [reviewsLoading, setReviewsLoading] = useState<boolean>(false);
+  const [reviewFilter, setReviewFilter] = useState<number | null>(null);
+  const navigate = useNavigate();
   const { isFavorited, toggleFavorite } = useServiceFavorites();
 
-  const coords = useMemo(() => {
-    if (!service) return null;
-    return parseDestinationCoordinates(service as any);
-  }, [service]);
-
   useEffect(() => {
-    const controller = new AbortController();
-    const fetchAlgeriaBorder = async () => {
+    if (!isOpen || !service) return;
+    const fetchReviews = async () => {
+      setReviewsLoading(true);
       try {
-        const response = await fetch(
-          "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson",
-          { signal: controller.signal }
-        );
-        if (!response.ok) return;
-        const world = (await response.json()) as any;
-        const algeriaFeature = world.features.find((feature: any) => {
-          const properties = feature?.properties || {};
-          const name = String(properties.name || properties.ADMIN || properties.NAME_EN || "").toLowerCase();
-          const iso3 = String(properties.ISO_A3 || properties.iso_a3 || "").toUpperCase();
-          return name === "algeria" || iso3 === "DZA";
-        });
-        if (!algeriaFeature) return;
-        setAlgeriaBorder({ type: "FeatureCollection", features: [algeriaFeature] });
-      } catch {}
+        const { data, error } = await supabase
+          .from('service_reviews')
+          .select('*')
+          .eq('service_id', service.id)
+          .order('created_at', { ascending: false });
+        if (!error && data) setReviews(data);
+      } catch (err) {
+        console.error('Failed to fetch reviews:', err);
+      } finally {
+        setReviewsLoading(false);
+      }
     };
-    void fetchAlgeriaBorder();
-    return () => controller.abort();
-  }, []);
-
-  // Fetch reviews for this service
-  const fetchReviews = useCallback(async () => {
-    if (!service) return;
-    setReviewsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('service_reviews')
-        .select('*, author:profiles!author_id(id, display_name, avatar_url)')
-        .eq('service_id', service.id)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      setReviews(data || []);
-    } catch (err) {
-      console.error('Error fetching service reviews:', err);
-      setReviews([]);
-    } finally {
-      setReviewsLoading(false);
-    }
-  }, [service?.id]);
-
-  useEffect(() => {
     fetchReviews();
-  }, [fetchReviews]);
+  }, [isOpen, service?.id]);
 
-  // Submit review
+  const getCategoryLabel = () => {
+    switch (service?.category?.toLowerCase()) {
+      case 'restauration': return 'Restaurant';
+      case 'accommodation': return 'Accommodation';
+      case 'guides': return 'Tour Guide';
+      case 'transportation': return 'Transport';
+      default: return service?.category || 'Service';
+    }
+  };
+
+  const getReviewsSummary = () => {
+    if (!reviews || reviews.length === 0) return { avg: '0.0', count: '0 reviews' };
+    const total = reviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0);
+    const avg = (total / reviews.length).toFixed(1);
+    return { avg, count: `${reviews.length} review${reviews.length > 1 ? 's' : ''}` };
+  };
+
+  const coords = useMemo(() => {
+    if (!service?.location) return null;
+    return parseDestinationCoordinates(service);
+  }, [service?.location, service]);
+
+  const handleZoomIn = () => {
+    const map = mapRef.current;
+    if (map) {
+      const z = Math.min(map.getZoom() + ZOOM_IN_STEP, 18);
+      map.flyTo({ zoom: z, duration: 300 });
+    }
+  };
+
+  const handleZoomOut = () => {
+    const map = mapRef.current;
+    if (map) {
+      const z = Math.max(map.getZoom() - ZOOM_OUT_STEP, MIN_ALGERIA_ZOOM);
+      map.flyTo({ zoom: z, duration: 300 });
+    }
+  };
+
+  const handleAdjustView = () => {
+    const map = mapRef.current;
+    if (map && coords) {
+      map.flyTo({ center: [coords.lng, coords.lat], zoom: 13, duration: 500 });
+    }
+  };
+
+  const toggleAccordion = (index: number) => {
+    setActiveAccordion((prev) => (prev === index ? null : index));
+  };
+
   const submitReview = async () => {
     if (!service || reviewRating === 0) return;
-    
     setReviewLoading(true);
     setReviewError(null);
-    
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      
-      if (!session?.user) {
-        throw new Error('User not authenticated');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setReviewError('You must be logged in to submit a review');
+        setReviewLoading(false);
+        return;
       }
-      
-      const { error } = await supabase
-        .from('service_reviews')
-        .insert({
-          service_id: service.id,
-          author_id: session.user.id,
-          rating: reviewRating,
-          description: reviewText.trim() || null,
-        });
-      
+      const { error } = await supabase.from('service_reviews').insert({
+        service_id: service.id,
+        author_id: session.user.id,
+        rating: reviewRating,
+        description: reviewText,
+      });
       if (error) throw error;
-      
       setReviewSuccess(true);
-      setReviewRating(0);
-      setReviewText('');
-      // Refresh reviews list
-      await fetchReviews();
-      
-      // Auto-close success message after 3 seconds
       setTimeout(() => {
+        setShowReviewModal(false);
         setReviewSuccess(false);
-      }, 3000);
+        setReviewRating(0);
+        setReviewText('');
+      }, 1500);
     } catch (err) {
       setReviewError(err instanceof Error ? err.message : 'Failed to submit review');
     } finally {
       setReviewLoading(false);
     }
-  };
-
-  const handleZoomIn = () => {
-    const map = mapRef.current?.getMap();
-    if (!map) return;
-    map.easeTo({ zoom: map.getZoom() + ZOOM_IN_STEP, duration: 250 });
-  };
-
-  const handleZoomOut = () => {
-    const map = mapRef.current?.getMap();
-    if (!map) return;
-    const currentZoom = map.getZoom();
-    if (currentZoom <= MIN_ALGERIA_ZOOM + 0.15) {
-      map.fitBounds(ALGERIA_BOUNDS, { padding: 30, duration: 300 });
-      return;
-    }
-    map.easeTo({ zoom: Math.max(MIN_ALGERIA_ZOOM, currentZoom - ZOOM_OUT_STEP), duration: 250 });
-  };
-
-  const handleAdjustView = () => {
-    if (!mapRef.current || !coords) return;
-    mapRef.current.flyTo({ center: [coords.lng, coords.lat], zoom: 13, duration: 500 });
-  };
-
-  const toggleAccordion = (index: number) => {
-    setActiveAccordion(activeAccordion === index ? null : index);
-  };
-
-  const getCategoryLabel = () => {
-    if (!service) return '';
-    switch (service.category.toLowerCase()) {
-      case 'restauration': return 'Restaurant';
-      case 'accommodation': return 'Accommodation';
-      case 'guides': return 'Local Guide';
-      case 'transportation': return 'Transportation';
-      default: return service.category;
-    }
-  };
-
-  const getReviewsSummary = () => {
-    if (reviews.length === 0) return { avg: '--', count: '0 Reviews' };
-    const avg = reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviews.length;
-    return { avg: avg.toFixed(1), count: `${reviews.length} Review${reviews.length !== 1 ? 's' : ''}` };
   };
 
   const stats = useMemo(() => {
@@ -298,71 +266,35 @@ const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({ isOpen, onClo
     }
   };
 
-  const getTimelineTitle = () => {
-    switch (service.category.toLowerCase()) {
-      case 'restauration': return 'Culinary Journey';
-      case 'accommodation': return 'Stay Procedure';
-      case 'guides': return 'Tour Itinerary';
-      default: return 'How It Works';
-    }
-  };
+  const getTimelineTitle = () => 'How It Works';
 
   const getTimelineSteps = () => {
-    switch (service.category.toLowerCase()) {
-      case 'restauration':
-        return [
-          { title: 'Initial Request', desc: 'Submit your preferred date and guest count.' },
-          { title: 'Menu Selection', desc: 'Review available menu options and selections.' },
-          { title: 'Confirmation', desc: 'Receive your personalized itinerary.' }
-        ];
-      case 'accommodation':
-        return [
-          { title: 'Check-in', desc: 'Digital check-in with your app.' },
-          { title: 'Room Selection', desc: 'Choose your preferred accommodation upon arrival.' },
-          { title: 'Enjoy', desc: 'Experience your stay with all amenities included.' }
-        ];
-      case 'guides':
-        return [
-          { title: 'Meet Your Guide', desc: 'Connect with your expert local guide.' },
-          { title: 'Explore', desc: 'Discover hidden gems and local culture.' },
-          { title: 'Reflect', desc: 'Enjoy traditional refreshments and share memories.' }
-        ];
-      default:
-        return [
-          { title: 'Browse & Select', desc: 'Explore available options that suit your needs.' },
-          { title: 'Confirm Details', desc: 'Review and confirm your booking details.' },
-          { title: 'Enjoy!', desc: 'Get confirmation and enjoy your experience.' }
-        ];
+    if (service.procedure_info && service.procedure_info.length > 0) {
+      return service.procedure_info.map((entry) => {
+        const idx = entry.indexOf(SEPARATOR);
+        if (idx === -1) return { title: entry, desc: '' };
+        return { title: entry.slice(0, idx), desc: entry.slice(idx + 1) };
+      });
     }
+    return [
+      { title: 'Browse & Select', desc: 'Explore available options that suit your needs.' },
+      { title: 'Confirm Details', desc: 'Review and confirm your booking details.' },
+      { title: 'Enjoy!', desc: 'Get confirmation and enjoy your experience.' }
+    ];
   };
 
   const getAccordionItems = () => {
-    switch (service.category.toLowerCase()) {
-      case 'restauration':
-        return [
-          { title: 'Family Friendly & Special Occasions', icon: Users },
-          { title: 'Dietary Accommodations', icon: Utensils },
-          { title: 'Beverage Selection', icon: Utensils }
-        ];
-      case 'accommodation':
-        return [
-          { title: 'Conservation Tech', icon: Leaf },
-          { title: 'Private Host Service', icon: Users },
-          { title: '100% Solar Powered', icon: Leaf }
-        ];
-      case 'guides':
-        return [
-          { title: 'Local Heritage Expert', icon: Users },
-          { title: 'Refreshments Included', icon: Clock },
-          { title: 'Moderate Walking', icon: MapPin }
-        ];
-      default:
-        return [
-          { title: 'Policies & Terms', icon: Calendar },
-          { title: 'Amenities & Features', icon: Star },
-          { title: 'Additional Information', icon: MapPin }
-        ];
+    if (service.details_informations && service.details_informations.length > 0) {
+      return service.details_informations.map((entry) => {
+        const idx = entry.indexOf(SEPARATOR);
+        if (idx === -1) return { title: entry, content: '', icon: Info };
+        return { title: entry.slice(0, idx), content: entry.slice(idx + 1), icon: Info };
+      });
     }
+    return [
+      { title: 'Policies & Terms', content: '', icon: Info },
+      { title: 'Additional Information', content: '', icon: Info }
+    ];
   };
 
   const accordionItems = getAccordionItems();
@@ -392,6 +324,62 @@ const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({ isOpen, onClo
     }
   };
 
+  const downloadServiceDetails = () => {
+    if (!service) return;
+    const { name, description, category, address, min_cost, max_cost, availability, status, details_informations, procedure_info } = service;
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>${name} - Service Details</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #1a2e1e; }
+  h1 { font-size: 28px; margin-bottom: 4px; }
+  .meta { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+  .section { margin-bottom: 24px; }
+  .section h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: #00b70d; margin-bottom: 8px; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+  .value { font-size: 16px; font-weight: 600; }
+  .price { font-size: 22px; font-weight: 700; color: #ff5900; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+  <h1>${name}</h1>
+  <div class="meta">${category ? category.charAt(0).toUpperCase() + category.slice(1) : ''}${address ? ` &middot; ${address}` : ''}</div>
+
+  ${description ? `<div class="section"><h2>Description</h2><p>${description}</p></div>` : ''}
+
+  <div class="section">
+    <h2>Pricing</h2>
+    <div class="grid">
+      <div><div class="label">Price Range</div><div class="price">${Number(min_cost).toLocaleString()} - ${Number(max_cost).toLocaleString()} DZD</div></div>
+      ${status ? `<div><div class="label">Status</div><div class="value">${status}</div></div>` : ''}
+    </div>
+  </div>
+
+  ${availability && availability.length > 0 ? `<div class="section"><h2>Availability</h2><p>${availability.join(', ')}</p></div>` : ''}
+
+  ${details_informations && details_informations.length > 0 ? `<div class="section"><h2>Details &amp; Information</h2><ul>${details_informations.map(i => `<li>${i}</li>`).join('')}</ul></div>` : ''}
+
+  ${procedure_info && procedure_info.length > 0 ? `<div class="section"><h2>How It Works</h2><ul>${procedure_info.map(i => `<li>${i}</li>`).join('')}</ul></div>` : ''}
+
+  <div class="section" style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #e5e7eb; font-size: 12px; color: #9ca3af;">
+    Generated from Hawes &middot; ${new Date().toLocaleDateString()}
+  </div>
+</body></html>`;
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name.replace(/[^a-z0-9]/gi, '_')}_details.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const getPricingNote = () => {
     switch (service.category.toLowerCase()) {
       case 'restauration': return 'Per person, minimum 2 people per group';
@@ -403,7 +391,7 @@ const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({ isOpen, onClo
 
   return (
       <div className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-        <div ref={modalContentRef} className="relative w-full max-w-2xl bg-[#FCFDF8] rounded-[32px] shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-200 border border-gray-100 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div ref={modalContentRef} className="relative w-full max-w-4xl bg-[#FCFDF8] rounded-[32px] shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-200 border border-gray-100 max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         
         {/* Top Image Section */}
         <div className="relative h-72 w-full p-4">
@@ -481,7 +469,7 @@ const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({ isOpen, onClo
           )}
         </div>
 
-        <div className="px-10 pt-6">
+        <div className="px-10 pt-6 pb-10">
           {/* Badge */}
           <div className="flex justify-center items-center gap-2 mb-4">
             <span className="px-4 py-1 bg-[#FF5900] text-white text-[11px] font-bold tracking-widest rounded-full uppercase">
@@ -693,9 +681,9 @@ const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({ isOpen, onClo
                     </div>
                     <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${activeAccordion === i ? 'rotate-180' : ''}`} />
                   </button>
-                  {activeAccordion === i && (
+                  {activeAccordion === i && item.content && (
                     <div className="p-4 pt-0 text-sm text-gray-600">
-                      Details about {item.title.toLowerCase()} would go here.
+                      {item.content}
                     </div>
                   )}
                 </div>
@@ -707,40 +695,76 @@ const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({ isOpen, onClo
           <div ref={reviewsRef} className="mb-10">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-[#1a2e1e]">Reviews</h3>
-              <button
-                onClick={() => reviewsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className="text-xs font-bold text-[#00B70D] text-right"
-              >View All<br/>Reviews</button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowReviewModal(true)}
+                  className="flex items-center gap-2 bg-[#00B70D] hover:bg-[#00a00a] text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors"
+                >
+                  <MessageSquareText className="w-3.5 h-3.5" />
+                  Write a Review
+                </button>
+                {reviews.length > 4 && (
+                  <button
+                    onClick={() => setShowAllReviews(true)}
+                    className="text-xs font-bold text-[#00B70D] hover:text-[#00a00a] transition-colors underline underline-offset-2"
+                  >
+                    View All ({reviews.length})
+                  </button>
+                )}
+              </div>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-                <div className="flex text-[#FF5900] mb-3">
-                  <Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" />
-                </div>
-                <p className="text-[13px] text-gray-600 mb-4 italic">"Excellent experience! Highly recommended for anyone looking for quality service."</p>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden"><img src="https://ui-avatars.com/api/?name=Verified" alt="Reviewer" /></div>
-                  <div>
-                    <h5 className="text-[10px] font-bold text-[#1a2e1e]">Verified Customer</h5>
-                    <p className="text-[9px] text-gray-400">Recent</p>
-                  </div>
-                </div>
+            {reviewsLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00b70d] mx-auto" />
+                <p className="text-sm text-gray-500 mt-2">Loading reviews...</p>
               </div>
-              <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-                <div className="flex text-[#FF5900] mb-3">
-                  <Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" />
-                </div>
-                <p className="text-[13px] text-gray-600 mb-4 italic">"Amazing! The attention to detail and professionalism was outstanding."</p>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden"><img src="https://ui-avatars.com/api/?name=Happy" alt="Happy" /></div>
-                  <div>
-                    <h5 className="text-[10px] font-bold text-[#1a2e1e]">Happy Client</h5>
-                    <p className="text-[9px] text-gray-400">Last month</p>
-                  </div>
-                </div>
+            ) : reviews.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {reviews.slice(0, 4).map((review) => {
+                  const author = review.author;
+                  const displayName = author?.display_name || author?.username || "Anonymous";
+                  const avatarUrl = author?.avatar_url;
+                  const date = review.created_at
+                    ? new Date(review.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+                    : "";
+                  return (
+                    <div key={review.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                      <div className="flex text-[#FF5900] mb-3">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`w-3 h-3 ${review.rating >= star ? "fill-current" : "text-gray-300"}`}
+                          />
+                        ))}
+                      </div>
+                      {review.description && (
+                        <p className="text-[13px] text-gray-600 mb-4 italic">"{review.description}"</p>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden">
+                          {avatarUrl ? (
+                            <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[9px] font-bold text-gray-500">
+                              {displayName.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <h5 className="text-[10px] font-bold text-[#1a2e1e]">{displayName}</h5>
+                          <p className="text-[9px] text-gray-400">{date}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-8 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                <p className="text-sm text-gray-500">No reviews yet. Be the first to review!</p>
+              </div>
+            )}
           </div>
 
           {/* Pricing Box */}
@@ -770,10 +794,22 @@ const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({ isOpen, onClo
               </div>
             </div>
             <div className="flex gap-3">
-              <button className="flex-1 bg-[#00B70D] text-white py-3 rounded-xl font-bold text-sm hover:bg-green-600 transition-colors">
+              <button 
+                onClick={() => {
+                  navigate("/trips");
+                  onClose?.();
+                }}
+                className="flex-1 bg-[#00B70D] text-white py-3 rounded-xl font-bold text-sm hover:bg-green-600 transition-colors"
+              >
                 {getBookingButtonText()}
               </button>
-              <button className="flex-1 bg-[#1a2e1e] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#2a4530] transition-colors">
+              <button 
+                onClick={() => {
+                  navigate("/browse");
+                  onClose?.();
+                }}
+                className="flex-1 bg-[#1a2e1e] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#2a4530] transition-colors"
+              >
                 Community
               </button>
             </div>
@@ -781,16 +817,140 @@ const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({ isOpen, onClo
 
           {/* Attachments */}
           <div>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-3">Attachments</p>
-            <div className="bg-white border border-gray-100 rounded-xl p-4 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-3">Service Details</p>
+            <div
+              onClick={downloadServiceDetails}
+              className="bg-white border border-gray-100 rounded-xl p-4 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+            >
               <div className="flex items-center gap-3">
                 <Download className="w-4 h-4 text-gray-400" />
-                <span className="text-sm font-semibold text-[#1a2e1e]">Service Details.pdf</span>
+                <div>
+                  <span className="text-sm font-semibold text-[#1a2e1e]">{service?.name || 'Service'} Details</span>
+                  <p className="text-[11px] text-gray-400">Download summary as HTML</p>
+                </div>
               </div>
-              <span className="text-xs text-gray-400 font-medium">Download</span>
+              <span className="text-xs text-gray-400 font-medium bg-gray-100 px-3 py-1 rounded-full">Download</span>
             </div>
           </div>
           
+          {/* All Reviews Modal */}
+          {showAllReviews && (
+            <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm overflow-y-auto" onClick={() => setShowAllReviews(false)}>
+              <div className="relative w-full max-w-2xl bg-[#FCFDF8] rounded-[32px] overflow-hidden shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-200 border border-gray-100" onClick={(e) => e.stopPropagation()}>
+                <div className="sticky top-0 bg-[#FCFDF8] border-b border-gray-100 px-6 py-5 z-10">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-bold text-[#1a2e1e]">All Reviews</h2>
+                      <p className="text-xs text-gray-500 mt-0.5">{reviews.length} review{reviews.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    <button
+                      onClick={() => { setShowAllReviews(false); setReviewFilter(null); }}
+                      className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
+                    >
+                      <X className="w-4 h-4 text-gray-600" />
+                    </button>
+                  </div>
+
+                  {/* Star Filter */}
+                  <div className="flex items-center gap-2 mt-4">
+                    <button
+                      onClick={() => setReviewFilter(null)}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-full transition-colors ${
+                        reviewFilter === null
+                          ? 'bg-[#1a2e1e] text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      All
+                    </button>
+                    {[5, 4, 3, 2, 1].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => setReviewFilter(reviewFilter === star ? null : star)}
+                        className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-full transition-colors ${
+                          reviewFilter === star
+                            ? 'bg-[#FF5900] text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        <Star className="w-3 h-3 fill-current" />
+                        {star}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="px-6 py-5 max-h-[65vh] overflow-y-auto">
+                  {reviewsLoading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00b70d] mx-auto" />
+                    </div>
+                  ) : (() => {
+                    const filtered = reviewFilter
+                      ? reviews.filter((r) => r.rating === reviewFilter)
+                      : reviews;
+                    return filtered.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {filtered.map((review) => {
+                          const author = review.author;
+                          const displayName = author?.display_name || author?.username || "Anonymous";
+                          const avatarUrl = author?.avatar_url;
+                          const date = review.created_at
+                            ? new Date(review.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+                            : "";
+                          return (
+                            <div key={review.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                              <div className="flex text-[#FF5900] mb-3">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    className={`w-3 h-3 ${review.rating >= star ? "fill-current" : "text-gray-300"}`}
+                                  />
+                                ))}
+                              </div>
+                              {review.description && (
+                                <p className="text-[13px] text-gray-600 mb-4 italic">"{review.description}"</p>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden">
+                                  {avatarUrl ? (
+                                    <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-[9px] font-bold text-gray-500">
+                                      {displayName.charAt(0).toUpperCase()}
+                                    </div>
+                                  )}
+                                </div>
+                                <div>
+                                  <h5 className="text-[10px] font-bold text-[#1a2e1e]">{displayName}</h5>
+                                  <p className="text-[9px] text-gray-400">{date}</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-sm text-gray-500">No reviews with this rating.</p>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div className="sticky bottom-0 bg-[#FCFDF8] border-t border-gray-100 px-6 py-4">
+                  <button
+                    onClick={() => { setShowAllReviews(false); setShowReviewModal(true); }}
+                    className="w-full bg-[#00B70D] hover:bg-[#00a00a] text-white py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                  >
+                    <MessageSquareText className="w-4 h-4" />
+                    Write a Review
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Review Submission Modal */}
           {showReviewModal && (
             <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm overflow-y-auto">

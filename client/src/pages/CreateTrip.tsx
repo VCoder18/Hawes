@@ -28,7 +28,7 @@ import {
   browseDestinationCategories,
   includedOptions,
 } from "@/imports/constants";
-import type { TripData, Destination, MeetingLocation } from "@/imports/types";
+import type { TripData, Destination, MeetingLocation, SelectedService } from "@/imports/types";
 import {
   buildStopsPayload,
   calculateDistanceKm,
@@ -117,6 +117,91 @@ export default function CreateTrip() {
   // Step 4: Activities
   const [customActivity, setCustomActivity] = useState("");
 
+  // Services state
+  const [allServices, setAllServices] = useState<any[]>([]);
+  const [serviceLoading, setServiceLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      setServiceLoading(true);
+      try {
+        const { data, error } = await supabase.from('services').select('*');
+        if (!error && data) {
+          setAllServices(data);
+        }
+      } catch {
+        // Silently fail, services will fall back to empty
+      } finally {
+        setServiceLoading(false);
+      }
+    };
+    fetchServices();
+  }, []);
+
+  const toggleService = (service: any) => {
+    setTripData((prev) => {
+      const exists = prev.selectedServices.some((s) => s.id === service.id);
+      return {
+        ...prev,
+        selectedServices: exists
+          ? prev.selectedServices.filter((s) => s.id !== service.id)
+          : [
+              ...prev.selectedServices,
+              {
+                id: service.id,
+                name: service.name,
+                category: service.category,
+                min_cost: service.min_cost,
+                max_cost: service.max_cost,
+                image: service.image,
+                address: service.address,
+                location: resolveServiceLocation(service),
+              },
+            ],
+      };
+    });
+  };
+
+  const resolveServiceLocation = (service: any): { lat: number; lng: number } | null => {
+    const location = service?.location;
+    if (!location) return null;
+
+    // GeoJSON format: { type: "Point", coordinates: [lng, lat] }
+    if (typeof location === "object" && !Array.isArray(location)) {
+      const coords = location.coordinates;
+      if (Array.isArray(coords) && coords.length >= 2) {
+        const lng = Number(coords[0]);
+        const lat = Number(coords[1]);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+      }
+    }
+
+    // WKB hex string format from PostGIS geography column
+    if (typeof location === "string" && location.length >= 50) {
+      try {
+        const hex = location.replace(/\s/g, "");
+        const bytes = new Uint8Array(hex.match(/.{2}/g)!.map((b: string) => parseInt(b, 16)));
+        if (bytes.length < 21) return null;
+
+        const isLittleEndian = bytes[0] === 1;
+        const type = new DataView(bytes.buffer, bytes.byteOffset, 4).getUint32(1, isLittleEndian);
+        if ((type & 0x1FFFFFFF) !== 1) return null; // Not a Point
+
+        const hasSRID = (type & 0x20000000) !== 0;
+        let offset = 5;
+        if (hasSRID) offset += 4;
+
+        const lng = new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, isLittleEndian);
+        const lat = new DataView(bytes.buffer, bytes.byteOffset + offset + 8, 8).getFloat64(0, isLittleEndian);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+      } catch {
+        // fall through
+      }
+    }
+
+    return null;
+  };
+
   const { favorites, isInitialized } = useFavorites();
   const { toast } = useToast();
 
@@ -152,6 +237,7 @@ export default function CreateTrip() {
     included: [],
     excluded: [],
     whatToBring: [],
+    selectedServices: [],
     maxParticipants: 10,
     minParticipants: 4,
     pricePerPerson: 0,
@@ -278,13 +364,17 @@ export default function CreateTrip() {
       const response = await fetch(`${API_BASE_URL}/destinations?${params.toString()}`, { headers });
       
       if (!response.ok) throw new Error(`API error: ${response.status}`);
-      const data = await response.json();
+      const json = await response.json();
       
-      const destinations = data.data || [];
-      if (!Array.isArray(destinations)) return { destinations: [], total: 0 };
+      // Handle both { data, total } object and plain array responses
+      const rawDestinations = Array.isArray(json) ? json : (json.data || []);
+      const totalCount = Array.isArray(json) ? rawDestinations.length : (json.total ?? rawDestinations.length);
       
-      const transformed = destinations.map((dbDest: any) => {
-        const { lat, lng } = resolveDestinationCoordinates(dbDest);
+      if (!Array.isArray(rawDestinations)) return buildLocalFallbackPage();
+      if (rawDestinations.length === 0) return buildLocalFallbackPage();
+      
+      const transformed = rawDestinations.map((dbDest: any) => {
+        const coords = resolveDestinationCoordinates(dbDest);
         return {
           id: dbDest.id,
           name: dbDest.name,
@@ -298,15 +388,16 @@ export default function CreateTrip() {
           category: dbDest.category,
           description: dbDest.description || "",
           isFavorite: favorites[String(dbDest.id)] || false,
-          lat,
-          lng,
+          lat: coords.lat,
+          lng: coords.lng,
+          location: dbDest.location,
           best_periods: dbDest.best_periods || [],
         };
       });
       
       return {
         destinations: transformed,
-        total: data.total || 0,
+        total: totalCount,
       };
     } catch (err) {
       console.error("Failed to fetch destinations:", err);
@@ -679,7 +770,7 @@ export default function CreateTrip() {
     setUploadedDocument(null);
   };
 
-  const buildStops = () => buildStopsPayload(tripData.meetingLocations, selectedDestinationPoints, orderedStopIds);
+  const buildStops = () => buildStopsPayload(tripData.meetingLocations, selectedDestinationPoints, orderedStopIds, tripData.selectedServices);
 
   const buildDraftStops = () => {
     const safeMeetingLocations = tripData.meetingLocations.filter(
@@ -694,6 +785,7 @@ export default function CreateTrip() {
       safeMeetingLocations,
       safeDestinationPoints,
       orderedStopIds,
+      tripData.selectedServices,
     );
   };
 
@@ -743,6 +835,7 @@ export default function CreateTrip() {
       included: sortIncludedItems(["Accommodation", "Transport", "Guide"]),
       excluded: ["Personal expenses"],
       whatToBring: ["Water bottle", "Hiking shoes", "Sun protection"],
+      selectedServices: [],
       maxParticipants: 12,
       minParticipants: 4,
       pricePerPerson: 3500,
@@ -779,25 +872,26 @@ export default function CreateTrip() {
         )
         .filter(Boolean);
 
-      const payload = {
-        title: tripData.title.trim(),
-        description: tripData.description.trim() || undefined,
-        category: tripData.category.toLowerCase(),
-        difficulty: tripData.difficulty.toLowerCase(),
-        start_date: tripData.startDate,
-        end_date: tripData.endDate,
-        status,
-        activities: allActivities,
-        itinerary,
-        included: sortIncludedItems(tripData.included),
-        not_included: tripData.excluded,
-        what_to_bring: tripData.whatToBring,
-        min_participants: tripData.minParticipants,
-        max_participants: tripData.maxParticipants,
-        price: Number(tripData.pricePerPerson) || 0,
-        returns_to_start: false,
-        stops,
-      };
+       const payload = {
+         title: tripData.title.trim(),
+         description: tripData.description.trim() || undefined,
+         category: tripData.category.toLowerCase(),
+         difficulty: tripData.difficulty.toLowerCase(),
+         start_date: tripData.startDate,
+         end_date: tripData.endDate,
+         status,
+         visibility: tripData.scope, // Map scope to visibility field
+         activities: allActivities,
+         itinerary,
+         included: sortIncludedItems(tripData.included),
+         not_included: tripData.excluded,
+         what_to_bring: tripData.whatToBring,
+         min_participants: tripData.minParticipants,
+         max_participants: tripData.maxParticipants,
+         price: Number(tripData.pricePerPerson) || 0,
+         returns_to_start: false,
+         stops,
+       };
 
       const hasMedia = Boolean(tripData.coverImage || tripData.additionalImages.length || uploadedDocument);
       let response: Response;
@@ -838,6 +932,10 @@ export default function CreateTrip() {
 
           if ("destination" in stop && stop.destination) {
             formData.append(`stops[${index}][destination]`, stop.destination);
+          }
+
+          if ("service" in stop && stop.service) {
+            formData.append(`stops[${index}][service]`, String(stop.service));
           }
         });
 
@@ -1003,17 +1101,24 @@ export default function CreateTrip() {
       time: "",
     }));
 
-    const combined = [...meetingStops, ...destinationStops];
+    const serviceStops = tripData.selectedServices.map((service) => ({
+      id: `service:${service.id}`,
+      label: service.name,
+      type: "service" as const,
+      time: "",
+    }));
+
+    const combined = [...meetingStops, ...destinationStops, ...serviceStops];
     const byId = new globalThis.Map(combined.map((stop) => [stop.id, stop]));
     const ordered = orderedStopIds
       .map((id) => byId.get(id))
-      .filter(Boolean) as Array<{ id: string; label: string; type: "meeting" | "destination"; time?: string }>;
+      .filter(Boolean) as Array<{ id: string; label: string; type: "meeting" | "destination" | "service"; time?: string }>;
     const rest = combined.filter(
       (stop) => !ordered.some((orderedStop) => orderedStop.id === stop.id)
     );
 
     return [...ordered, ...rest];
-  }, [orderedStopIds, selectedDestinationPoints, tripData.meetingLocations]);
+  }, [orderedStopIds, selectedDestinationPoints, tripData.meetingLocations, tripData.selectedServices]);
 
   return (
     <>
@@ -1110,6 +1215,7 @@ export default function CreateTrip() {
                 onRemoveItinerary={removeItinerary}
                 onUpdateItinerary={updateItinerary}
                 maxMeetingPoints={MAX_MEETING_POINTS}
+                selectedServices={tripData.selectedServices}
               />
             )}
 
@@ -1143,6 +1249,9 @@ export default function CreateTrip() {
                 }
                 onAddExcluded={(item) => updateTripData("excluded", [...tripData.excluded, item])}
                 onRemoveExcluded={(item) => updateTripData("excluded", tripData.excluded.filter((i) => i !== item))}
+                allServices={allServices}
+                serviceLoading={serviceLoading}
+                onToggleService={toggleService}
               />
             )}
 
@@ -1185,6 +1294,7 @@ export default function CreateTrip() {
                 onEditStep={setCurrentStep}
                 isSubmitting={submitAction !== null}
                 submitAction={submitAction}
+                onUpdateScope={(scope) => updateTripData('scope', scope)}
               />
             )}
 

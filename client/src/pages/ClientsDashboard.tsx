@@ -1,114 +1,186 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+interface Client {
+  id: string;
+  type: 'service' | 'trip';
+  clientName: string;
+  clientInitials: string;
+  clientAvatar: string | null;
+  destination: string;
+  date: string;
+  amount: string;
+  status: string;
+  bookingData: unknown;
+}
+
 const ClientsDashboard = () => {
-  const [clients, setClients] = useState([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        // Get current user session
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
+        if (!session?.access_token) {
           setError('User not authenticated');
           setLoading(false);
           return;
         }
 
-        // Fetch service bookings for services owned by the current user
-        const { data: serviceBookings, error: serviceBookingsError } = await supabase
-          .from('service_bookings')
-          .select(`
-            id,
-            created_at,
-            profile:profile_id (
-              display_name,
-              username,
-              avatar_url
-            ),
-            service:service_id (
-              name,
-              category
-            ),
-            form_data
-          `)
-          .neq('profile_id', session.user.id); // Exclude own bookings
+        const headers: Record<string, string> = { Authorization: `Bearer ${session.access_token}` };
+        const res = await fetch(`${API_BASE_URL}/dashboard/clients`, { headers });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          // fallback to Supabase direct fetch if server endpoint fails
+          console.warn('Dashboard API failed, falling back to Supabase client fetch', err);
+          await fallbackSupabaseFetch(session.user.id);
+          return;
+        }
 
-        if (serviceBookingsError) throw serviceBookingsError;
+        const data = await res.json();
+        const formattedClients: Client[] = [];
 
-        // Fetch trip participants for trips organized by the current user
+        // data may be grouped by trip (array of {trip, participants}) or flat participant array
+        if (Array.isArray(data) && data.length > 0 && data[0].participants) {
+          for (const group of data) {
+            const participants = Array.isArray(group.participants) ? group.participants : [];
+            const trip = group.trip || (participants[0] && (Array.isArray(participants[0].trip) ? participants[0].trip[0] : participants[0].trip));
+            for (const participant of participants) {
+              const profile = Array.isArray(participant.profile) ? participant.profile[0] : participant.profile;
+              // Skip rows where participant is the organizer
+              if (!trip || String(trip.organizer) === String(participant.user_id)) continue;
+              formattedClients.push({
+                id: participant.id,
+                type: 'trip',
+                clientName: profile?.display_name || 'Anonymous',
+                clientInitials: profile?.username?.slice(0, 2).toUpperCase() || '??',
+                clientAvatar: profile?.avatar_url,
+                destination: trip?.title || 'Unknown Trip',
+                date: participant.joined_at ? new Date(participant.joined_at).toLocaleDateString() : 'N/A',
+                amount: trip?.price ? `${trip.price} DZD` : 'Price TBA',
+                status: 'Confirmed',
+                bookingData: participant,
+              });
+            }
+          }
+        } else {
+          for (const participant of data) {
+            const profile = Array.isArray(participant.profile) ? participant.profile[0] : participant.profile;
+            const trip = Array.isArray(participant.trip) ? participant.trip[0] : participant.trip;
+            // Skip rows where participant is the organizer
+            if (!trip || String(trip.organizer) === String(participant.user_id)) continue;
+
+            formattedClients.push({
+              id: participant.id,
+              type: 'trip',
+              clientName: profile?.display_name || 'Anonymous',
+              clientInitials: profile?.username?.slice(0, 2).toUpperCase() || '??',
+              clientAvatar: profile?.avatar_url,
+              destination: trip?.title || 'Unknown Trip',
+              date: participant.joined_at ? new Date(participant.joined_at).toLocaleDateString() : 'N/A',
+              amount: trip?.price ? `${trip.price} DZD` : 'Price TBA',
+              status: 'Confirmed',
+              bookingData: participant,
+            });
+          }
+        }
+
+        formattedClients.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setClients(formattedClients);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching clients data:', err);
+        // try fallback to Supabase client fetch
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user?.id) {
+            await fallbackSupabaseFetch(session.user.id);
+            return;
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        setError(err instanceof Error ? err.message : 'Failed to load client data');
+        setLoading(false);
+      }
+    };
+
+    const fallbackSupabaseFetch = async (userId: string) => {
+      try {
+        // try to get username from profiles to match legacy organizer values
+        let username: string | null = null;
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', userId)
+            .single();
+          username = profile?.username ?? null;
+        } catch (e) {
+          username = null;
+        }
+
+        let tripsQuery = supabase.from('trips').select('id, title, start_date, end_date, price');
+        if (username) {
+          tripsQuery = tripsQuery.or(`organizer.eq.${userId},organizer.eq.${username}`);
+        } else {
+          tripsQuery = tripsQuery.eq('organizer', userId);
+        }
+
+        const { data: myTrips, error: myTripsError } = await tripsQuery;
+        if (myTripsError) throw myTripsError;
+        const tripIds = (myTrips ?? []).map((t: any) => t.id);
+        if (tripIds.length === 0) {
+          setClients([]);
+          setLoading(false);
+          return;
+        }
+
         const { data: tripParticipants, error: tripParticipantsError } = await supabase
           .from('trip_participants')
           .select(`
             id,
             joined_at,
-            profile:user_id (
-              display_name,
-              username,
-              avatar_url
-            ),
-            trip:trip_id (
-              title,
-              start_date,
-              end_date,
-              price
-            )
+            user_id,
+            profile:user_id (display_name, username, avatar_url),
+            trip:trip_id (id, title, start_date, end_date, price, organizer)
           `)
-          .neq('user_id', session.user.id); // Exclude own participation
+          .in('trip_id', tripIds);
 
         if (tripParticipantsError) throw tripParticipantsError;
 
-        // Combine and format the data
-        const formattedClients = [];
-
-        // Process service bookings
-        if (serviceBookings) {
-          serviceBookings.forEach(booking => {
-            formattedClients.push({
-              id: booking.id,
-              type: 'service',
-              clientName: booking.profile?.display_name || 'Anonymous',
-              clientInitials: booking.profile?.username?.slice(0, 2).toUpperCase() || '??',
-              clientAvatar: booking.profile?.avatar_url,
-              destination: `${booking.service?.name} (${booking.service?.category})`,
-              date: booking.created_at ? new Date(booking.created_at).toLocaleDateString() : 'N/A',
-              amount: 'Service Booking', // Would need to parse form_data or have price in service
-              status: 'Confirmed', // Default status, could be enhanced
-              bookingData: booking
-            });
-          });
-        }
-
-        // Process trip participants
+        const formattedClients: Client[] = [];
         if (tripParticipants) {
-          tripParticipants.forEach(participant => {
+          tripParticipants.forEach((participant: any) => {
+            const profile = Array.isArray(participant.profile) ? participant.profile[0] : participant.profile;
+            const trip = Array.isArray(participant.trip) ? participant.trip[0] : participant.trip;
+            if (!trip || String(trip.organizer) === String(participant.user_id)) return;
             formattedClients.push({
               id: participant.id,
               type: 'trip',
-              clientName: participant.profile?.display_name || 'Anonymous',
-              clientInitials: participant.profile?.username?.slice(0, 2).toUpperCase() || '??',
-              clientAvatar: participant.profile?.avatar_url,
-              destination: participant.trip?.title || 'Unknown Trip',
+              clientName: profile?.display_name || 'Anonymous',
+              clientInitials: profile?.username?.slice(0, 2).toUpperCase() || '??',
+              clientAvatar: profile?.avatar_url,
+              destination: trip?.title || 'Unknown Trip',
               date: participant.joined_at ? new Date(participant.joined_at).toLocaleDateString() : 'N/A',
-              amount: participant.trip?.price ? `${participant.trip.price} DZD` : 'Price TBA',
-              status: 'Confirmed', // Could check trip status
-              bookingData: participant
+              amount: trip?.price ? `${trip.price} DZD` : 'Price TBA',
+              status: 'Confirmed',
+              bookingData: participant,
             });
           });
         }
 
-        // Sort by date (newest first)
-        formattedClients.sort((a, b) => 
-          new Date(b.date) - new Date(a.date)
-        );
-
+        formattedClients.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         setClients(formattedClients);
         setLoading(false);
       } catch (err) {
-        console.error('Error fetching clients data:', err);
-        setError(err.message || 'Failed to load client data');
+        console.error('Fallback Supabase fetch failed:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load client data');
         setLoading(false);
       }
     };

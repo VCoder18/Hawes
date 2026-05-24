@@ -16,6 +16,7 @@ import {
   TripDifficulty,
   TripStatus,
   TripCategory,
+  TripVisibility,
 } from '../entities/trips.entity';
 import { TripStopDTO } from './stop.dto';
 
@@ -92,6 +93,10 @@ export class TripCreateDTO {
   @IsOptional()
   @IsEnum(TripStatus)
   status?: TripStatus;
+
+  @IsOptional()
+  @IsEnum(TripVisibility)
+  visibility?: TripVisibility = TripVisibility.Public;
 
   @IsArray()
   @ValidateNested({ each: true })

@@ -6,12 +6,13 @@ import type { TripData } from "@/imports/types";
 
 interface Step8Props {
   tripData: TripData;
-  mergedStops: Array<{ id: string; label: string; type: "meeting" | "destination"; time?: string }>;
+  mergedStops: Array<{ id: string; label: string; type: "meeting" | "destination" | "service"; time?: string }>;
   duration: { days: number; nights: number } | null;
   allActivities: string[];
   onPublish: () => void;
   onSaveDraft: () => void;
   onEditStep: (step: number) => void;
+  onUpdateScope: (scope: "public" | "private") => void;
   isSubmitting: boolean;
   submitAction: "draft" | "published" | null;
 }
@@ -26,6 +27,7 @@ export function Step8ReviewAndPublish({
   onEditStep,
   isSubmitting,
   submitAction,
+  onUpdateScope,
 }: Step8Props) {
   const premadeIncluded = includedOptions.filter((item) => tripData.included.includes(item));
   const customIncluded = tripData.included.filter((item) => !includedOptions.includes(item));
@@ -86,10 +88,12 @@ export function Step8ReviewAndPublish({
                           className={`inline-flex items-center justify-center size-4 rounded-full text-[10px] font-bold ${
                             stop.type === "destination"
                               ? "bg-[#fff1e8] text-[#ff5900]"
-                              : "bg-[#e9fbe9] text-[#00b70d]"
+                              : stop.type === "service"
+                                ? "bg-[#e8f0fe] text-[#0a84ff]"
+                                : "bg-[#e9fbe9] text-[#00b70d]"
                           }`}
                         >
-                          {stop.type === "destination" ? "D" : "S"}
+                          {stop.type === "destination" ? "D" : stop.type === "service" ? "SV" : "S"}
                         </span>
                         <span>
                           {stop.label}
@@ -198,6 +202,21 @@ export function Step8ReviewAndPublish({
                   </ul>
                 </div>
               )}
+              {tripData.selectedServices.length > 0 && (
+                <div className="mt-3">
+                  <p className="font-semibold text-sm mb-2">Services:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {tripData.selectedServices.map((service) => (
+                      <span
+                        key={service.id}
+                        className="bg-[#e8f0fe] text-[#0a84ff] px-3 py-1 rounded-full text-sm font-medium break-words max-w-full"
+                      >
+                        {service.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           }
         />
@@ -225,6 +244,47 @@ export function Step8ReviewAndPublish({
                 <span>Net Revenue:</span>
                 <span className="text-[#00b70d]">{netRevenue.toLocaleString()} DZD</span>
               </div>
+            </div>
+          }
+        />
+
+        {/* Visibility Section */}
+        <ReviewSection
+          title="Trip Visibility"
+          onEdit={() => onEditStep(2)} // Edit in Trip Basics step
+          content={
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">Visibility:</span>
+                <div className="flex items-center space-x-4">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      checked={tripData.scope === 'public'}
+                      onChange={(e) => onUpdateScope('public')}
+                      className="h-4 w-4 text-[#00b70d] border-gray-300 focus:ring-[#00b70d]"
+                    />
+                    <span className="text-sm font-medium">Public</span>
+                  </label>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      checked={tripData.scope === 'private'}
+                      onChange={(e) => onUpdateScope('private')}
+                      className="h-4 w-4 text-[#00b70d] border-gray-300 focus:ring-[#00b70d]"
+                    />
+                    <span className="text-sm font-medium">Private (Invite Only)</span>
+                  </label>
+                </div>
+              </div>
+              {tripData.scope === 'private' && (
+                <div className="mt-2 text-sm text-[#6b7280]">
+                  <p className="font-medium mb-1">How it works:</p>
+                  <p className="break-words">
+                    Only people with the invite link can find and join this trip. Share the link from your dashboard.
+                  </p>
+                </div>
+              )}
             </div>
           }
         />

@@ -13,7 +13,7 @@ type MapPoint = {
   label: string;
   lat: number;
   lng: number;
-  pointType: "meeting" | "destination";
+  pointType: "meeting" | "destination" | "service";
   order: number;
 };
 
@@ -163,7 +163,7 @@ export function TripDetailsMap({ trip }: TripDetailsMapProps) {
           label: stop.label ?? `Stop ${index + 1}`,
           lat,
           lng,
-          pointType: stopType === "meeting" ? "meeting" : "destination",
+          pointType: stopType === "meeting" ? "meeting" : stopType === "service" ? "service" : "destination",
           order: index,
         };
       })
@@ -499,6 +499,7 @@ export function TripDetailsMap({ trip }: TripDetailsMapProps) {
 
   const meetingMarkerColor = "#00b70d";
   const destinationMarkerColor = "#ff5900";
+  const serviceMarkerColor = "#0a84ff";
 
   return (
     <div className="space-y-4">
@@ -617,7 +618,7 @@ export function TripDetailsMap({ trip }: TripDetailsMapProps) {
           )}
 
           {points.map((point, index) => {
-            const markerColor = point.pointType === "destination" ? destinationMarkerColor : meetingMarkerColor;
+            const markerColor = point.pointType === "destination" ? destinationMarkerColor : point.pointType === "service" ? serviceMarkerColor : meetingMarkerColor;
 
             return (
               <Marker key={`${point.order}-${point.label}`} longitude={point.lng} latitude={point.lat} anchor="bottom">

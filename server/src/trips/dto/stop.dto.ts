@@ -14,6 +14,7 @@ import { Geography, GeographyType } from '../entities/trips.entity';
 export enum TripStopType {
   Destination = 'destination',
   Meeting = 'meeting',
+  Service = 'service',
 }
 
 export class TripStopDTO {

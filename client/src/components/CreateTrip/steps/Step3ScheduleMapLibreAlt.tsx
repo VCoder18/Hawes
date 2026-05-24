@@ -17,7 +17,7 @@ import {
 import { StepHeader } from "@/components/CreateTrip/StepHeader";
 import { CalendarPicker } from "@/components/CreateTrip/CalendarPicker";
 import { ReorderableMeetingList, type SchedulePoint } from "@/components/CreateTrip/ReorderableMeetingList";
-import type { Destination, MeetingLocation, TripData } from "@/imports/types";
+import type { Destination, MeetingLocation, TripData, SelectedService } from "@/imports/types";
 
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -41,6 +41,7 @@ interface Step3MapLibreAltProps {
   onDateSelect: (date: string, isStart: boolean) => void;
   duration: { days: number; nights: number } | null;
   maxMeetingPoints: number;
+  selectedServices: SelectedService[];
 }
 
 interface SearchResult {
@@ -189,6 +190,7 @@ export function Step3ScheduleMapLibreAlt({
   onDateSelect,
   duration,
   maxMeetingPoints,
+  selectedServices,
 }: Step3MapLibreAltProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editSummary, setEditSummary] = useState("");
@@ -243,6 +245,22 @@ export function Step3ScheduleMapLibreAlt({
     [selectedDestinations]
   );
 
+  const servicePoints = useMemo<SchedulePoint[]>(
+    () =>
+      selectedServices
+        .filter((s) => s.location?.lat && s.location?.lng)
+        .map((service) => ({
+          location: service.name,
+          time: "",
+          lat: service.location!.lat,
+          lng: service.location!.lng,
+          address: service.address || "",
+          pointType: "service" as const,
+          stableId: `service:${service.id}`,
+        })),
+    [selectedServices]
+  );
+
   const getMeetingStableId = (point: MeetingLocation) =>
     `meeting:${point.placeId || `${point.location}-${point.time}-${point.lat ?? "na"}-${point.lng ?? "na"}`}`;
 
@@ -267,7 +285,7 @@ export function Step3ScheduleMapLibreAlt({
     [tripData.meetingLocations]
   );
 
-  const allPoints = useMemo(() => [...meetingPoints, ...destinationPoints], [meetingPoints, destinationPoints]);
+  const allPoints = useMemo(() => [...meetingPoints, ...destinationPoints, ...servicePoints], [meetingPoints, destinationPoints, servicePoints]);
 
   useEffect(() => {
     const allIds = allPoints.map((point) => point.stableId);
@@ -364,36 +382,66 @@ export function Step3ScheduleMapLibreAlt({
 
   useEffect(() => {
     const controller = new AbortController();
+    const BORDER_URLS = [
+      // Individual country files (~2 MB) — tried first
+      "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries/DZA.geojson",
+      "https://raw.githubusercontent.com/nicbarker/country-geojson/master/countries/DZA.geojson",
+      // Fallback: whole-world file (~200 MB) — last resort
+      "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson",
+    ];
+
+    const extractAlgeriaFeature = (world: any): any | null => {
+      const features = world?.features;
+      if (!Array.isArray(features)) return null;
+
+      const algeriaFeature = features.find((feature: any) => {
+        const props = feature?.properties || {};
+        const name = String(props.name || props.ADMIN || props.NAME_EN || "").toLowerCase();
+        const iso3 = String(props.ISO_A3 || props.iso_a3 || "").toUpperCase();
+        return name === "algeria" || iso3 === "DZA";
+      });
+
+      return algeriaFeature || null;
+    };
 
     const fetchAlgeriaBorder = async () => {
-      try {
-        const response = await fetch(
-          "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson",
-          { signal: controller.signal }
-        );
-        if (!response.ok) return;
+      for (const url of BORDER_URLS) {
+        if (controller.signal.aborted) return;
 
-        const world = (await response.json()) as any;
-        const algeriaFeature = world.features.find((feature: any) => {
-          const properties = feature?.properties || {};
-          const name = String(properties.name || properties.ADMIN || properties.NAME_EN || "").toLowerCase();
-          const iso3 = String(properties.ISO_A3 || properties.iso_a3 || "").toUpperCase();
-          return name === "algeria" || iso3 === "DZA";
-        });
+        try {
+          const response = await fetch(url, { signal: controller.signal });
+          if (!response.ok) {
+            console.warn(`[border] ${url} returned ${response.status}, trying next...`);
+            continue;
+          }
 
-        if (!algeriaFeature) return;
+          const raw = (await response.json()) as any;
 
-        setAlgeriaBorder({
-          type: "FeatureCollection",
-          features: [algeriaFeature],
-        });
-      } catch {
-        // Keep map functional even if the border source is unavailable.
+          // Individual country files return the feature directly;
+          // the world file returns a FeatureCollection.
+          const feature = raw?.type === "FeatureCollection"
+            ? extractAlgeriaFeature(raw)
+            : raw;
+
+          if (!feature?.geometry) {
+            console.warn(`[border] No Algeria geometry found in ${url}, trying next...`);
+            continue;
+          }
+
+          setAlgeriaBorder({
+            type: "FeatureCollection",
+            features: [feature],
+          });
+          return; // success
+        } catch (err) {
+          if ((err as Error).name === "AbortError") return;
+          console.warn(`[border] Failed to fetch ${url}:`, err);
+        }
       }
+      console.warn("[border] All GeoJSON sources failed, Algerian border unavailable.");
     };
 
     void fetchAlgeriaBorder();
-
     return () => controller.abort();
   }, []);
 
@@ -1318,7 +1366,7 @@ export function Step3ScheduleMapLibreAlt({
 
                 <div>
                   <h4 className="font-semibold text-[#0d2805] text-sm mb-2">
-                    Selected Stops ({meetingPoints.length}/{maxMeetingPoints}) | Destinations {destinationPoints.length}
+                    Selected Stops ({meetingPoints.length}/{maxMeetingPoints}) | Destinations {destinationPoints.length} | Services {servicePoints.length}
                   </h4>
                   {orderedPoints.length === 0 && !isFirstMeetingSlotMissing ? (
                     <ReorderableMeetingList

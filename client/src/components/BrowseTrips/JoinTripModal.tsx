@@ -1,5 +1,8 @@
 import { X, Check } from "lucide-react";
 import type { TripData } from "@/imports/types";
+import { useState, useEffect } from "react";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 interface JoinTripModalProps {
   trip: (TripData & { id: string }) | null;
@@ -7,7 +10,24 @@ interface JoinTripModalProps {
 }
 
 export function JoinTripModal({ trip, onClose }: JoinTripModalProps) {
+  const [fullTrip, setFullTrip] = useState<any>(null);
+
+  useEffect(() => {
+    if (trip?.id) {
+      fetch(`${API_BASE_URL}/trips/${trip.id}`)
+        .then(res => res.json())
+        .then(data => setFullTrip(data))
+        .catch(console.error);
+    }
+  }, [trip?.id]);
+
   if (!trip) return null;
+
+  const serviceStops = (fullTrip?.stops || []).filter((stop: any) => {
+    const t = String(stop?.type || stop?.stop_type || "").toLowerCase();
+    return t === "service";
+  });
+  const attachedServices = serviceStops.map((stop: any) => stop.service_data || stop.serviceData || stop).filter(Boolean);
 
   const durationDays = trip.startDate && trip.endDate
     ? Math.ceil(
@@ -108,18 +128,33 @@ export function JoinTripModal({ trip, onClose }: JoinTripModalProps) {
           )}
 
           {/* What's Included */}
-          {trip.included && trip.included.length > 0 && (
+          {((trip.included && trip.included.length > 0) || attachedServices.length > 0) && (
             <section>
               <h3 className="text-lg font-bold text-gray-900 mb-3">What's Included</h3>
               <div className="bg-green-50 border border-green-100 rounded-2xl p-4">
-                <ul className="space-y-3">
-                  {trip.included.map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm">
-                      <Check className="w-4 h-4 mt-0.5 flex-shrink-0 text-green-600" />
-                      <span className="text-gray-700">{item}</span>
-                    </li>
-                  ))}
-                </ul>
+                {attachedServices.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {attachedServices.map((svc: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="bg-[#E8F5E9] text-[#4CAF50] border border-[#B8EBB8] rounded-xl px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                      >
+                        <Check className="w-3 h-3 shrink-0" />
+                        <span>{svc.category ? svc.category.charAt(0).toUpperCase() + svc.category.slice(1) + ': ' : ''}{svc.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {trip.included && trip.included.length > 0 && (
+                  <ul className="space-y-3">
+                    {trip.included.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2 text-sm">
+                        <Check className="w-4 h-4 mt-0.5 flex-shrink-0 text-green-600" />
+                        <span className="text-gray-700">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </section>
           )}

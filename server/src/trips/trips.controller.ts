@@ -13,6 +13,7 @@ import {
   ParseFilePipeBuilder,
   HttpStatus,
   UploadedFiles,
+  HttpCode,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { TripsService } from './trips.service';
@@ -39,8 +40,12 @@ export class TripsController {
 
   @Get(':tripId')
   @Public()
-  getTripById(@Param('tripId') tripId: string) {
-    return this.service.getTripById(tripId);
+  getTripById(
+    @Param('tripId') tripId: string,
+    @CurrentUser() user: SupabaseJWTPayload | undefined,
+    @Query('invite') inviteCode?: string,
+  ) {
+    return this.service.getTripById(tripId, user?.sub ?? null, inviteCode);
   }
 
   @Post()
@@ -82,12 +87,30 @@ export class TripsController {
     return this.service.deleteTrip(user.sub, tripId);
   }
 
-  @Get('/join/:tripId')
+  @Post('/join/:tripId')
   joinTrip(
     @CurrentUser() user: SupabaseJWTPayload,
     @Param('tripId') tripId: string,
+    @Body() body: { invite_code?: string },
   ) {
-    return this.service.joinTrip(user.sub, tripId);
+    return this.service.joinTrip(user.sub, tripId, body.invite_code);
+  }
+
+  @Get('/participation/:tripId')
+  checkParticipation(
+    @CurrentUser() user: SupabaseJWTPayload,
+    @Param('tripId') tripId: string,
+  ) {
+    return this.service.checkParticipation(user.sub, tripId);
+  }
+
+  @Post('/leave')
+  @HttpCode(200)
+  leaveTripByTripId(
+    @CurrentUser() user: SupabaseJWTPayload,
+    @Body() body: { trip_id: string },
+  ) {
+    return this.service.leaveTripByTripId(user.sub, body.trip_id);
   }
 
   @Get('/leave/:affiliationId')
@@ -96,5 +119,24 @@ export class TripsController {
     @Param('affiliationId') affiliationId: string,
   ) {
     return this.service.leaveTrip(user.sub, affiliationId);
+  }
+
+  @Get(':tripId/invite')
+  @UseGuards(AuthGuard)
+  getInviteCode(
+    @CurrentUser() user: SupabaseJWTPayload,
+    @Param('tripId') tripId: string,
+  ) {
+    return this.service.getInviteCode(user.sub, tripId);
+  }
+
+  @Post(':tripId/invite-user')
+  @HttpCode(200)
+  sendTripInvite(
+    @CurrentUser() user: SupabaseJWTPayload,
+    @Param('tripId') tripId: string,
+    @Body() body: { recipient_id: string },
+  ) {
+    return this.service.sendTripInvite(user.sub, tripId, body.recipient_id);
   }
 }
